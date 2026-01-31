@@ -1,6 +1,6 @@
 # MePassa Bootstrap Node Dockerfile
 
-FROM rust:1.85-slim-bookworm AS builder
+FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
