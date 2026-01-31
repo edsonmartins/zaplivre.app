@@ -111,6 +111,35 @@ docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
 docker stack deploy -c server/bootstrap/stack.yml mepassa
 ```
 
+## Stack Swarm (todos os serviços)
+
+Se quiser subir todos os serviços via Swarm, use o `stack.yml` na raiz.
+Ele espera imagens locais já buildadas (não usa `build:`).
+
+### 1) Build das imagens
+
+```bash
+docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
+docker build -f server/store/Dockerfile -t mepassa-store:latest .
+docker build -f server/push/Dockerfile -t mepassa-push:latest .
+docker build -f server/turn-credentials/Dockerfile -t mepassa-turn-credentials:latest .
+```
+
+### 2) Deploy do stack completo
+
+```bash
+docker stack deploy -c stack.yml mepassa
+```
+
+### 3) Serviços opcionais (monitoramento)
+
+Prometheus e Grafana vêm com `replicas: 0`. Para habilitar:
+
+```bash
+docker service scale mepassa_prometheus=1
+docker service scale mepassa_grafana=1
+```
+
 ## Troubleshooting
 
 - Sem peers conectando: verifique portas 4001/4002 liberadas e DNS correto.

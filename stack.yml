@@ -1,0 +1,240 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Message Store Database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mepassa}
+      POSTGRES_USER: ${POSTGRES_USER:-mepassa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mepassa_dev_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mepassa}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Redis - Presence & Queue
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-mepassa_redis_dev}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # coturn - TURN/STUN Server
+  coturn:
+    image: coturn/coturn:latest
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
+      - "5349:5349/udp"
+      - "49152-65535:49152-65535/udp"
+    volumes:
+      - ./server/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./server/coturn/healthcheck.sh:/healthcheck.sh:ro
+    environment:
+      - TURN_USERNAME=${TURN_USERNAME:-mepassa}
+      - TURN_PASSWORD=${TURN_PASSWORD:-mepassa_turn_dev}
+    healthcheck:
+      test: ["/bin/sh", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # TURN Credentials Service
+  turn-credentials:
+    image: mepassa-turn-credentials:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-mepassa_turn_dev_secret}
+      - SERVER_PORT=8082
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # Bootstrap Node 1
+  bootstrap-node-1:
+    image: mepassa-bootstrap:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - BOOTSTRAP_PORT=4001
+      - HEALTH_PORT=8000
+      - PEER_ID_SEED=bootstrap-1
+      - DATA_DIR=/app/data
+      - RELAY_ENABLED=${RELAY_ENABLED:-true}
+      - RELAY_MAX_CIRCUITS=${RELAY_MAX_CIRCUITS:-100}
+      - RELAY_MAX_PER_PEER=${RELAY_MAX_PER_PEER:-10}
+      - RELAY_MAX_BYTES_PER_SEC=${RELAY_MAX_BYTES_PER_SEC:-1000000}
+    ports:
+      - "4001:4001"
+      - "8000:8000"
+    volumes:
+      - bootstrap_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # Message Store Server
+  message-store:
+    image: mepassa-store:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - SERVER_PORT=8080
+      - ENABLE_TTL_CLEANUP=${ENABLE_TTL_CLEANUP:-true}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # Push Notification Server
+  push-server:
+    image: mepassa-push:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - FCM_SERVER_KEY=${FCM_SERVER_KEY:-}
+      - APNS_CERT_PATH=/etc/push/apns.p12
+      - APNS_CERT_PASSWORD=${APNS_CERT_PASSWORD:-}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
+      - SERVER_PORT=8081
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./server/push/certs:/etc/push:ro
+    networks:
+      - mepassa-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # Prometheus - Metrics (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./server/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - mepassa-network
+    deploy:
+      replicas: 0
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # Grafana - Dashboards (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./server/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./server/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - mepassa-network
+    deploy:
+      replicas: 0
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  bootstrap_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  mepassa-network:
+    driver: overlay
