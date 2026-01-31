@@ -1,6 +1,6 @@
 # MePassa Message Store Dockerfile
 
-FROM rust:1.75-slim-bookworm as builder
+FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 # Copy workspace files
 COPY Cargo.toml Cargo.lock ./
 COPY core ./core
-COPY server/store ./server/store
+COPY server ./server
 
 # Build message store
 RUN cargo build --release --package mepassa-store
