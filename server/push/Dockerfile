@@ -1,6 +1,6 @@
 # MePassa Push Notification Server Dockerfile
 
-FROM rust:1.75-slim-bookworm as builder
+FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 # Copy workspace files
 COPY Cargo.toml Cargo.lock ./
 COPY core ./core
-COPY server/push ./server/push
+COPY server ./server
 
 # Build push server
 RUN cargo build --release --package mepassa-push
