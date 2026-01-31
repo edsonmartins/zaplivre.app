@@ -97,6 +97,20 @@ Message Store: ✓ OK
 Push Server: ✓ OK
 ```
 
+### 3.1 Swarm (VPS / Production)
+
+Para deploy via Docker Swarm, use o `stack.yml` na raiz e build das imagens antes:
+
+```bash
+docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
+docker build -f server/store/Dockerfile -t mepassa-store:latest .
+docker build -f server/push/Dockerfile -t mepassa-push:latest .
+docker build -f server/turn-credentials/Dockerfile -t mepassa-turn-credentials:latest .
+docker stack deploy -c stack.yml mepassa
+```
+
+Veja também o guia completo em `docs/guides/self-hosting.md`.
+
 ### 4. Build the Core Library
 
 ```bash
