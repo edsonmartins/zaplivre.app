@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  bootstrap-node:
+    image: mepassa-bootstrap:latest
+    env_file:
+      - /etc/mepassa/bootstrap.env
+    ports:
+      - "4001:4001"
+      - "8000:8000"
+    volumes:
+      - bootstrap_data_1:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-bootstrap-1.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-bootstrap-1.tls=true"
+        - "traefik.http.routers.mepassa-bootstrap-1.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-bootstrap-1.loadbalancer.server.port=8000"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+    stop_grace_period: 30s
+    networks:
+      - traefik-network
+
+  bootstrap-node-2:
+    image: mepassa-bootstrap:latest
+    env_file:
+      - /etc/mepassa/bootstrap-2.env
+    ports:
+      - "4002:4001"
+      - "8001:8000"
+    volumes:
+      - bootstrap_data_2:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-bootstrap-2.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-bootstrap-2.tls=true"
+        - "traefik.http.routers.mepassa-bootstrap-2.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-bootstrap-2.loadbalancer.server.port=8000"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+    stop_grace_period: 30s
+    networks:
+      - traefik-network
+
+volumes:
+  bootstrap_data_1:
+    driver: local
+  bootstrap_data_2:
+    driver: local
+
+networks:
+  traefik-network:
+    external: true

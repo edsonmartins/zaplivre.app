@@ -158,6 +158,27 @@ Implementação completa com:
 - Métodos síncronos (`local_peer_id`, `list_conversations`)
 - Métodos assíncronos (`send_text_message`, `bootstrap`)
 
+### Bootstrap Peers (produção)
+
+Por padrão, o FFI adiciona peers de bootstrap públicos do IPFS em `core/src/ffi/client.rs`.
+Para usar seus próprios bootstraps (ex: VPS), substitua a lista por seus peers:
+
+```rust
+let bootstrap_peers = vec![
+    ("/ip4/<PUBLIC_IP>/tcp/4001", "12D3KooW..."),
+    ("/ip4/<PUBLIC_IP>/tcp/4002", "12D3KooW..."),
+];
+
+for (addr_str, peer_id_str) in bootstrap_peers {
+    if let (Ok(addr), Ok(peer_id)) = (
+        addr_str.parse::<libp2p::Multiaddr>(),
+        peer_id_str.parse::<libp2p::PeerId>(),
+    ) {
+        builder = builder.add_bootstrap_peer(peer_id, addr);
+    }
+}
+```
+
 ## Fluxo de Execução
 
 ### Exemplo: Enviar Mensagem

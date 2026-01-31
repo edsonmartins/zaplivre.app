@@ -120,6 +120,12 @@ Android Studio automaticamente fará sync do Gradle. Se não, clique em:
 - Lista conversas existentes
 - Permite enviar/receber mensagens P2P
 
+## 🌐 Bootstrap Peers (Production)
+
+Os peers de bootstrap usados pelo Android vêm do core (FFI). Para apontar para
+seus bootstraps públicos, ajuste a lista em `core/src/ffi/client.rs` conforme
+o exemplo em `core/FFI_IMPLEMENTATION.md`.
+
 ### 3. Background
 - Service mantém conexão P2P
 - Notificação mostra contagem de peers

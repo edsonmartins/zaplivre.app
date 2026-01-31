@@ -43,6 +43,72 @@ View logs:
 docker logs -f mepassa-bootstrap-1
 ```
 
+### VPS (Docker build + Docker Stack)
+
+1. Build the image on your VPS:
+
+```bash
+docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
+```
+
+2. Create the env file on the VPS (example):
+
+```bash
+sudo mkdir -p /etc/mepassa
+sudo cp server/bootstrap/.env.example /etc/mepassa/bootstrap.env
+sudo cp server/bootstrap/.env.bootstrap-2.example /etc/mepassa/bootstrap-2.env
+sudo nano /etc/mepassa/bootstrap.env
+sudo nano /etc/mepassa/bootstrap-2.env
+```
+
+3. Deploy with Docker Stack:
+
+```bash
+docker stack deploy -c server/bootstrap/stack.yml mepassa
+```
+
+4. Logs and health check:
+
+```bash
+docker service logs -f mepassa_bootstrap-node
+docker service logs -f mepassa_bootstrap-node-2
+curl http://localhost:8000/health
+curl http://localhost:8001/health
+```
+
+5. Open firewall for public access:
+
+```bash
+sudo ufw allow 4001/tcp
+sudo ufw allow 4002/tcp
+sudo ufw allow 8000/tcp
+sudo ufw allow 8001/tcp
+```
+
+### Traefik (subdomínios para health check)
+
+Se você usa Traefik no Swarm, o `server/bootstrap/stack.yml` já vem com labels para:
+
+- `https://dht1.associahub.com.br/health`
+- `https://dht2.associahub.com.br/health`
+
+Requisitos:
+1. DNS A records apontando para a VPS (dht1/dht2).
+2. Network externa do Traefik chamada `traefik-network`.
+3. EntryPoint `websecure` e resolver `letsencrypt` (conforme seu Traefik).
+
+Com Traefik, você pode **fechar** as portas 8000/8001 no firewall e manter apenas 4001/4002 abertas.
+
+**Notes:**
+- Keep `PEER_ID_SEED` stable to preserve the bootstrap peer ID.
+- Use a unique seed per bootstrap node if you run more than one.
+- For the second node, set `BOOTSTRAP_PORT=4001` and `HEALTH_PORT=8000` inside the container, but map host ports `4002`/`8001`.
+- The peer ID is printed on startup in the logs (look for `Peer ID:`).
+- Example multiaddrs for clients:
+  - Node 1: `/ip4/<PUBLIC_IP>/tcp/4001`
+  - Node 2: `/ip4/<PUBLIC_IP>/tcp/4002`
+- Clients should connect to `/ip4/<PUBLIC_IP>/tcp/4001` with the printed peer ID.
+
 ### Local Development
 
 ```bash

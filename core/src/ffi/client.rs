@@ -744,13 +744,27 @@ impl MePassaClient {
                     let mut builder = ClientBuilder::new()
                         .data_dir(PathBuf::from(&data_dir_clone));
 
-                    // Add default bootstrap peers (IPFS public nodes)
-                    let bootstrap_peers = vec![
+                    // Bootstrap peers (produção): substitua pelos seus bootstraps públicos.
+                    // Exemplo:
+                    // let custom_bootstrap_peers = vec![
+                    //     ("/ip4/<PUBLIC_IP>/tcp/4001", "12D3KooW..."),
+                    //     ("/ip4/<PUBLIC_IP>/tcp/4002", "12D3KooW..."),
+                    // ];
+                    let custom_bootstrap_peers: Vec<(&str, &str)> = Vec::new();
+
+                    // Default bootstrap peers (IPFS public nodes) - fallback
+                    let default_bootstrap_peers = vec![
                         ("/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN", "QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN"),
                         ("/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa", "QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa"),
                         ("/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb", "QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb"),
                         ("/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt", "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt"),
                     ];
+
+                    let bootstrap_peers = if custom_bootstrap_peers.is_empty() {
+                        default_bootstrap_peers
+                    } else {
+                        custom_bootstrap_peers
+                    };
 
                     for (addr_str, peer_id_str) in bootstrap_peers {
                         if let (Ok(addr), Ok(peer_id)) = (

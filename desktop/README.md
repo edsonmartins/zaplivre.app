@@ -138,6 +138,12 @@ All commands in `src-tauri/src/commands.rs`:
 | `get_connected_peers_count()` | Get connected peers |
 | `bootstrap()` | Bootstrap DHT |
 
+## 🌐 Bootstrap Peers (Production)
+
+Atualmente os peers de bootstrap usados pelo desktop vêm do core (FFI). Para apontar
+para seus bootstraps públicos, ajuste a lista em `core/src/ffi/client.rs` conforme
+o exemplo em `core/FFI_IMPLEMENTATION.md`.
+
 ### Example usage (TypeScript)
 
 ```typescript

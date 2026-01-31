@@ -14,6 +14,12 @@ iOS native app for MePassa P2P messaging platform built with SwiftUI, CallKit, a
 - ✅ Complete documentation and troubleshooting guide
 - 📋 End-to-end tests deferred to final testing phase
 
+## 🌐 Bootstrap Peers (Production)
+
+Os peers de bootstrap usados pelo iOS vêm do core (FFI). Para apontar para
+seus bootstraps públicos, ajuste a lista em `core/src/ffi/client.rs` conforme
+o exemplo em `core/FFI_IMPLEMENTATION.md`.
+
 ## 📋 Requirements
 
 - **Xcode:** 15.0+
