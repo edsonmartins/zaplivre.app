@@ -80,6 +80,13 @@ Nos logs de cada serviço, pegue o Peer ID:
 Peer ID: 12D3KooW...
 ```
 
+Exemplos de comandos:
+
+```bash
+docker service logs mepassa_bootstrap-node | grep -m1 "Peer ID"
+docker service logs mepassa_bootstrap-node-2 | grep -m1 "Peer ID"
+```
+
 Multiaddrs para os clientes:
 - Node 1: `/dns4/dht1.associahub.com.br/tcp/4001`
 - Node 2: `/dns4/dht2.associahub.com.br/tcp/4002`
