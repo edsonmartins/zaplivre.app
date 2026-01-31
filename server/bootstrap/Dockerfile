@@ -1,6 +1,6 @@
 # MePassa Bootstrap Node Dockerfile
 
-FROM rust:1.75-slim-bookworm as builder
+FROM rust:1.75-slim-bookworm AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 # Copy workspace files
 COPY Cargo.toml Cargo.lock ./
 COPY core ./core
-COPY server/bootstrap ./server/bootstrap
+COPY server ./server
 
 # Build bootstrap node
 RUN cargo build --release --package mepassa-bootstrap
