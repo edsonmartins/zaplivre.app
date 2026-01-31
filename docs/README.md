@@ -68,10 +68,8 @@ Step-by-step guides for common tasks:
   - Code signing
   - Distribution
 
-- **[Self-Hosting Guide](guides/self-hosting.md)** _(planned)_
+- **[Self-Hosting Guide](guides/self-hosting.md)**
   - Deploy your own server infrastructure
-  - LGPD compliance
-  - Backup strategies
 
 ### Specifications (`specs/`)
 
