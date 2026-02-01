@@ -15,7 +15,7 @@ FROM debian:bookworm-slim
 
 # Install ca-certificates for HTTPS
 RUN apt-get update && \
-    apt-get install -y ca-certificates && \
+    apt-get install -y ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy binary from builder
