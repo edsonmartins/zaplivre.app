@@ -1,10 +1,11 @@
-FROM rust:1.75-slim as builder
+FROM rust:1.88-slim-bookworm AS builder
 
 WORKDIR /app
 
 # Copy workspace files
 COPY Cargo.toml Cargo.lock ./
-COPY server/turn-credentials ./server/turn-credentials
+COPY core ./core
+COPY server ./server
 
 # Build release binary
 RUN cargo build --release -p turn-credentials
