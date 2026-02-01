@@ -67,6 +67,22 @@ Observação: `curl -I https://traefik.associahub.com.br` pode retornar `405` (H
 curl https://traefik.associahub.com.br
 ```
 
+### Validação rápida (script)
+
+Use o script para validar DNS, health e portas do DHT:
+
+```bash
+./scripts/validate-dht.sh
+```
+
+### Auditoria de configuração dos clients
+
+Este script confirma quais bootstraps estão configurados no core:
+
+```bash
+./scripts/audit-bootstrap-config.sh
+```
+
 ## 6) Firewall
 
 Portas obrigatórias para P2P (libp2p TCP):

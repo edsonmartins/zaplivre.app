@@ -211,6 +211,7 @@ impl NetworkManager {
 
     /// Resolve a peer address via DHT
     pub fn resolve_peer_address(&mut self, peer_id: PeerId) -> oneshot::Receiver<Option<Multiaddr>> {
+        tracing::info!("🔍 DHT lookup requested for peer {}", peer_id);
         let key = Self::addr_record_key(&peer_id);
         let query_id = self.swarm.behaviour_mut().kademlia.get_record(key);
         let (tx, rx) = oneshot::channel();
@@ -233,6 +234,7 @@ impl NetworkManager {
 
     /// Bootstrap the DHT
     pub fn bootstrap(&mut self) -> Result<()> {
+        tracing::info!("🌐 Starting DHT bootstrap...");
         self.swarm
             .behaviour_mut()
             .kademlia

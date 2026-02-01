@@ -1095,6 +1095,7 @@ impl Client {
 
     /// Bootstrap DHT
     pub async fn bootstrap(&self) -> Result<()> {
+        tracing::info!("🌐 Client bootstrap requested");
         let mut network = self.network.write().await;
         network.bootstrap()
     }
