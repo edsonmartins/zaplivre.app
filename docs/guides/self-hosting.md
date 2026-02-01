@@ -124,6 +124,16 @@ let custom_bootstrap_peers = vec![
 ];
 ```
 
+Para habilitar store-and-forward (offline), defina a variável de ambiente
+`MESSAGE_STORE_URL` nos apps (desktop/iOS/Android) apontando para o message-store:
+
+```
+MESSAGE_STORE_URL=https://<seu-dominio-ou-ip>:8080
+```
+
+Se o message-store estiver atrás do Traefik, use um subdomínio (ex: `https://store.associahub.com.br`)
+e garanta que a porta 8080 esteja exposta internamente via Traefik.
+
 ## 9) Rotação/Atualização
 
 Para atualizar a imagem:

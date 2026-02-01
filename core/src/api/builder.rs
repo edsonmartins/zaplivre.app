@@ -24,6 +24,7 @@ pub struct ClientBuilder {
     data_dir: Option<PathBuf>,
     keypair: Option<Keypair>,
     bootstrap_peers: Vec<(libp2p::PeerId, libp2p::Multiaddr)>,
+    message_store_url: Option<String>,
 }
 
 impl ClientBuilder {
@@ -33,6 +34,7 @@ impl ClientBuilder {
             data_dir: None,
             keypair: None,
             bootstrap_peers: Vec::new(),
+            message_store_url: None,
         }
     }
 
@@ -51,6 +53,12 @@ impl ClientBuilder {
     /// Add bootstrap peer
     pub fn add_bootstrap_peer(mut self, peer_id: libp2p::PeerId, addr: libp2p::Multiaddr) -> Self {
         self.bootstrap_peers.push((peer_id, addr));
+        self
+    }
+
+    /// Set message store URL (store-and-forward)
+    pub fn message_store_url(mut self, url: String) -> Self {
+        self.message_store_url = Some(url);
         self
     }
 
@@ -187,11 +195,13 @@ impl ClientBuilder {
             Arc::clone(&callbacks),
             session_manager.clone(),
             storage_key,
+            self.message_store_url,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
             voip_integration,
             group_manager,
+            message_handler,
         );
 
         tokio::spawn(async move {

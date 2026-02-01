@@ -744,6 +744,12 @@ impl MePassaClient {
                     let mut builder = ClientBuilder::new()
                         .data_dir(PathBuf::from(&data_dir_clone));
 
+                    if let Ok(url) = std::env::var("MESSAGE_STORE_URL") {
+                        if !url.trim().is_empty() {
+                            builder = builder.message_store_url(url);
+                        }
+                    }
+
                     // Bootstrap peers (produção): substitua pelos seus bootstraps públicos.
                     // Exemplo:
                     // let custom_bootstrap_peers = vec![

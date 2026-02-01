@@ -4,6 +4,7 @@
 
 use libp2p::{Multiaddr, PeerId};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
@@ -17,6 +18,7 @@ use crate::{
     storage::{contacts::{NewContact, UpdateContact}, Database, MediaType, MessageStatus, NewMessage, StorageError},
     utils::error::{MePassaError, Result},
 };
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 #[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
@@ -49,6 +51,12 @@ pub struct Client {
     session_manager: SessionManager,
     /// Storage encryption key
     storage_key: [u8; 32],
+    /// Optional message store URL for offline delivery
+    message_store_url: Option<String>,
+    /// HTTP client for message store
+    message_store_http: reqwest::Client,
+    /// Message handler (for processing offline messages)
+    message_handler: Arc<crate::network::MessageHandler>,
 }
 
 impl Client {
@@ -62,11 +70,13 @@ impl Client {
         callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
         session_manager: SessionManager,
         storage_key: [u8; 32],
+        message_store_url: Option<String>,
         #[cfg(any(feature = "voip", feature = "video"))]
         call_manager: Arc<CallManager>,
         #[cfg(any(feature = "voip", feature = "video"))]
         voip_integration: Arc<VoIPIntegration>,
         group_manager: Arc<crate::group::GroupManager>,
+        message_handler: Arc<crate::network::MessageHandler>,
     ) -> Self {
         Self {
             peer_id,
@@ -77,11 +87,14 @@ impl Client {
             data_dir,
             session_manager,
             storage_key,
+            message_store_url,
+            message_store_http: reqwest::Client::new(),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
             voip_integration,
             group_manager,
+            message_handler,
         }
     }
 
@@ -250,8 +263,6 @@ impl Client {
 
     /// Send a text message to a peer
     pub async fn send_text_message(&self, to: PeerId, content: String) -> Result<String> {
-        self.ensure_peer_connected(to).await;
-
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp_millis();
@@ -289,14 +300,15 @@ impl Client {
             payload: Some(payload),
         };
 
-        // Send via network
-        {
-            let mut network = self.network.write().await;
-            network.send_message(to, proto_message)?;
-        }
+        let outcome = self.deliver_message(to, &proto_message, "text").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let status = match outcome {
+            Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
+            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            _ => MessageStatus::Failed,
+        };
         let new_msg = NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -305,7 +317,7 @@ impl Client {
             message_type: "text".to_string(),
             content_encrypted: self.encrypt_for_storage(content.as_bytes()).ok(),
             content_plaintext: None,
-            status: MessageStatus::Sent,
+            status,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
@@ -318,6 +330,10 @@ impl Client {
             to,
         })
         .await;
+
+        if let Err(e) = outcome {
+            return Err(e);
+        }
 
         Ok(message_id)
     }
@@ -374,17 +390,17 @@ impl Client {
         Ok(text)
     }
 
-    async fn ensure_peer_connected(&self, peer_id: PeerId) {
+    async fn ensure_peer_connected(&self, peer_id: PeerId) -> bool {
         let rx = {
             let mut network = self.network.write().await;
             if network.is_connected(&peer_id) {
-                None
+                return true;
             } else {
                 Some(network.resolve_peer_address(peer_id))
             }
         };
 
-        let Some(rx) = rx else { return };
+        let Some(rx) = rx else { return false };
 
         let resolved = match timeout(Duration::from_secs(5), rx).await {
             Ok(Ok(Some(addr))) => Some(addr),
@@ -398,6 +414,159 @@ impl Client {
                 let _ = network.dial(peer_id, addr);
             }
         }
+
+        let network = self.network.read().await;
+        network.is_connected(&peer_id)
+    }
+
+    async fn deliver_message(
+        &self,
+        to: PeerId,
+        proto_message: &Message,
+        message_type: &str,
+    ) -> Result<DeliveryOutcome> {
+        let connected = self.ensure_peer_connected(to).await;
+        if connected {
+            let mut network = self.network.write().await;
+            network.send_message(to, proto_message.clone())?;
+            return Ok(DeliveryOutcome { sent: true, stored: false });
+        }
+
+        if let Some(_) = self.message_store_url {
+            if self.store_offline_message(proto_message, message_type).await.is_ok() {
+                return Ok(DeliveryOutcome { sent: false, stored: true });
+            }
+            return Err(MePassaError::Network(
+                "Failed to store offline message".to_string(),
+            ));
+        }
+
+        Err(MePassaError::Network(
+            "Peer offline and message store not configured".to_string(),
+        ))
+    }
+
+    fn message_store_base_url(&self) -> Option<String> {
+        self.message_store_url
+            .as_ref()
+            .map(|url| url.trim_end_matches('/').to_string())
+    }
+
+    async fn store_offline_message(
+        &self,
+        proto_message: &Message,
+        message_type: &str,
+    ) -> Result<()> {
+        let Some(base_url) = self.message_store_base_url() else { return Ok(()) };
+        let payload = crate::protocol::codec::encode(proto_message)?;
+        let request = StoreMessageRequest {
+            recipient_peer_id: proto_message.recipient_peer_id.clone(),
+            sender_peer_id: proto_message.sender_peer_id.clone(),
+            encrypted_payload: base64::encode(payload),
+            message_type: Some(message_type.to_string()),
+            message_id: proto_message.id.clone(),
+        };
+
+        let url = format!("{}/api/store", base_url);
+        let resp = self
+            .message_store_http
+            .post(url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
+
+        if !resp.status().is_success() {
+            return Err(MePassaError::Network(format!(
+                "Message store returned {}",
+                resp.status()
+            )));
+        }
+
+        Ok(())
+    }
+
+    async fn fetch_offline_messages(&self) -> Result<()> {
+        let Some(base_url) = self.message_store_base_url() else { return Ok(()) };
+        let url = format!(
+            "{}/api/store?peer_id={}&limit=100",
+            base_url,
+            self.local_peer_id()
+        );
+
+        let resp = self
+            .message_store_http
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
+
+        if !resp.status().is_success() {
+            return Ok(());
+        }
+
+        let body: RetrieveMessagesResponse = resp
+            .json()
+            .await
+            .map_err(|e| MePassaError::Network(format!("Invalid store response: {}", e)))?;
+
+        if body.messages.is_empty() {
+            return Ok(());
+        }
+
+        let mut processed_ids = Vec::new();
+        for msg in body.messages {
+            let payload = match base64::decode(&msg.encrypted_payload) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    tracing::warn!("Invalid offline payload base64: {}", e);
+                    continue;
+                }
+            };
+
+            let decoded = match crate::protocol::codec::decode(&payload) {
+                Ok(m) => m,
+                Err(e) => {
+                    tracing::warn!("Failed to decode offline message: {}", e);
+                    continue;
+                }
+            };
+
+            let sender = match PeerId::from_str(&msg.sender_peer_id) {
+                Ok(id) => id,
+                Err(_) => {
+                    tracing::warn!("Invalid sender peer ID in offline message");
+                    continue;
+                }
+            };
+
+            if let Err(e) = self
+                .message_handler
+                .handle_incoming_message(sender, decoded)
+                .await
+            {
+                tracing::warn!("Failed to process offline message: {}", e);
+                continue;
+            }
+
+            processed_ids.push(msg.message_id);
+        }
+
+        if processed_ids.is_empty() {
+            return Ok(());
+        }
+
+        let delete_url = format!("{}/api/store", base_url);
+        let _ = self
+            .message_store_http
+            .delete(delete_url)
+            .json(&DeleteMessagesRequest {
+                message_ids: processed_ids,
+            })
+            .send()
+            .await;
+
+        Ok(())
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -413,7 +582,6 @@ impl Client {
         quality: u8,
     ) -> Result<String> {
         use crate::media::image::compress_image;
-        self.ensure_peer_connected(to).await;
 
         // Compress image
         let compressed_data = compress_image(image_data, quality)
@@ -457,14 +625,15 @@ impl Client {
             payload: Some(payload),
         };
 
-        // Send via network
-        {
-            let mut network = self.network.write().await;
-            network.send_message(to, proto_message)?;
-        }
+        let outcome = self.deliver_message(to, &proto_message, "image").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let status = match outcome {
+            Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
+            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            _ => MessageStatus::Failed,
+        };
         let new_msg = crate::storage::NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -473,7 +642,7 @@ impl Client {
             message_type: "image".to_string(),
             content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
             content_plaintext: None,
-            status: MessageStatus::Sent,
+            status,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
@@ -504,6 +673,10 @@ impl Client {
         })
         .await;
 
+        if let Err(e) = outcome {
+            return Err(e);
+        }
+
         Ok(message_id)
     }
 
@@ -515,8 +688,6 @@ impl Client {
         file_name: String,
         duration_seconds: i32,
     ) -> Result<String> {
-        self.ensure_peer_connected(to).await;
-
         // Calculate media hash
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
@@ -554,13 +725,15 @@ impl Client {
             payload: Some(payload),
         };
 
-        {
-            let mut network = self.network.write().await;
-            network.send_message(to, proto_message)?;
-        }
+        let outcome = self.deliver_message(to, &proto_message, "voice").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let status = match outcome {
+            Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
+            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            _ => MessageStatus::Failed,
+        };
         let new_msg = crate::storage::NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -569,7 +742,7 @@ impl Client {
             message_type: "voice".to_string(),
             content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
             content_plaintext: None,
-            status: MessageStatus::Sent,
+            status,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
@@ -600,6 +773,10 @@ impl Client {
         })
         .await;
 
+        if let Err(e) = outcome {
+            return Err(e);
+        }
+
         Ok(message_id)
     }
 
@@ -611,8 +788,6 @@ impl Client {
         file_name: String,
         mime_type: String,
     ) -> Result<String> {
-        self.ensure_peer_connected(to).await;
-
         // Calculate media hash
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
@@ -650,13 +825,15 @@ impl Client {
             payload: Some(payload),
         };
 
-        {
-            let mut network = self.network.write().await;
-            network.send_message(to, proto_message)?;
-        }
+        let outcome = self.deliver_message(to, &proto_message, "document").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let status = match outcome {
+            Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
+            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            _ => MessageStatus::Failed,
+        };
         let new_msg = crate::storage::NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -665,7 +842,7 @@ impl Client {
             message_type: "document".to_string(),
             content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
             content_plaintext: None,
-            status: MessageStatus::Sent,
+            status,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
@@ -695,6 +872,10 @@ impl Client {
             to,
         })
         .await;
+
+        if let Err(e) = outcome {
+            return Err(e);
+        }
 
         Ok(message_id)
     }
@@ -754,13 +935,15 @@ impl Client {
             payload: Some(payload),
         };
 
-        {
-            let mut network = self.network.write().await;
-            network.send_message(to, proto_message)?;
-        }
+        let outcome = self.deliver_message(to, &proto_message, "video").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
+        let status = match outcome {
+            Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
+            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            _ => MessageStatus::Failed,
+        };
         let new_msg = crate::storage::NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -769,7 +952,7 @@ impl Client {
             message_type: "video".to_string(),
             content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
             content_plaintext: None,
-            status: MessageStatus::Sent,
+            status,
             parent_message_id: None,
         };
         self.database.insert_message(&new_msg)?;
@@ -799,6 +982,10 @@ impl Client {
             to,
         })
         .await;
+
+        if let Err(e) = outcome {
+            return Err(e);
+        }
 
         Ok(message_id)
     }
@@ -1097,7 +1284,15 @@ impl Client {
     pub async fn bootstrap(&self) -> Result<()> {
         tracing::info!("🌐 Client bootstrap requested");
         let mut network = self.network.write().await;
-        network.bootstrap()
+        network.bootstrap()?;
+
+        if self.message_store_url.is_some() {
+            if let Err(e) = self.fetch_offline_messages().await {
+                tracing::warn!("Failed to fetch offline messages: {}", e);
+            }
+        }
+
+        Ok(())
     }
 
     // === VoIP Methods ===
@@ -1310,6 +1505,41 @@ impl Client {
     pub fn network_arc(&self) -> Arc<RwLock<NetworkManager>> {
         Arc::clone(&self.network)
     }
+}
+
+#[derive(Debug, Clone)]
+struct DeliveryOutcome {
+    sent: bool,
+    stored: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct StoreMessageRequest {
+    recipient_peer_id: String,
+    sender_peer_id: String,
+    encrypted_payload: String,
+    message_type: Option<String>,
+    message_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RetrieveMessagesResponse {
+    messages: Vec<OfflineMessageDto>,
+    total: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct OfflineMessageDto {
+    sender_peer_id: String,
+    encrypted_payload: String,
+    message_type: String,
+    message_id: String,
+    created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct DeleteMessagesRequest {
+    message_ids: Vec<String>,
 }
 
 #[cfg(test)]
