@@ -750,7 +750,10 @@ impl MePassaClient {
                     //     ("/ip4/<PUBLIC_IP>/tcp/4001", "12D3KooW..."),
                     //     ("/ip4/<PUBLIC_IP>/tcp/4002", "12D3KooW..."),
                     // ];
-                    let custom_bootstrap_peers: Vec<(&str, &str)> = Vec::new();
+                    let custom_bootstrap_peers = vec![
+                        ("/dns4/dht1.associahub.com.br/tcp/4001", "12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK"),
+                        ("/dns4/dht2.associahub.com.br/tcp/4002", "12D3KooWRwysfFEQL5YhFa8bNqeoY34b7Bb7mUzx617sun9GyAPP"),
+                    ];
 
                     // Default bootstrap peers (IPFS public nodes) - fallback
                     let default_bootstrap_peers = vec![

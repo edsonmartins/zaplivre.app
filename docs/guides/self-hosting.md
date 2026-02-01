@@ -61,6 +61,12 @@ curl https://dht1.associahub.com.br/health
 curl https://dht2.associahub.com.br/health
 ```
 
+Observação: `curl -I https://traefik.associahub.com.br` pode retornar `405` (HEAD não permitido). Use GET:
+
+```bash
+curl https://traefik.associahub.com.br
+```
+
 ## 6) Firewall
 
 Portas obrigatórias para P2P (libp2p TCP):
