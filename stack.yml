@@ -21,6 +21,7 @@ services:
       retries: 5
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -45,6 +46,7 @@ services:
       retries: 5
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -74,6 +76,7 @@ services:
       start_period: 10s
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -97,6 +100,7 @@ services:
       start_period: 5s
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -128,6 +132,7 @@ services:
       retries: 5
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -153,6 +158,7 @@ services:
       start_period: 10s
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -175,6 +181,7 @@ services:
       - ./server/push/certs:/etc/push:ro
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -194,6 +201,7 @@ services:
       - prometheus_data:/prometheus
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       replicas: 0
       restart_policy:
@@ -216,6 +224,7 @@ services:
       - ./server/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     networks:
       - mepassa-network
+      - traefik-network
     deploy:
       replicas: 0
       restart_policy:
@@ -238,3 +247,5 @@ volumes:
 networks:
   mepassa-network:
     driver: overlay
+  traefik-network:
+    external: true
