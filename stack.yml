@@ -134,6 +134,51 @@ services:
       - mepassa-network
       - traefik-network
     deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-bootstrap-1.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-bootstrap-1.tls=true"
+        - "traefik.http.routers.mepassa-bootstrap-1.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-bootstrap-1.loadbalancer.server.port=8000"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  bootstrap-node-2:
+    image: mepassa-bootstrap:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - BOOTSTRAP_PORT=4001
+      - HEALTH_PORT=8000
+      - PEER_ID_SEED=bootstrap-2
+      - DATA_DIR=/app/data
+      - RELAY_ENABLED=${RELAY_ENABLED:-true}
+      - RELAY_MAX_CIRCUITS=${RELAY_MAX_CIRCUITS:-100}
+      - RELAY_MAX_PER_PEER=${RELAY_MAX_PER_PEER:-10}
+      - RELAY_MAX_BYTES_PER_SEC=${RELAY_MAX_BYTES_PER_SEC:-1000000}
+    ports:
+      - "4002:4001"
+      - "8001:8000"
+    volumes:
+      - bootstrap_data_2:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mepassa-network
+      - traefik-network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-bootstrap-2.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-bootstrap-2.tls=true"
+        - "traefik.http.routers.mepassa-bootstrap-2.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-bootstrap-2.loadbalancer.server.port=8000"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -238,6 +283,8 @@ volumes:
   redis_data:
     driver: local
   bootstrap_data:
+    driver: local
+  bootstrap_data_2:
     driver: local
   prometheus_data:
     driver: local
