@@ -126,6 +126,21 @@ Os peers de bootstrap usados pelo Android vêm do core (FFI). Para apontar para
 seus bootstraps públicos, ajuste a lista em `core/src/ffi/client.rs` conforme
 o exemplo em `core/FFI_IMPLEMENTATION.md`.
 
+## 🌐 Configuração de produção (URLs)
+
+Para builds de release, defina as URLs em `android/gradle.properties`:
+
+```
+MESSAGE_STORE_URL=https://store.associahub.com.br
+PUSH_SERVER_URL=https://push.associahub.com.br
+```
+
+Você pode copiar o template:
+
+```
+cp android/gradle.properties.example android/gradle.properties
+```
+
 ### 3. Background
 - Service mantém conexão P2P
 - Notificação mostra contagem de peers

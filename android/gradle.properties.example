@@ -1,0 +1,5 @@
+# Android build-time configuration
+# Copy to android/gradle.properties and customize for release builds
+
+MESSAGE_STORE_URL=https://store.associahub.com.br
+PUSH_SERVER_URL=https://push.associahub.com.br
