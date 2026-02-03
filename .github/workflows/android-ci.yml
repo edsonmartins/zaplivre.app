@@ -58,6 +58,9 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Build with Gradle
+        env:
+          MESSAGE_STORE_URL: https://store.associahub.com.br
+          PUSH_SERVER_URL: https://push.associahub.com.br
         run: cd android && ./gradlew build
         continue-on-error: true
 
