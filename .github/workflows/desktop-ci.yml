@@ -71,6 +71,9 @@ jobs:
           npm ci
 
       - name: Build Tauri app
+        env:
+          MESSAGE_STORE_URL: https://store.associahub.com.br
+          PUSH_SERVER_URL: https://push.associahub.com.br
         run: |
           cd desktop
           npm run tauri build

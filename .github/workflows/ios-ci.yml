@@ -55,6 +55,9 @@ jobs:
         continue-on-error: true
 
       - name: Build iOS project
+        env:
+          MESSAGE_STORE_URL: https://store.associahub.com.br
+          PUSH_SERVER_URL: https://push.associahub.com.br
         run: |
           cd ios
           xcodebuild -workspace MePassa.xcworkspace \
