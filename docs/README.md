@@ -70,6 +70,7 @@ Step-by-step guides for common tasks:
 
 - **[Self-Hosting Guide](guides/self-hosting.md)**
   - Deploy your own server infrastructure
+  - GitHub Secrets setup for CI
 
 ### Specifications (`specs/`)
 
