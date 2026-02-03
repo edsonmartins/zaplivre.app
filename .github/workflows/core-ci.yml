@@ -19,6 +19,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  MESSAGE_STORE_URL: https://store.associahub.com.br
+  PUSH_SERVER_URL: https://push.associahub.com.br
 
 jobs:
   check:
