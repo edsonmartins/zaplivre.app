@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import android.system.Os
+import com.mepassa.BuildConfig
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.mepassa.R
@@ -61,6 +63,14 @@ class MePassaService : Service() {
         serviceScope.launch {
             if (!MePassaClientWrapper.isClientReady()) {
                 Log.i(TAG, "Initializing MePassaClient from service")
+                val storeUrl = BuildConfig.MESSAGE_STORE_URL
+                if (storeUrl.isNotBlank()) {
+                    try {
+                        Os.setenv("MESSAGE_STORE_URL", storeUrl, true)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to set MESSAGE_STORE_URL env", e)
+                    }
+                }
                 val success = MePassaClientWrapper.initialize(applicationContext)
                 if (!success) {
                     Log.e(TAG, "Failed to initialize client, stopping service")

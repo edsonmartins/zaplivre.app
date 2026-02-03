@@ -16,6 +16,10 @@ fn main() {
     let client_state: Arc<Mutex<Option<Arc<mepassa_core::ffi::MePassaClient>>>> =
         Arc::new(Mutex::new(None));
 
+    if std::env::var("MESSAGE_STORE_URL").is_err() {
+        std::env::set_var("MESSAGE_STORE_URL", "https://store.associahub.com.br");
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())

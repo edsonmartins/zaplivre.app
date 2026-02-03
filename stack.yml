@@ -102,6 +102,13 @@ services:
       - mepassa-network
       - traefik-network
     deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-turn-credentials.rule=Host(`turn.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-turn-credentials.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-turn-credentials.tls=true"
+        - "traefik.http.routers.mepassa-turn-credentials.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-turn-credentials.loadbalancer.server.port=8082"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -205,6 +212,13 @@ services:
       - mepassa-network
       - traefik-network
     deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-store.rule=Host(`store.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-store.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-store.tls=true"
+        - "traefik.http.routers.mepassa-store.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-store.loadbalancer.server.port=8080"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -228,6 +242,13 @@ services:
       - mepassa-network
       - traefik-network
     deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-push.rule=Host(`push.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-push.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-push.tls=true"
+        - "traefik.http.routers.mepassa-push.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-push.loadbalancer.server.port=8081"
       restart_policy:
         condition: on-failure
         delay: 5s

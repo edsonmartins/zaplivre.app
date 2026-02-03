@@ -37,6 +37,12 @@ class MePassaCore: ObservableObject {
     func initialize() async throws {
         print("📱 MePassa Core initializing at: \(dataDir)")
 
+        if let storeUrl = Bundle.main.object(forInfoDictionaryKey: "MESSAGE_STORE_URL") as? String {
+            if !storeUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                setenv("MESSAGE_STORE_URL", storeUrl, 1)
+            }
+        }
+
         client = try await MePassaClient(dataDir: dataDir)
         localPeerId = try await client?.localPeerId()
 

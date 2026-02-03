@@ -15,6 +15,9 @@ Crie registros A:
 
 - `dht1.associahub.com.br` → IP da VPS
 - `dht2.associahub.com.br` → IP da VPS
+- `store.associahub.com.br` → IP da VPS
+- `push.associahub.com.br` → IP da VPS
+- `turn.associahub.com.br` → IP da VPS
 
 ## 2) Build da imagem
 

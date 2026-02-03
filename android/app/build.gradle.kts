@@ -24,6 +24,11 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
+
+        val messageStoreUrl = (project.findProperty("MESSAGE_STORE_URL") as String?)
+            ?: System.getenv("MESSAGE_STORE_URL")
+            ?: "https://store.associahub.com.br"
+        buildConfigField("String", "MESSAGE_STORE_URL", "\"$messageStoreUrl\"")
     }
 
     buildTypes {
@@ -55,6 +60,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
