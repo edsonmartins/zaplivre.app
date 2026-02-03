@@ -56,8 +56,8 @@ jobs:
 
       - name: Build iOS project
         env:
-          MESSAGE_STORE_URL: https://store.associahub.com.br
-          PUSH_SERVER_URL: https://push.associahub.com.br
+          MESSAGE_STORE_URL: ${{ secrets.MESSAGE_STORE_URL }}
+          PUSH_SERVER_URL: ${{ secrets.PUSH_SERVER_URL }}
         run: |
           cd ios
           xcodebuild -workspace MePassa.xcworkspace \

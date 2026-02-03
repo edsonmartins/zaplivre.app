@@ -143,6 +143,12 @@ Para push notifications, configure `PUSH_SERVER_URL` nos apps:
 PUSH_SERVER_URL=https://push.associahub.com.br
 ```
 
+### GitHub Actions (Secrets)
+
+Configure os secrets no repositório:
+- `MESSAGE_STORE_URL`
+- `PUSH_SERVER_URL`
+
 ## 9) Rotação/Atualização
 
 Para atualizar a imagem:
