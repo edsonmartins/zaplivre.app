@@ -137,6 +137,12 @@ MESSAGE_STORE_URL=https://<seu-dominio-ou-ip>:8080
 Se o message-store estiver atrás do Traefik, use um subdomínio (ex: `https://store.associahub.com.br`)
 e garanta que a porta 8080 esteja exposta internamente via Traefik.
 
+Para push notifications, configure `PUSH_SERVER_URL` nos apps:
+
+```
+PUSH_SERVER_URL=https://push.associahub.com.br
+```
+
 ## 9) Rotação/Atualização
 
 Para atualizar a imagem:

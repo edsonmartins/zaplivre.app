@@ -3,6 +3,7 @@ package com.mepassa.push
 import android.content.Context
 import android.provider.Settings
 import android.util.Log
+import com.mepassa.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -20,7 +21,7 @@ import java.util.concurrent.TimeUnit
  */
 class PushServerClient(
     private val context: Context,
-    private val baseUrl: String = "http://10.0.2.2:8081" // Android emulator localhost
+    private val baseUrl: String = BuildConfig.PUSH_SERVER_URL
 ) {
     private val client: OkHttpClient by lazy {
         val logging = HttpLoggingInterceptor { message ->
@@ -177,7 +178,7 @@ class PushServerClient(
         fun create(context: Context, pushServerUrl: String? = null): PushServerClient {
             return PushServerClient(
                 context = context.applicationContext,
-                baseUrl = pushServerUrl ?: "http://10.0.2.2:8081"
+                baseUrl = pushServerUrl ?: BuildConfig.PUSH_SERVER_URL
             )
         }
     }

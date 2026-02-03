@@ -29,6 +29,11 @@ android {
             ?: System.getenv("MESSAGE_STORE_URL")
             ?: "https://store.associahub.com.br"
         buildConfigField("String", "MESSAGE_STORE_URL", "\"$messageStoreUrl\"")
+
+        val pushServerUrl = (project.findProperty("PUSH_SERVER_URL") as String?)
+            ?: System.getenv("PUSH_SERVER_URL")
+            ?: "https://push.associahub.com.br"
+        buildConfigField("String", "PUSH_SERVER_URL", "\"$pushServerUrl\"")
     }
 
     buildTypes {

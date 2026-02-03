@@ -15,7 +15,14 @@ class PushNotificationManager: NSObject, ObservableObject {
     @Published var deviceToken: String?
     @Published var isRegistered = false
 
-    private let pushServerURL = "http://localhost:8081" // TODO: Use production URL
+    private let pushServerURL: String = {
+        if let url = Bundle.main.object(forInfoDictionaryKey: "PUSH_SERVER_URL") as? String {
+            if !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return url
+            }
+        }
+        return "https://push.associahub.com.br"
+    }()
 
     /// Request push notification permissions
     func requestAuthorization() {
