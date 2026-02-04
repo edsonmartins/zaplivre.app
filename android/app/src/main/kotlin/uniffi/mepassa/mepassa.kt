@@ -661,6 +661,15 @@ internal open class UniffiForeignFutureStructVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceFfiCallEventCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`fromPeerId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceFfiCallEventCallbackMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`state`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceFfiCallEventCallbackMethod2 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`frameData`: RustBuffer.ByValue,`width`: Int,`height`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -672,6 +681,28 @@ internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod1 : com.sun.
 }
 internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod2 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("onIncomingCall", "onCallStateChanged", "onCallEnded", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceFfiCallEventCallback(
+    @JvmField internal var `onIncomingCall`: UniffiCallbackInterfaceFfiCallEventCallbackMethod0? = null,
+    @JvmField internal var `onCallStateChanged`: UniffiCallbackInterfaceFfiCallEventCallbackMethod1? = null,
+    @JvmField internal var `onCallEnded`: UniffiCallbackInterfaceFfiCallEventCallbackMethod2? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onIncomingCall`: UniffiCallbackInterfaceFfiCallEventCallbackMethod0? = null,
+        `onCallStateChanged`: UniffiCallbackInterfaceFfiCallEventCallbackMethod1? = null,
+        `onCallEnded`: UniffiCallbackInterfaceFfiCallEventCallbackMethod2? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceFfiCallEventCallback(`onIncomingCall`,`onCallStateChanged`,`onCallEnded`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceFfiCallEventCallback) {
+        `onIncomingCall` = other.`onIncomingCall`
+        `onCallStateChanged` = other.`onCallStateChanged`
+        `onCallEnded` = other.`onCallEnded`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
 }
 @Structure.FieldOrder("onVideoFrame", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
@@ -867,6 +898,12 @@ internal open class UniffiVTableCallbackInterfaceFfiVoipEventCallback(
 
 
 
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -877,6 +914,7 @@ internal interface UniffiLib : Library {
             .also { lib: UniffiLib ->
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
+                uniffiCallbackInterfaceFfiCallEventCallback.register(lib)
                 uniffiCallbackInterfaceFfiVideoFrameCallback.register(lib)
                 uniffiCallbackInterfaceFfiVoipEventCallback.register(lib)
                 }
@@ -946,6 +984,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_register_voip_event_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -982,6 +1022,8 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(`vtable`: UniffiVTableCallbackInterfaceFfiCallEventCallback,
+    ): Unit
     fun uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiVideoFrameCallback,
     ): Unit
     fun uniffi_mepassa_core_fn_init_callback_vtable_ffivoipeventcallback(`vtable`: UniffiVTableCallbackInterfaceFfiVoipEventCallback,
@@ -1150,6 +1192,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_register_voip_event_callback(
@@ -1187,6 +1231,12 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone(
     ): Short
     fun uniffi_mepassa_core_checksum_constructor_mepassaclient_new(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_fficalleventcallback_on_incoming_call(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_state_changed(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_ended(
     ): Short
     fun uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame(
     ): Short
@@ -1291,6 +1341,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback() != 59736.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 25102.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1346,6 +1399,15 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 5686.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_fficalleventcallback_on_incoming_call() != 21423.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_state_changed() != 3873.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_ended() != 22544.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame() != 35554.toShort()) {
@@ -1857,6 +1919,8 @@ public interface MePassaClientInterface {
     fun `localPeerId`(): kotlin.String
     
     fun `markConversationRead`(`peerId`: kotlin.String)
+    
+    fun `registerCallEventCallback`(`callback`: FfiCallEventCallback)
     
     fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
     
@@ -2461,6 +2525,18 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     uniffiRustCallWithError(MePassaFfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(
         it, FfiConverterString.lower(`peerId`),_status)
+}
+    }
+    
+    
+
+    
+    @Throws(MePassaFfiException::class)override fun `registerCallEventCallback`(`callback`: FfiCallEventCallback)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(
+        it, FfiConverterTypeFfiCallEventCallback.lower(`callback`),_status)
 }
     }
     
@@ -3766,9 +3842,13 @@ public object FfiConverterTypeMessageStatus: FfiConverterRustBuffer<MessageStatu
 
 
 
-public interface FfiVideoFrameCallback {
+public interface FfiCallEventCallback {
     
-    fun `onVideoFrame`(`callId`: kotlin.String, `frameData`: List<kotlin.UByte>, `width`: kotlin.UInt, `height`: kotlin.UInt)
+    fun `onIncomingCall`(`callId`: kotlin.String, `fromPeerId`: kotlin.String)
+    
+    fun `onCallStateChanged`(`callId`: kotlin.String, `state`: FfiCallState)
+    
+    fun `onCallEnded`(`callId`: kotlin.String, `reason`: FfiCallEndReason)
     
     companion object
 }
@@ -3805,6 +3885,88 @@ public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: Ffi
         buf.putLong(lower(value))
     }
 }
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceFfiCallEventCallback {
+    internal object `onIncomingCall`: UniffiCallbackInterfaceFfiCallEventCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`fromPeerId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiCallEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onIncomingCall`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterString.lift(`fromPeerId`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onCallStateChanged`: UniffiCallbackInterfaceFfiCallEventCallbackMethod1 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`state`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiCallEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onCallStateChanged`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterTypeFfiCallState.lift(`state`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onCallEnded`: UniffiCallbackInterfaceFfiCallEventCallbackMethod2 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiCallEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onCallEnded`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterTypeFfiCallEndReason.lift(`reason`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeFfiCallEventCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceFfiCallEventCallback.UniffiByValue(
+        `onIncomingCall`,
+        `onCallStateChanged`,
+        `onCallEnded`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeFfiCallEventCallback: FfiConverterCallbackInterface<FfiCallEventCallback>()
+
+
+
+
+
+public interface FfiVideoFrameCallback {
+    
+    fun `onVideoFrame`(`callId`: kotlin.String, `frameData`: List<kotlin.UByte>, `width`: kotlin.UInt, `height`: kotlin.UInt)
+    
+    companion object
+}
+
+
 
 // Put the implementation in an object so we don't pollute the top-level namespace
 internal object uniffiCallbackInterfaceFfiVideoFrameCallback {

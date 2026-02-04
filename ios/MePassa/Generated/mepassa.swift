@@ -624,6 +624,8 @@ public protocol MePassaClientProtocol: AnyObject, Sendable {
     
     func markConversationRead(peerId: String) throws 
     
+    func registerCallEventCallback(callback: FfiCallEventCallback) throws 
+    
     func registerVideoFrameCallback(callback: FfiVideoFrameCallback) throws 
     
     func registerVoipEventCallback(callback: FfiVoipEventCallback) throws 
@@ -1090,6 +1092,14 @@ open func markConversationRead(peerId: String)throws   {try rustCallWithError(Ff
     uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(peerId),$0
+    )
+}
+}
+    
+open func registerCallEventCallback(callback: FfiCallEventCallback)throws   {try rustCallWithError(FfiConverterTypeMePassaFfiError_lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(
+            self.uniffiCloneHandle(),
+        FfiConverterCallbackInterfaceFfiCallEventCallback_lower(callback),$0
     )
 }
 }
@@ -2837,6 +2847,188 @@ public func FfiConverterTypeMessageStatus_lower(_ value: MessageStatus) -> RustB
 
 
 
+public protocol FfiCallEventCallback: AnyObject, Sendable {
+    
+    func onIncomingCall(callId: String, fromPeerId: String) 
+    
+    func onCallStateChanged(callId: String, state: FfiCallState) 
+    
+    func onCallEnded(callId: String, reason: FfiCallEndReason) 
+    
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceFfiCallEventCallback {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // This creates 1-element array, since this seems to be the only way to construct a const
+    // pointer that we can pass to the Rust code.
+    static let vtable: [UniffiVTableCallbackInterfaceFfiCallEventCallback] = [UniffiVTableCallbackInterfaceFfiCallEventCallback(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterCallbackInterfaceFfiCallEventCallback.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface FfiCallEventCallback: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterCallbackInterfaceFfiCallEventCallback.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface FfiCallEventCallback: handle missing in uniffiClone")
+            }
+        },
+        onIncomingCall: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            fromPeerId: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiCallEventCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onIncomingCall(
+                     callId: try FfiConverterString.lift(callId),
+                     fromPeerId: try FfiConverterString.lift(fromPeerId)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onCallStateChanged: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            state: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiCallEventCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onCallStateChanged(
+                     callId: try FfiConverterString.lift(callId),
+                     state: try FfiConverterTypeFfiCallState_lift(state)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onCallEnded: { (
+            uniffiHandle: UInt64,
+            callId: RustBuffer,
+            reason: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiCallEventCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onCallEnded(
+                     callId: try FfiConverterString.lift(callId),
+                     reason: try FfiConverterTypeFfiCallEndReason_lift(reason)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )]
+}
+
+private func uniffiCallbackInitFfiCallEventCallback() {
+    uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(UniffiCallbackInterfaceFfiCallEventCallback.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceFfiCallEventCallback {
+    fileprivate static let handleMap = UniffiHandleMap<FfiCallEventCallback>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceFfiCallEventCallback : FfiConverter {
+    typealias SwiftType = FfiCallEventCallback
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceFfiCallEventCallback_lift(_ handle: UInt64) throws -> FfiCallEventCallback {
+    return try FfiConverterCallbackInterfaceFfiCallEventCallback.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceFfiCallEventCallback_lower(_ v: FfiCallEventCallback) -> UInt64 {
+    return FfiConverterCallbackInterfaceFfiCallEventCallback.lower(v)
+}
+
+
+
+
 public protocol FfiVideoFrameCallback: AnyObject, Sendable {
     
     func onVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32) 
@@ -3628,6 +3820,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 59401) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback() != 13494) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 55584) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3685,6 +3880,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 46917) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_fficalleventcallback_on_incoming_call() != 23346) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_state_changed() != 16604) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_ended() != 21771) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame() != 37913) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3698,6 +3902,7 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitFfiCallEventCallback()
     uniffiCallbackInitFfiVideoFrameCallback()
     uniffiCallbackInitFfiVoipEventCallback()
     return InitializationResult.ok

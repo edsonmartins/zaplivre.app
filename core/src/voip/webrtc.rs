@@ -7,6 +7,8 @@ use super::VoipError;
 use crate::voip::Result;
 use interceptor::registry::Registry;
 use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::Mutex;
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
 use webrtc::api::setting_engine::SettingEngine;
@@ -26,6 +28,15 @@ pub struct WebRTCPeer {
     peer_connection: Arc<RTCPeerConnection>,
     audio_track: Option<Arc<TrackLocalStaticRTP>>,
     video_track: Option<Arc<TrackLocalStaticRTP>>,
+    video_rtp_state: Mutex<VideoRtpState>,
+}
+
+struct VideoRtpState {
+    ssrc: u32,
+    seq: u16,
+    ts_base: u32,
+    started_at: Instant,
+    clock_rate: u32,
 }
 
 impl WebRTCPeer {
@@ -75,6 +86,13 @@ impl WebRTCPeer {
             peer_connection,
             audio_track: None,
             video_track: None,
+            video_rtp_state: Mutex::new(VideoRtpState {
+                ssrc: rand::random::<u32>(),
+                seq: rand::random::<u16>(),
+                ts_base: rand::random::<u32>(),
+                started_at: Instant::now(),
+                clock_rate: 90_000,
+            }),
         })
     }
 
@@ -203,6 +221,12 @@ impl WebRTCPeer {
             // In production, this should be properly packetized
             use webrtc::rtp::packet::Packet;
 
+            let mut state = self.video_rtp_state.lock().await;
+            state.seq = state.seq.wrapping_add(1);
+            let elapsed = state.started_at.elapsed();
+            let elapsed_ts = (elapsed.as_secs_f64() * state.clock_rate as f64) as u32;
+            let timestamp = state.ts_base.wrapping_add(elapsed_ts);
+
             let packet = Packet {
                 header: webrtc::rtp::header::Header {
                     version: 2,
@@ -210,9 +234,9 @@ impl WebRTCPeer {
                     extension: false,
                     marker: true,
                     payload_type: 96, // Dynamic payload type for H.264
-                    sequence_number: 0, // TODO: Maintain sequence counter
-                    timestamp: 0, // TODO: Calculate proper timestamp
-                    ssrc: 0, // TODO: Use proper SSRC
+                    sequence_number: state.seq,
+                    timestamp,
+                    ssrc: state.ssrc,
                     ..Default::default()
                 },
                 payload: frame.to_vec().into(),

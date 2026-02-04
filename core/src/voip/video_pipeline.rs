@@ -1,5 +1,6 @@
 //! Video encoding/decoding pipeline
 
+use super::rtp_video::{RtpDepacketizer, RtpPacket, RtpPacketizer};
 use super::video::*;
 use super::Result;
 use tokio::sync::mpsc;
@@ -32,14 +33,23 @@ impl VideoEncoderPipeline {
         self.running = true;
 
         // Platform-specific encoder (H.264 via VideoToolbox/MediaCodec)
-        // For MVP, assume platform sends pre-encoded frames
+        // For MVP, assume platform sends pre-encoded frames and we only packetize.
+        let mut packetizer = RtpPacketizer::new(rand::random::<u32>(), self.config.codec);
+        let clock_rate = self.config.codec.clock_rate() as u64;
         while self.running {
             if let Some(frame) = self.frame_rx.recv().await {
-                // TODO: Encode frame to H.264/VP8
-                // For now, pass through (assume pre-encoded)
-                if let Err(e) = self.rtp_tx.send(frame.data).await {
-                    tracing::error!("Failed to send RTP packet: {}", e);
-                    break;
+                let ts = if frame.timestamp_us > 0 {
+                    ((frame.timestamp_us as u64) * clock_rate / 1_000_000) as u32
+                } else {
+                    chrono::Utc::now().timestamp_micros() as u32
+                };
+
+                for packet in packetizer.packetize(&frame.data, ts) {
+                    if let Err(e) = self.rtp_tx.send(packet.to_bytes()).await {
+                        tracing::error!("Failed to send RTP packet: {}", e);
+                        self.running = false;
+                        break;
+                    }
                 }
             } else {
                 // Channel closed
@@ -89,24 +99,31 @@ impl VideoDecoderPipeline {
     pub async fn run(&mut self) -> Result<()> {
         self.running = true;
 
-        // Platform-specific decoder
+        // Platform-specific decoder (MVP: depacketize to encoded frame bytes)
+        let mut depacketizer = RtpDepacketizer::new(self.config.codec);
         while self.running {
             if let Some(rtp_packet) = self.rtp_rx.recv().await {
-                // TODO: Decode H.264/VP8 → VideoFrame
-                // For MVP, platform handles decoding
+                let packet = match RtpPacket::from_bytes(&rtp_packet) {
+                    Ok(pkt) => pkt,
+                    Err(e) => {
+                        tracing::warn!("Failed to parse RTP packet: {}", e);
+                        continue;
+                    }
+                };
 
-                // Stub: create dummy frame
-                let frame = VideoFrame::new(
-                    rtp_packet,
-                    self.config.resolution.width,
-                    self.config.resolution.height,
-                    chrono::Utc::now().timestamp_micros(),
-                    PixelFormat::YUV420,
-                );
+                if let Some(frame_data) = depacketizer.depacketize(&packet)? {
+                    let frame = VideoFrame::new(
+                        frame_data,
+                        self.config.resolution.width,
+                        self.config.resolution.height,
+                        chrono::Utc::now().timestamp_micros(),
+                        PixelFormat::YUV420,
+                    );
 
-                if let Err(e) = self.frame_tx.send(frame).await {
-                    tracing::error!("Failed to send video frame: {}", e);
-                    break;
+                    if let Err(e) = self.frame_tx.send(frame).await {
+                        tracing::error!("Failed to send video frame: {}", e);
+                        break;
+                    }
                 }
             } else {
                 // Channel closed

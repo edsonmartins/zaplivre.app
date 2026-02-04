@@ -385,8 +385,9 @@ impl RtpPacketizer {
 
     /// Packetize VP9 frame (simplified, similar to VP8)
     fn packetize_vp9(&mut self, frame_data: &[u8], timestamp: u32) -> Vec<RtpPacket> {
-        // VP9 packetization is similar to VP8 for now
-        // TODO: Implement full VP9 packetization (more complex than VP8)
+        // MVP: use the same fragmentation strategy as VP8.
+        // This is not a full RFC-compliant VP9 payload descriptor, but keeps
+        // frames chunked correctly while we add proper VP9 headers later.
         self.packetize_vp8(frame_data, timestamp)
     }
 

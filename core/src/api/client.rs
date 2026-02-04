@@ -9,10 +9,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 
+use base64::{engine::general_purpose, Engine as _};
 use super::events::{ClientEvent, EventCallback};
 use crate::{
     crypto::{decrypt_for_storage, encrypt_for_storage, session::SessionManager},
     identity::Identity,
+    media::MediaEnvelope,
     network::NetworkManager,
     protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest, Message, MessageType, TextMessage},
     reactions::ReactionEnvelope,
@@ -23,6 +25,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 #[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
+
+const MAX_INLINE_MEDIA_BYTES: usize = 512 * 1024;
 
 /// MePassa Client
 ///
@@ -244,6 +248,81 @@ impl Client {
             hasher.update(salt.as_bytes());
         }
         format!("{:x}", hasher.finalize())
+    }
+
+    fn should_inline_media(size_bytes: usize) -> bool {
+        size_bytes <= MAX_INLINE_MEDIA_BYTES
+    }
+
+    fn build_media_envelope(
+        media_type: MediaType,
+        media_hash: String,
+        file_name: Option<String>,
+        mime_type: Option<String>,
+        width: Option<i32>,
+        height: Option<i32>,
+        duration_seconds: Option<i32>,
+        bytes: &[u8],
+        thumbnail_bytes: Option<&[u8]>,
+    ) -> Result<String> {
+        let bytes_b64 = general_purpose::STANDARD.encode(bytes);
+        let thumbnail_b64 = thumbnail_bytes.map(|data| general_purpose::STANDARD.encode(data));
+        let envelope = MediaEnvelope {
+            version: 1,
+            media_type: media_type.as_str().to_string(),
+            media_hash,
+            file_name,
+            mime_type,
+            width,
+            height,
+            duration_seconds,
+            bytes_b64,
+            thumbnail_b64,
+        };
+        envelope.encode()
+    }
+
+    async fn deliver_media_content(
+        &self,
+        to: PeerId,
+        message_id: &str,
+        content: String,
+        label: &str,
+    ) -> Result<DeliveryOutcome> {
+        let timestamp = chrono::Utc::now().timestamp_millis();
+        let (message_type, payload) = match self.encrypt_message_for_peer(&to, content.as_bytes()) {
+            Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
+            Ok(None) => (
+                MessageType::Text,
+                Payload::Text(TextMessage {
+                    content: content.clone(),
+                    reply_to_id: String::new(),
+                    metadata: std::collections::HashMap::new(),
+                }),
+            ),
+            Err(e) => {
+                tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
+                (
+                    MessageType::Text,
+                    Payload::Text(TextMessage {
+                        content: content.clone(),
+                        reply_to_id: String::new(),
+                        metadata: std::collections::HashMap::new(),
+                    }),
+                )
+            }
+        };
+
+        let proto_message = Message {
+            id: message_id.to_string(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to.to_string(),
+            timestamp,
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        self.deliver_message(to, &proto_message, label).await
     }
 
     /// Start listening on a multiaddr
@@ -673,7 +752,6 @@ impl Client {
 
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
-        let timestamp = chrono::Utc::now().timestamp_millis();
 
         // Calculate media hash (salt with message_id to avoid collisions)
         let mut media_hash = Self::compute_media_hash(&compressed_data, None);
@@ -684,32 +762,48 @@ impl Client {
         let local_path = self.write_media_file(&media_hash, Some(&file_name), &compressed_data)?;
         let media_type = MediaType::Image;
         let placeholder = Self::media_placeholder(&media_type, Some(&file_name), None);
+        let inline = Self::should_inline_media(compressed_data.len());
+        let outcome = if inline {
+            let content = Self::build_media_envelope(
+                media_type.clone(),
+                media_hash.clone(),
+                Some(file_name.clone()),
+                Some("image/jpeg".to_string()),
+                None,
+                None,
+                None,
+                &compressed_data,
+                None,
+            )?;
+            self.deliver_media_content(to, &message_id, content, "image")
+                .await
+        } else {
+            let timestamp = chrono::Utc::now().timestamp_millis();
+            let offer = MediaOffer {
+                message_id: message_id.clone(),
+                media_hash: media_hash.clone(),
+                media_type: media_type.as_str().to_string(),
+                file_name: file_name.clone(),
+                mime_type: "image/jpeg".to_string(),
+                file_size: compressed_data.len() as i64,
+                width: 0,
+                height: 0,
+                duration_seconds: 0,
+            };
+            let message_type = MessageType::MediaOffer;
+            let payload = Payload::MediaOffer(offer);
 
-        let offer = MediaOffer {
-            message_id: message_id.clone(),
-            media_hash: media_hash.clone(),
-            media_type: media_type.as_str().to_string(),
-            file_name: file_name.clone(),
-            mime_type: "image/jpeg".to_string(),
-            file_size: compressed_data.len() as i64,
-            width: 0,
-            height: 0,
-            duration_seconds: 0,
+            let proto_message = Message {
+                id: message_id.clone(),
+                sender_peer_id: self.local_peer_id().to_string(),
+                recipient_peer_id: to.to_string(),
+                timestamp,
+                r#type: message_type as i32,
+                payload: Some(payload),
+            };
+
+            self.deliver_message(to, &proto_message, "image").await
         };
-        let message_type = MessageType::MediaOffer;
-        let payload = Payload::MediaOffer(offer);
-
-        // Create protocol message
-        let proto_message = Message {
-            id: message_id.clone(),
-            sender_peer_id: self.local_peer_id().to_string(),
-            recipient_peer_id: to.to_string(),
-            timestamp,
-            r#type: message_type as i32,
-            payload: Some(payload),
-        };
-
-        let outcome = self.deliver_message(to, &proto_message, "image").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -772,10 +866,8 @@ impl Client {
         file_name: String,
         duration_seconds: i32,
     ) -> Result<String> {
-        // Calculate media hash
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
-        let timestamp = chrono::Utc::now().timestamp_millis();
 
         let mut media_hash = Self::compute_media_hash(audio_data, None);
         if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
@@ -785,31 +877,48 @@ impl Client {
         let local_path = self.write_media_file(&media_hash, Some(&file_name), audio_data)?;
         let media_type = MediaType::VoiceMessage;
         let placeholder = Self::media_placeholder(&media_type, Some(&file_name), Some(duration_seconds));
+        let inline = Self::should_inline_media(audio_data.len());
+        let outcome = if inline {
+            let content = Self::build_media_envelope(
+                media_type.clone(),
+                media_hash.clone(),
+                Some(file_name.clone()),
+                Some("audio/aac".to_string()),
+                None,
+                None,
+                Some(duration_seconds),
+                audio_data,
+                None,
+            )?;
+            self.deliver_media_content(to, &message_id, content, "voice")
+                .await
+        } else {
+            let timestamp = chrono::Utc::now().timestamp_millis();
+            let offer = MediaOffer {
+                message_id: message_id.clone(),
+                media_hash: media_hash.clone(),
+                media_type: media_type.as_str().to_string(),
+                file_name: file_name.clone(),
+                mime_type: "audio/aac".to_string(),
+                file_size: audio_data.len() as i64,
+                width: 0,
+                height: 0,
+                duration_seconds,
+            };
+            let message_type = MessageType::MediaOffer;
+            let payload = Payload::MediaOffer(offer);
 
-        let offer = MediaOffer {
-            message_id: message_id.clone(),
-            media_hash: media_hash.clone(),
-            media_type: media_type.as_str().to_string(),
-            file_name: file_name.clone(),
-            mime_type: "audio/aac".to_string(),
-            file_size: audio_data.len() as i64,
-            width: 0,
-            height: 0,
-            duration_seconds,
+            let proto_message = Message {
+                id: message_id.clone(),
+                sender_peer_id: self.local_peer_id().to_string(),
+                recipient_peer_id: to.to_string(),
+                timestamp,
+                r#type: message_type as i32,
+                payload: Some(payload),
+            };
+
+            self.deliver_message(to, &proto_message, "voice").await
         };
-        let message_type = MessageType::MediaOffer;
-        let payload = Payload::MediaOffer(offer);
-
-        let proto_message = Message {
-            id: message_id.clone(),
-            sender_peer_id: self.local_peer_id().to_string(),
-            recipient_peer_id: to.to_string(),
-            timestamp,
-            r#type: message_type as i32,
-            payload: Some(payload),
-        };
-
-        let outcome = self.deliver_message(to, &proto_message, "voice").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -872,10 +981,8 @@ impl Client {
         file_name: String,
         mime_type: String,
     ) -> Result<String> {
-        // Calculate media hash
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
-        let timestamp = chrono::Utc::now().timestamp_millis();
 
         let mut media_hash = Self::compute_media_hash(file_data, None);
         if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
@@ -885,31 +992,48 @@ impl Client {
         let local_path = self.write_media_file(&media_hash, Some(&file_name), file_data)?;
         let media_type = MediaType::Document;
         let placeholder = Self::media_placeholder(&media_type, Some(&file_name), None);
+        let inline = Self::should_inline_media(file_data.len());
+        let outcome = if inline {
+            let content = Self::build_media_envelope(
+                media_type.clone(),
+                media_hash.clone(),
+                Some(file_name.clone()),
+                Some(mime_type.clone()),
+                None,
+                None,
+                None,
+                file_data,
+                None,
+            )?;
+            self.deliver_media_content(to, &message_id, content, "document")
+                .await
+        } else {
+            let timestamp = chrono::Utc::now().timestamp_millis();
+            let offer = MediaOffer {
+                message_id: message_id.clone(),
+                media_hash: media_hash.clone(),
+                media_type: media_type.as_str().to_string(),
+                file_name: file_name.clone(),
+                mime_type: mime_type.clone(),
+                file_size: file_data.len() as i64,
+                width: 0,
+                height: 0,
+                duration_seconds: 0,
+            };
+            let message_type = MessageType::MediaOffer;
+            let payload = Payload::MediaOffer(offer);
 
-        let offer = MediaOffer {
-            message_id: message_id.clone(),
-            media_hash: media_hash.clone(),
-            media_type: media_type.as_str().to_string(),
-            file_name: file_name.clone(),
-            mime_type: mime_type.clone(),
-            file_size: file_data.len() as i64,
-            width: 0,
-            height: 0,
-            duration_seconds: 0,
+            let proto_message = Message {
+                id: message_id.clone(),
+                sender_peer_id: self.local_peer_id().to_string(),
+                recipient_peer_id: to.to_string(),
+                timestamp,
+                r#type: message_type as i32,
+                payload: Some(payload),
+            };
+
+            self.deliver_message(to, &proto_message, "document").await
         };
-        let message_type = MessageType::MediaOffer;
-        let payload = Payload::MediaOffer(offer);
-
-        let proto_message = Message {
-            id: message_id.clone(),
-            sender_peer_id: self.local_peer_id().to_string(),
-            recipient_peer_id: to.to_string(),
-            timestamp,
-            r#type: message_type as i32,
-            payload: Some(payload),
-        };
-
-        let outcome = self.deliver_message(to, &proto_message, "document").await;
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -977,10 +1101,8 @@ impl Client {
     ) -> Result<String> {
         self.ensure_peer_connected(to).await;
 
-        // Calculate video hash
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
-        let timestamp = chrono::Utc::now().timestamp_millis();
 
         let mut media_hash = Self::compute_media_hash(video_data, None);
         if let Ok(Some(_existing)) = self.database.get_media_by_hash(&media_hash) {
@@ -996,30 +1118,48 @@ impl Client {
             thumbnail_path = Some(self.write_thumbnail_file(&media_hash, thumb_data)?);
         }
 
-        let offer = MediaOffer {
-            message_id: message_id.clone(),
-            media_hash: media_hash.clone(),
-            media_type: media_type.as_str().to_string(),
-            file_name: file_name.clone(),
-            mime_type: "video/mp4".to_string(),
-            file_size: video_data.len() as i64,
-            width: width.unwrap_or(0),
-            height: height.unwrap_or(0),
-            duration_seconds,
-        };
-        let message_type = MessageType::MediaOffer;
-        let payload = Payload::MediaOffer(offer);
+        let inline = Self::should_inline_media(video_data.len());
+        let outcome = if inline {
+            let content = Self::build_media_envelope(
+                media_type.clone(),
+                media_hash.clone(),
+                Some(file_name.clone()),
+                Some("video/mp4".to_string()),
+                width,
+                height,
+                Some(duration_seconds),
+                video_data,
+                thumbnail_data,
+            )?;
+            self.deliver_media_content(to, &message_id, content, "video")
+                .await
+        } else {
+            let timestamp = chrono::Utc::now().timestamp_millis();
+            let offer = MediaOffer {
+                message_id: message_id.clone(),
+                media_hash: media_hash.clone(),
+                media_type: media_type.as_str().to_string(),
+                file_name: file_name.clone(),
+                mime_type: "video/mp4".to_string(),
+                file_size: video_data.len() as i64,
+                width: width.unwrap_or(0),
+                height: height.unwrap_or(0),
+                duration_seconds,
+            };
+            let message_type = MessageType::MediaOffer;
+            let payload = Payload::MediaOffer(offer);
 
-        let proto_message = Message {
-            id: message_id.clone(),
-            sender_peer_id: self.local_peer_id().to_string(),
-            recipient_peer_id: to.to_string(),
-            timestamp,
-            r#type: message_type as i32,
-            payload: Some(payload),
-        };
+            let proto_message = Message {
+                id: message_id.clone(),
+                sender_peer_id: self.local_peer_id().to_string(),
+                recipient_peer_id: to.to_string(),
+                timestamp,
+                r#type: message_type as i32,
+                payload: Some(payload),
+            };
 
-        let outcome = self.deliver_message(to, &proto_message, "video").await;
+            self.deliver_message(to, &proto_message, "video").await
+        };
 
         // Store in database
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
@@ -1429,20 +1569,38 @@ impl Client {
         let message_store_url = self.message_store_url.clone();
         let message_store_http = self.message_store_http.clone();
 
-        tokio::spawn(async move {
-            if let Err(e) = Client::deliver_message_with(
-                network,
-                to_peer_id,
-                proto_message,
-                "reaction",
-                message_store_url,
-                message_store_http,
-            )
-            .await
-            {
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            tokio::task::block_in_place(|| {
+                handle.block_on(async move {
+                    if let Err(e) = Client::deliver_message_with(
+                        network,
+                        to_peer_id,
+                        proto_message,
+                        "reaction",
+                        message_store_url,
+                        message_store_http,
+                    )
+                    .await
+                    {
+                        tracing::warn!("Failed to broadcast reaction: {}", e);
+                    }
+                });
+            });
+        } else {
+            if let Err(e) = futures::executor::block_on(async move {
+                Client::deliver_message_with(
+                    network,
+                    to_peer_id,
+                    proto_message,
+                    "reaction",
+                    message_store_url,
+                    message_store_http,
+                )
+                .await
+            }) {
                 tracing::warn!("Failed to broadcast reaction: {}", e);
             }
-        });
+        }
 
         Ok(())
     }
@@ -1650,6 +1808,17 @@ impl Client {
             .await;
     }
 
+    /// Register callback for VoIP call lifecycle events (incoming/state/ended)
+    #[cfg(any(feature = "voip", feature = "video"))]
+    pub async fn register_call_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiCallEventCallback>,
+    ) {
+        self.voip_integration
+            .register_call_event_callback(callback)
+            .await;
+    }
+
     // ========== Group Methods (FASE 15) ==========
 
     /// Create a new group
@@ -1759,7 +1928,7 @@ impl Client {
         let message_id = uuid::Uuid::new_v4().to_string();
         let conversation_id = format!("group:{}", group_id);
 
-        let group_message = crate::group::GroupMessage {
+        let mut group_message = crate::group::GroupMessage {
             message_id: message_id.clone(),
             group_id: group_id.clone(),
             sender_peer_id: self.local_peer_id().to_string(),
@@ -1768,6 +1937,10 @@ impl Client {
             timestamp: chrono::Utc::now().timestamp(),
             signature: Vec::new(),
         };
+        {
+            let identity = self.identity.read().await;
+            group_message.sign(identity.keypair())?;
+        }
 
         let payload = serde_json::to_vec(&group_message)
             .map_err(|e| MePassaError::Protocol(format!("Invalid group message: {}", e)))?;

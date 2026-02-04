@@ -4,6 +4,7 @@
 
 use super::storage;
 use super::types::{Group, GroupEvent, GroupMessage, GroupRole};
+use crate::identity::PublicKey;
 use crate::storage::{Database, MessageStatus, NewMessage};
 use crate::utils::error::{MePassaError, Result};
 use libp2p::gossipsub::{self, IdentTopic, TopicHash};
@@ -361,7 +362,20 @@ impl GroupManager {
                 return Err(MePassaError::Permission("Sender is not a group member".to_string()));
             }
 
-            // TODO: Verify signature
+            if !group_msg.signature.is_empty() {
+                if let Ok(contact) = self.db.get_contact_by_peer_id(&group_msg.sender_peer_id) {
+                    let public_key = PublicKey::from_bytes(&contact.public_key)?;
+                    group_msg.verify_signature(&public_key)?;
+                } else if group_msg.sender_peer_id != self.local_peer_id {
+                    return Err(MePassaError::Permission(
+                        "Missing sender public key for signature verification".to_string(),
+                    ));
+                }
+            } else {
+                return Err(MePassaError::Permission(
+                    "Missing group message signature".to_string(),
+                ));
+            }
 
             self.ensure_group_conversation(group)?;
             self.store_group_message(group, &group_msg)?;

@@ -3,6 +3,7 @@ package com.mepassa.ui.navigation
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
@@ -59,6 +60,8 @@ sealed class Screen(val route: String) {
 @Composable
 fun MePassaNavHost(
     isClientInitialized: Boolean,
+    pendingPeerId: String?,
+    onPeerIdConsumed: () -> Unit,
     navController: NavHostController = rememberNavController()
 ) {
     // Determina tela inicial baseado no estado do client
@@ -68,10 +71,16 @@ fun MePassaNavHost(
         Screen.Onboarding.route
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination
-    ) {
+    LaunchedEffect(pendingPeerId, isClientInitialized) {
+        val peerId = pendingPeerId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (!isClientInitialized) return@LaunchedEffect
+        navController.navigate(Screen.Chat.createRoute(peerId)) {
+            launchSingleTop = true
+        }
+        onPeerIdConsumed()
+    }
+
+    NavHost(navController = navController, startDestination = startDestination) {
         // Onboarding
         composable(Screen.Onboarding.route) {
             OnboardingScreen(

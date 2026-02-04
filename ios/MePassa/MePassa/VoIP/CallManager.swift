@@ -75,7 +75,7 @@ class CallManager: NSObject, ObservableObject {
     }
 
     // MARK: - Incoming Call
-    func reportIncomingCall(callId: UUID, peerId: String, displayName: String, completion: @escaping (Error?) -> Void) {
+    func reportIncomingCall(callId: UUID, peerId: String, displayName: String, coreCallId: String? = nil, completion: @escaping (Error?) -> Void) {
         let update = CXCallUpdate()
         update.remoteHandle = CXHandle(type: .generic, value: peerId)
         update.localizedCallerName = displayName
@@ -93,18 +93,19 @@ class CallManager: NSObject, ObservableObject {
             }
 
             print("✅ Incoming call reported")
-            self?.createCall(id: callId, peerId: peerId, displayName: displayName, isOutgoing: false)
+            self?.createCall(id: callId, peerId: peerId, displayName: displayName, isOutgoing: false, coreCallId: coreCallId)
             completion(nil)
         }
     }
 
     // MARK: - Call Management
-    private func createCall(id: UUID, peerId: String, displayName: String, isOutgoing: Bool) {
+    private func createCall(id: UUID, peerId: String, displayName: String, isOutgoing: Bool, coreCallId: String? = nil) {
         let call = Call(
             id: id,
             peerId: peerId,
             displayName: displayName,
-            isOutgoing: isOutgoing
+            isOutgoing: isOutgoing,
+            coreCallId: coreCallId
         )
 
         DispatchQueue.main.async {
@@ -112,7 +113,6 @@ class CallManager: NSObject, ObservableObject {
             self.callState = isOutgoing ? .connecting : .ringing
         }
 
-        // TODO: Connect to VoIP engine via UniFFI
         if isOutgoing {
             initiateWebRTCConnection(peerId: peerId)
         }
@@ -147,12 +147,16 @@ class CallManager: NSObject, ObservableObject {
             }
 
             print("✅ Call ended")
+            if let coreCallId = call.coreCallId {
+                Task {
+                    try? await MePassaCore.shared.hangupCall(callId: coreCallId)
+                }
+            }
             self?.cleanupCall()
         }
     }
 
     private func cleanupCall() {
-        // TODO: Disconnect WebRTC via UniFFI
         stopAudio()
 
         DispatchQueue.main.async {
@@ -174,6 +178,11 @@ class CallManager: NSObject, ObservableObject {
         }
 
         print("🔇 Mute: \(isMuted)")
+        if let coreCallId = currentCall?.coreCallId {
+            Task {
+                try? await MePassaCore.shared.toggleMute(callId: coreCallId)
+            }
+        }
     }
 
     func toggleSpeaker() {
@@ -184,6 +193,11 @@ class CallManager: NSObject, ObservableObject {
             print("🔊 Speaker: \(isSpeakerOn)")
         } catch {
             print("❌ Error toggling speaker: \(error)")
+        }
+        if let coreCallId = currentCall?.coreCallId {
+            Task {
+                try? await MePassaCore.shared.toggleSpeaker(callId: coreCallId)
+            }
         }
     }
 
@@ -213,17 +227,74 @@ class CallManager: NSObject, ObservableObject {
         print("📸 Camera switch requested from core")
     }
 
+    // MARK: - Call Lifecycle Handlers
+    func handleIncomingCall(coreCallId: String, fromPeerId: String) {
+        if currentCall != nil {
+            print("⚠️ Incoming call ignored - already in call")
+            return
+        }
+        let callUuid = UUID()
+        reportIncomingCall(callId: callUuid, peerId: fromPeerId, displayName: fromPeerId, coreCallId: coreCallId) { error in
+            if let error = error {
+                print("❌ Failed to report incoming call: \(error)")
+            }
+        }
+    }
+
+    func handleCallStateChanged(coreCallId: String, state: FfiCallState) {
+        guard currentCall?.coreCallId == coreCallId else {
+            return
+        }
+
+        let mappedState: CallState
+        switch state {
+        case .initiating, .connecting:
+            mappedState = .connecting
+        case .ringing:
+            mappedState = .ringing
+        case .active:
+            mappedState = .connected
+        case .ending, .ended:
+            mappedState = .ended
+        }
+
+        callState = mappedState
+
+        if mappedState == .ended {
+            cleanupCall()
+        }
+    }
+
+    func handleCallEnded(coreCallId: String, reason: FfiCallEndReason) {
+        guard currentCall?.coreCallId == coreCallId else {
+            return
+        }
+
+        print("📴 Call ended (\(reason))")
+        callState = .ended
+        cleanupCall()
+    }
+
     // MARK: - WebRTC Integration (TODO)
     private func initiateWebRTCConnection(peerId: String) {
-        // TODO: Call UniFFI to start WebRTC connection
-        // This will integrate with core/src/voip/engine.rs
-
         print("📞 Initiating WebRTC connection to \(peerId)...")
-
-        // Simulate connection delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            self.callState = .connected
-            self.startAudio()
+        Task {
+            do {
+                let coreCallId = try await MePassaCore.shared.startCall(to: peerId)
+                DispatchQueue.main.async {
+                    if var call = self.currentCall {
+                        call.coreCallId = coreCallId
+                        self.currentCall = call
+                    }
+                    self.callState = .connected
+                }
+                self.startAudio()
+            } catch {
+                DispatchQueue.main.async {
+                    self.callState = .ended
+                }
+                print("❌ Failed to start core call: \(error)")
+            }
         }
     }
 
@@ -271,8 +342,16 @@ extension CallManager: CXProviderDelegate {
 
         configureAudioSession()
 
-        // TODO: Accept call via UniFFI WebRTC
-        print("✅ Accepting call...")
+        if let coreCallId = call.coreCallId {
+            Task {
+                do {
+                    try await MePassaCore.shared.acceptCall(callId: coreCallId)
+                    print("✅ Accepted call via core")
+                } catch {
+                    print("❌ Failed to accept call via core: \(error)")
+                }
+            }
+        }
 
         DispatchQueue.main.async {
             self.callState = .connected
@@ -283,13 +362,22 @@ extension CallManager: CXProviderDelegate {
     }
 
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        if let coreCallId = currentCall?.coreCallId {
+            Task {
+                try? await MePassaCore.shared.hangupCall(callId: coreCallId)
+            }
+        }
         cleanupCall()
         action.fulfill()
     }
 
     func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
         isMuted = action.isMuted
-        // TODO: Apply mute to WebRTC
+        if let coreCallId = currentCall?.coreCallId {
+            Task {
+                try? await MePassaCore.shared.toggleMute(callId: coreCallId)
+            }
+        }
         action.fulfill()
     }
 
@@ -333,6 +421,7 @@ struct Call: Identifiable {
     let displayName: String
     let isOutgoing: Bool
     var startTime: Date = Date()
+    var coreCallId: String?
 }
 
 enum CallState {

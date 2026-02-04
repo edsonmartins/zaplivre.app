@@ -172,6 +172,9 @@ enum ClientCommand {
     RegisterVoipEventCallback {
         callback: Box<dyn crate::FfiVoipEventCallback>,
     },
+    RegisterCallEventCallback {
+        callback: Box<dyn crate::FfiCallEventCallback>,
+    },
     // Group commands (FASE 15)
     CreateGroup {
         name: String,
@@ -478,6 +481,10 @@ async fn run_client_task_arc(
             #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::RegisterVoipEventCallback { callback } => {
                 client.register_voip_event_callback(callback).await;
+            }
+            #[cfg(any(feature = "voip", feature = "video"))]
+            ClientCommand::RegisterCallEventCallback { callback } => {
+                client.register_call_event_callback(callback).await;
             }
             // Group command handlers (FASE 15)
             ClientCommand::CreateGroup {
@@ -1396,6 +1403,20 @@ impl MePassaClient {
             })
     }
 
+    /// Register callback for call lifecycle events (incoming/state/ended)
+    #[cfg(any(feature = "voip", feature = "video"))]
+    pub fn register_call_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiCallEventCallback>,
+    ) -> Result<(), MePassaFfiError> {
+        self.handle()
+            .sender
+            .send(ClientCommand::RegisterCallEventCallback { callback })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })
+    }
+
     // ========== VoIP Method Stubs (when feature is disabled) ==========
 
     #[cfg(not(feature = "voip"))]
@@ -1489,6 +1510,17 @@ impl MePassaClient {
     pub fn register_video_frame_callback(
         &self,
         _callback: Box<dyn crate::FfiVideoFrameCallback>,
+    ) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
+        })
+    }
+
+    #[cfg(not(any(feature = "voip", feature = "video")))]
+    /// Register call event callback (stub - VoIP/video features disabled)
+    pub fn register_call_event_callback(
+        &self,
+        _callback: Box<dyn crate::FfiCallEventCallback>,
     ) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),

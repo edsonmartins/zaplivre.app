@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod identity_store;
 
 use std::sync::{Arc, Mutex};
 use tracing_subscriber;

@@ -150,8 +150,13 @@ struct VideoCallScreen: View {
     
     private func toggleMute() {
         isMuted.toggle()
-        // TODO: Call FFI toggle_mute
-        // try? MePassaCore.shared.toggleMute(callId: callId)
+        Task {
+            do {
+                try await MePassaCore.shared.toggleMute(callId: callId)
+            } catch {
+                print("❌ Failed to toggle mute: \(error)")
+            }
+        }
     }
     
     private func switchCamera() {
@@ -168,6 +173,9 @@ struct VideoCallScreen: View {
     
     private func hangup() {
         stopVideo()
+        Task {
+            try? await MePassaCore.shared.hangupCall(callId: callId)
+        }
         onHangup()
     }
     

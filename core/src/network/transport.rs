@@ -5,7 +5,7 @@
 use libp2p::{
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
     identity::Keypair,
-    noise, quic, tcp, yamux, PeerId, Transport,
+    noise, quic, relay, tcp, yamux, PeerId, Transport,
 };
 use std::time::Duration;
 
@@ -15,7 +15,21 @@ use crate::utils::error::{MePassaError, Result};
 /// - TCP + QUIC (dual-stack)
 /// - Noise encryption
 /// - Yamux multiplexing
-pub fn build_transport(keypair: &Keypair) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
+pub fn build_transport(
+    keypair: &Keypair,
+    local_peer_id: PeerId,
+) -> Result<(Boxed<(PeerId, StreamMuxerBox)>, relay::client::Behaviour)> {
+    let (relay_transport, relay_behaviour) = relay::client::new(local_peer_id);
+
+    let relay_transport = relay_transport
+        .upgrade(upgrade::Version::V1Lazy)
+        .authenticate(noise::Config::new(keypair).map_err(|e| {
+            MePassaError::Network(format!("Failed to create Noise config: {}", e))
+        })?)
+        .multiplex(yamux::Config::default())
+        .timeout(Duration::from_secs(20))
+        .boxed();
+
     // TCP transport with Noise + Yamux (using tokio runtime)
     let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
         .upgrade(upgrade::Version::V1Lazy)
@@ -32,12 +46,17 @@ pub fn build_transport(keypair: &Keypair) -> Result<Boxed<(PeerId, StreamMuxerBo
         .boxed();
 
     // Combine transports (try QUIC first, fallback to TCP)
-    let transport = quic_transport
+    let base_transport = quic_transport
         .or_transport(tcp_transport)
         .map(|either, _| either.into_inner())
         .boxed();
 
-    Ok(transport)
+    let transport = relay_transport
+        .or_transport(base_transport)
+        .map(|either, _| either.into_inner())
+        .boxed();
+
+    Ok((transport, relay_behaviour))
 }
 
 #[cfg(test)]
@@ -48,9 +67,8 @@ mod tests {
     #[test]
     fn test_build_transport() {
         let keypair = identity::Keypair::generate_ed25519();
-        let transport = build_transport(&keypair);
-
-        assert!(transport.is_ok());
+    let transport = build_transport(&keypair, PeerId::from(keypair.public()));
+    assert!(transport.is_ok());
     }
 
     #[test]
@@ -58,8 +76,8 @@ mod tests {
         let keypair1 = identity::Keypair::generate_ed25519();
         let keypair2 = identity::Keypair::generate_ed25519();
 
-        let transport1 = build_transport(&keypair1);
-        let transport2 = build_transport(&keypair2);
+        let transport1 = build_transport(&keypair1, PeerId::from(keypair1.public()));
+        let transport2 = build_transport(&keypair2, PeerId::from(keypair2.public()));
 
         assert!(transport1.is_ok());
         assert!(transport2.is_ok());

@@ -71,6 +71,12 @@ callback interface FfiVoipEventCallback {
     void on_camera_switch_requested(string call_id);
 };
 
+// VoIP call lifecycle callback (incoming/state/ended)
+callback interface FfiCallEventCallback {
+    void on_incoming_call(string call_id, string from_peer_id);
+    void on_call_state_changed(string call_id, FfiCallState state);
+    void on_call_ended(string call_id, FfiCallEndReason reason);
+};
 // Message record
 dictionary FfiMessage {
     string message_id;
@@ -269,6 +275,9 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError]
     void register_voip_event_callback(FfiVoipEventCallback callback);
+
+    [Throws=MePassaFfiError]
+    void register_call_event_callback(FfiCallEventCallback callback);
 
     // Group methods (FASE 15)
     [Throws=MePassaFfiError, Async]

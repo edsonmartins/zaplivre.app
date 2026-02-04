@@ -33,6 +33,7 @@ struct MePassaApp: App {
                 .onAppear {
                     // Connect AppDelegate with PushManager
                     appDelegate.pushManager = pushManager
+                    pushManager.appState = appState
 
                     // Request push notification permissions
                     pushManager.requestAuthorization()
@@ -59,12 +60,17 @@ struct MePassaApp: App {
                 if let peerId = MePassaCore.shared.localPeerId {
                     await MainActor.run {
                         appState.login(peerId: peerId)
+                        pushManager.refreshRegistration()
                     }
                 }
 
                 let handler = VoipEventHandler(callManager: callManager)
                 appState.voipEventHandler = handler
                 try await MePassaCore.shared.registerVoipEventCallback(handler)
+
+                let callHandler = CallEventHandler(callManager: callManager)
+                appState.callEventHandler = callHandler
+                try await MePassaCore.shared.registerCallEventCallback(callHandler)
             } catch {
                 print("❌ Failed to initialize MePassa Core: \(error)")
             }
@@ -86,10 +92,12 @@ class AppState: ObservableObject {
 
     private var refreshTimer: Timer?
     var voipEventHandler: VoipEventHandler?
+    var callEventHandler: CallEventHandler?
 
     func login(peerId: String) {
         self.isAuthenticated = true
         self.currentUser = User(id: peerId, username: nil, peerId: peerId)
+        UserDefaults.standard.set(peerId, forKey: "local_peer_id")
         print("✅ Logged in as: \(peerId)")
 
         // Start auto-refresh when logged in
@@ -101,9 +109,22 @@ class AppState: ObservableObject {
         self.currentUser = nil
         self.conversations = []
         self.groups = []
+        self.pendingConversationPeerId = nil
 
         // Stop auto-refresh when logged out
         stopAutoRefresh()
+    }
+
+    @Published var pendingConversationPeerId: String?
+
+    func openConversation(peerId: String) {
+        if !isAuthenticated {
+            pendingConversationPeerId = peerId
+            return
+        }
+
+        pendingConversationPeerId = peerId
+        loadConversations()
     }
 
     /// Load conversations from MePassaCore

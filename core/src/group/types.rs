@@ -5,6 +5,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+use crate::identity::{Keypair, PublicKey};
+use crate::utils::error::{MePassaError, Result};
+
 /// Group metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Group {
@@ -171,6 +174,26 @@ pub struct GroupMessage {
 
     /// Sender signature (Ed25519)
     pub signature: Vec<u8>,
+}
+
+impl GroupMessage {
+    fn signing_payload(&self) -> Result<Vec<u8>> {
+        let mut clone = self.clone();
+        clone.signature = Vec::new();
+        serde_json::to_vec(&clone)
+            .map_err(|e| MePassaError::Protocol(format!("Failed to encode group message: {}", e)))
+    }
+
+    pub fn sign(&mut self, keypair: &Keypair) -> Result<()> {
+        let payload = self.signing_payload()?;
+        self.signature = keypair.sign(&payload).to_vec();
+        Ok(())
+    }
+
+    pub fn verify_signature(&self, public_key: &PublicKey) -> Result<()> {
+        let payload = self.signing_payload()?;
+        public_key.verify(&payload, &self.signature)
+    }
 }
 
 /// Group message type

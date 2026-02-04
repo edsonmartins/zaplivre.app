@@ -85,6 +85,13 @@ pub trait FfiVoipEventCallback: Send + Sync {
     fn on_camera_switch_requested(&self, call_id: String);
 }
 
+// VoIP call lifecycle callback
+pub trait FfiCallEventCallback: Send + Sync {
+    fn on_incoming_call(&self, call_id: String, from_peer_id: String);
+    fn on_call_state_changed(&self, call_id: String, state: crate::ffi::FfiCallState);
+    fn on_call_ended(&self, call_id: String, reason: crate::ffi::FfiCallEndReason);
+}
+
 // Include UniFFI scaffolding (after all module declarations)
 uniffi::include_scaffolding!("mepassa");
 

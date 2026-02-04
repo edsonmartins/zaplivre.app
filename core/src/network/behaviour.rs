@@ -34,6 +34,8 @@ pub struct MePassaBehaviour {
     pub gossipsub: gossipsub::Behaviour,
     /// Request/Response for direct messaging
     pub request_response: request_response::Behaviour<MePassaCodec>,
+    /// Relay client (v2) for reservations and relayed connections
+    pub relay: relay::client::Behaviour,
     /// Request/Response for VoIP signaling (WebRTC)
     #[cfg(any(feature = "voip", feature = "video"))]
     pub voip_signaling: request_response::Behaviour<SignalingCodec>,
@@ -43,7 +45,11 @@ pub struct MePassaBehaviour {
 
 impl MePassaBehaviour {
     /// Create a new MePassa network behaviour
-    pub fn new(local_peer_id: PeerId, keypair: &libp2p::identity::Keypair) -> crate::utils::error::Result<Self> {
+    pub fn new(
+        local_peer_id: PeerId,
+        keypair: &libp2p::identity::Keypair,
+        relay: relay::client::Behaviour,
+    ) -> crate::utils::error::Result<Self> {
         // Kademlia DHT configuration
         let mut kad_config = kad::Config::default();
         kad_config.set_query_timeout(Duration::from_secs(60));
@@ -122,6 +128,7 @@ impl MePassaBehaviour {
             ping,
             gossipsub,
             request_response,
+            relay,
             #[cfg(any(feature = "voip", feature = "video"))]
             voip_signaling,
             dcutr,
@@ -139,7 +146,8 @@ mod tests {
         let keypair = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(keypair.public());
 
-        let behaviour = MePassaBehaviour::new(local_peer_id, &keypair);
+        let (_relay_transport, relay) = relay::client::new(local_peer_id);
+        let behaviour = MePassaBehaviour::new(local_peer_id, &keypair, relay);
 
         assert!(behaviour.is_ok());
     }
@@ -152,8 +160,10 @@ mod tests {
         let peer1 = PeerId::from(keypair1.public());
         let peer2 = PeerId::from(keypair2.public());
 
-        let behaviour1 = MePassaBehaviour::new(peer1, &keypair1);
-        let behaviour2 = MePassaBehaviour::new(peer2, &keypair2);
+        let (_relay_transport1, relay1) = relay::client::new(peer1);
+        let (_relay_transport2, relay2) = relay::client::new(peer2);
+        let behaviour1 = MePassaBehaviour::new(peer1, &keypair1, relay1);
+        let behaviour2 = MePassaBehaviour::new(peer2, &keypair2, relay2);
 
         assert!(behaviour1.is_ok());
         assert!(behaviour2.is_ok());

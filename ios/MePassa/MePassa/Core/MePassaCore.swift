@@ -43,8 +43,12 @@ class MePassaCore: ObservableObject {
             }
         }
 
+        setIdentityEnvFromKeychain()
+
         client = try await MePassaClient(dataDir: dataDir)
         localPeerId = try await client?.localPeerId()
+
+        persistIdentityToKeychainIfNeeded()
 
         DispatchQueue.main.async {
             self.isInitialized = true
@@ -72,8 +76,8 @@ class MePassaCore: ObservableObject {
             throw MePassaCoreError.storageError("Invalid backup data")
         }
 
-        let keyPath = identityKeyPath()
-        try data.write(to: URL(fileURLWithPath: keyPath), options: .atomic)
+        try KeychainStore.saveIdentity(data)
+        removeIdentityFileIfExists()
 
         let dbPath = databasePath()
         if FileManager.default.fileExists(atPath: dbPath) {
@@ -83,6 +87,9 @@ class MePassaCore: ObservableObject {
 
     /// Export current identity for backup
     func exportIdentity() async throws -> String {
+        if let data = try KeychainStore.loadIdentity() {
+            return data.base64EncodedString()
+        }
         let keyPath = identityKeyPath()
         let data = try Data(contentsOf: URL(fileURLWithPath: keyPath))
         return data.base64EncodedString()
@@ -111,6 +118,43 @@ class MePassaCore: ObservableObject {
         return URL(fileURLWithPath: dataDir)
             .appendingPathComponent("identity.key")
             .path
+    }
+
+    private func setIdentityEnvFromKeychain() {
+        do {
+            if let data = try KeychainStore.loadIdentity() {
+                let b64 = data.base64EncodedString()
+                setenv("MEPASSA_IDENTITY_B64", b64, 1)
+                return
+            }
+        } catch {
+            print("⚠️ Failed to read identity from Keychain: \(error)")
+        }
+        unsetenv("MEPASSA_IDENTITY_B64")
+    }
+
+    private func persistIdentityToKeychainIfNeeded() {
+        do {
+            if try KeychainStore.loadIdentity() == nil {
+                let keyPath = identityKeyPath()
+                if FileManager.default.fileExists(atPath: keyPath) {
+                    let data = try Data(contentsOf: URL(fileURLWithPath: keyPath))
+                    try KeychainStore.saveIdentity(data)
+                }
+            }
+
+            // Remove file-based identity to avoid plaintext storage
+            removeIdentityFileIfExists()
+        } catch {
+            print("⚠️ Failed to persist identity in Keychain: \(error)")
+        }
+    }
+
+    private func removeIdentityFileIfExists() {
+        let keyPath = identityKeyPath()
+        if FileManager.default.fileExists(atPath: keyPath) {
+            try? FileManager.default.removeItem(atPath: keyPath)
+        }
     }
 
     private func databasePath() -> String {
@@ -452,6 +496,16 @@ class MePassaCore: ObservableObject {
 
         try await client.registerVoipEventCallback(callback: callback)
         print("✅ VoIP event callback registered")
+    }
+
+    /// Register callback for call lifecycle events (incoming/state/ended)
+    func registerCallEventCallback(_ callback: FfiCallEventCallback) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.registerCallEventCallback(callback: callback)
+        print("✅ Call event callback registered")
     }
 }
 

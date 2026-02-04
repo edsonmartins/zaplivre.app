@@ -16,7 +16,9 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
+use ed25519_dalek::SigningKey;
 use hkdf::Hkdf;
+use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
@@ -52,8 +54,8 @@ impl SenderKey {
         // Generate random chain key (32 bytes)
         let chain_key = rand::random::<[u8; 32]>().to_vec();
 
-        // Generate signing key (for now, placeholder)
-        let signing_key = vec![0u8; 32];
+        // Generate signing key (public key stored; private key handled by sender)
+        let signing_key = SigningKey::generate(&mut OsRng).verifying_key().to_bytes().to_vec();
 
         Ok(Self {
             group_id,

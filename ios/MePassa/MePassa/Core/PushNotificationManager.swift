@@ -15,6 +15,8 @@ class PushNotificationManager: NSObject, ObservableObject {
     @Published var deviceToken: String?
     @Published var isRegistered = false
 
+    weak var appState: AppState?
+
     private let pushServerURL: String = {
         if let url = Bundle.main.object(forInfoDictionaryKey: "PUSH_SERVER_URL") as? String {
             if !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -60,6 +62,14 @@ class PushNotificationManager: NSObject, ObservableObject {
         }
     }
 
+    /// Re-register token after peer ID is available
+    func refreshRegistration() {
+        guard let token = deviceToken else { return }
+        Task {
+            await self.registerTokenWithServer(token: token)
+        }
+    }
+
     /// Called when registration fails
     func didFailToRegisterForRemoteNotifications(error: Error) {
         print("❌ Failed to register for remote notifications: \(error)")
@@ -73,8 +83,13 @@ class PushNotificationManager: NSObject, ObservableObject {
         }
 
         // Get peer ID from MePassa core
-        // TODO: Get actual peer ID from UniFFI client
-        let peerId = UserDefaults.standard.string(forKey: "local_peer_id") ?? "temp_peer_id"
+        let peerId = MePassaCore.shared.localPeerId
+            ?? UserDefaults.standard.string(forKey: "local_peer_id")
+            ?? ""
+        if peerId.isEmpty {
+            print("⚠️  Push registration skipped: missing peer ID")
+            return
+        }
 
         let payload: [String: Any] = [
             "peer_id": peerId,
@@ -130,9 +145,11 @@ class PushNotificationManager: NSObject, ObservableObject {
         }
 
         // Handle custom data
-        if let peerId = userInfo["peer_id"] as? String {
+        if let peerId = userInfo["peer_id"] as? String ?? userInfo["peerId"] as? String {
             print("   From peer: \(peerId)")
-            // TODO: Navigate to conversation or update UI
+            DispatchQueue.main.async { [weak self] in
+                self?.appState?.openConversation(peerId: peerId)
+            }
         }
     }
 

@@ -243,6 +243,27 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureRes
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD0
+typedef void (*UniffiCallbackInterfaceFfiCallEventCallbackMethod0)(uint64_t, RustBuffer, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD1
+typedef void (*UniffiCallbackInterfaceFfiCallEventCallbackMethod1)(uint64_t, RustBuffer, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD2
+typedef void (*UniffiCallbackInterfaceFfiCallEventCallbackMethod2)(uint64_t, RustBuffer, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK_METHOD0
 typedef void (*UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0)(uint64_t, RustBuffer, RustBuffer, uint32_t, uint32_t, void* _Nonnull, 
@@ -269,6 +290,17 @@ typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod1)(uint64_t, Rus
 typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod2)(uint64_t, RustBuffer, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK
+typedef struct UniffiVTableCallbackInterfaceFfiCallEventCallback {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceFfiCallEventCallbackMethod0 _Nonnull onIncomingCall;
+    UniffiCallbackInterfaceFfiCallEventCallbackMethod1 _Nonnull onCallStateChanged;
+    UniffiCallbackInterfaceFfiCallEventCallbackMethod2 _Nonnull onCallEnded;
+} UniffiVTableCallbackInterfaceFfiCallEventCallback;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK
@@ -436,6 +468,11 @@ RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(uint64_t pt
 void uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(uint64_t ptr, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
+void uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 void uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
@@ -524,6 +561,11 @@ uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(uint64_t ptr, R
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_SPEAKERPHONE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_SPEAKERPHONE
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(uint64_t ptr, RustBuffer call_id
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFICALLEVENTCALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFICALLEVENTCALLBACK
+void uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(const UniffiVTableCallbackInterfaceFfiCallEventCallback* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVIDEOFRAMECALLBACK
@@ -952,6 +994,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_rea
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback(void
@@ -1063,6 +1111,24 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone(v
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_CONSTRUCTOR_MEPASSACLIENT_NEW
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_CONSTRUCTOR_MEPASSACLIENT_NEW
 uint16_t uniffi_mepassa_core_checksum_constructor_mepassaclient_new(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_INCOMING_CALL
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_INCOMING_CALL
+uint16_t uniffi_mepassa_core_checksum_method_fficalleventcallback_on_incoming_call(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_CALL_STATE_CHANGED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_CALL_STATE_CHANGED
+uint16_t uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_state_changed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_CALL_ENDED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_CALL_ENDED
+uint16_t uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_ended(void
     
 );
 #endif

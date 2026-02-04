@@ -2,6 +2,7 @@ package com.mepassa.core
 
 import android.content.Context
 import android.util.Log
+import android.system.Os
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,6 +54,14 @@ object MePassaClientWrapper {
 
             Log.i(TAG, "Initializing MePassaClient with dataDir: ${dataDir.absolutePath}")
 
+            // Load identity from secure storage and set env var for Rust core
+            val secureIdentity = AndroidIdentityStore.loadIdentity(context)
+            if (!secureIdentity.isNullOrBlank()) {
+                Os.setenv("MEPASSA_IDENTITY_B64", secureIdentity, true)
+            } else {
+                Os.unsetenv("MEPASSA_IDENTITY_B64")
+            }
+
             // Criar client via UniFFI
             client = MePassaClient(dataDir.absolutePath)
 
@@ -60,6 +69,15 @@ object MePassaClientWrapper {
             val peerId = client!!.localPeerId()
             _localPeerId.value = peerId
             _isInitialized.value = true
+
+            // Persist identity to secure storage if still on disk
+            val keyFile = File(dataDir, "identity.key")
+            if (AndroidIdentityStore.loadIdentity(context).isNullOrBlank() && keyFile.exists()) {
+                val data = keyFile.readBytes()
+                val b64 = Base64.encodeToString(data, Base64.NO_WRAP)
+                AndroidIdentityStore.saveIdentity(context, b64)
+                keyFile.delete()
+            }
 
             // Register VoIP event callback (mute/speaker/camera)
             try {
@@ -82,6 +100,10 @@ object MePassaClientWrapper {
      * Returns null if the key does not exist.
      */
     suspend fun exportIdentity(context: Context): String? = withContext(Dispatchers.IO) {
+        val stored = AndroidIdentityStore.loadIdentity(context)
+        if (!stored.isNullOrBlank()) {
+            return@withContext stored
+        }
         val keyFile = File(context.filesDir, "mepassa_data/identity.key")
         if (!keyFile.exists()) {
             return@withContext null
@@ -112,8 +134,12 @@ object MePassaClientWrapper {
                 mkdirs()
             }
         }
+        val b64 = Base64.encodeToString(data, Base64.NO_WRAP)
+        AndroidIdentityStore.saveIdentity(context, b64)
         val keyFile = File(dataDir, "identity.key")
-        keyFile.writeBytes(data)
+        if (keyFile.exists()) {
+            keyFile.delete()
+        }
 
         val dbFile = File(dataDir, "mepassa.db")
         if (dbFile.exists()) {

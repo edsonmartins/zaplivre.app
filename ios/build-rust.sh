@@ -24,6 +24,9 @@ echo -e "${BLUE}Core directory:${NC} $CORE_DIR"
 echo -e "${BLUE}iOS directory:${NC} $IOS_DIR"
 echo ""
 
+# Work around older CMake minimums in bundled deps (e.g., audiopus)
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+
 # Create Libraries directory
 mkdir -p "$LIBRARIES_DIR"
 

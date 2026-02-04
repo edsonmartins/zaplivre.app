@@ -13,6 +13,7 @@ struct ConversationsView: View {
     @State private var showingNewChat = false
     @State private var showingSettings = false
     @State private var showingGroups = false
+    @State private var pushConversation: Conversation?
 
     var body: some View {
         NavigationView {
@@ -46,6 +47,25 @@ struct ConversationsView: View {
                     .listStyle(.plain)
                 }
             }
+            .background(
+                NavigationLink(
+                    destination: Group {
+                        if let convo = pushConversation {
+                            ChatView(conversation: convo)
+                        }
+                    },
+                    isActive: Binding(
+                        get: { appState.pendingConversationPeerId != nil },
+                        set: { active in
+                            if !active {
+                                appState.pendingConversationPeerId = nil
+                                pushConversation = nil
+                            }
+                        }
+                    )
+                ) { EmptyView() }
+                .hidden()
+            )
             .navigationTitle("Conversas")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -72,6 +92,21 @@ struct ConversationsView: View {
             }
             .sheet(isPresented: $showingGroups) {
                 GroupListView()
+            }
+            .onChange(of: appState.pendingConversationPeerId) { newValue in
+                guard let peerId = newValue else { return }
+                if let existing = appState.conversations.first(where: { $0.peerId == peerId }) {
+                    pushConversation = existing
+                } else {
+                    let displayName = String(peerId.prefix(12)) + "..."
+                    pushConversation = Conversation(
+                        id: "1:1:\(peerId)",
+                        peerId: peerId,
+                        displayName: displayName,
+                        lastMessage: nil,
+                        unreadCount: 0
+                    )
+                }
             }
         }
     }

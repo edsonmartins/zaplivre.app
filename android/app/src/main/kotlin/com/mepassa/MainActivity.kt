@@ -1,6 +1,7 @@
 package com.mepassa
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -36,6 +37,8 @@ class MainActivity : ComponentActivity() {
         private const val TAG = "MainActivity"
     }
 
+    private val pendingPeerIdState = mutableStateOf<String?>(null)
+
     // Launcher para solicitar permissão de notificação (Android 13+)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -68,6 +71,8 @@ class MainActivity : ComponentActivity() {
         // Solicitar permissões e iniciar service
         requestPermissionsAndStartService()
 
+        handleIntent(intent)
+
         // Setup UI
         setContent {
             MePassaTheme {
@@ -75,7 +80,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MePassaApp()
+                    MePassaApp(
+                        pendingPeerId = pendingPeerIdState.value,
+                        onPeerIdConsumed = { pendingPeerIdState.value = null }
+                    )
                 }
             }
         }
@@ -119,6 +127,19 @@ class MainActivity : ComponentActivity() {
         MePassaService.start(this)
     }
 
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val peerId = intent?.getStringExtra("peer_id")
+        if (!peerId.isNullOrBlank()) {
+            Log.i(TAG, "Pending push navigation to peer: $peerId")
+            pendingPeerIdState.value = peerId
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         Log.i(TAG, "MainActivity destroyed")
@@ -130,8 +151,15 @@ class MainActivity : ComponentActivity() {
  * Composable principal do app
  */
 @Composable
-fun MePassaApp() {
+fun MePassaApp(
+    pendingPeerId: String?,
+    onPeerIdConsumed: () -> Unit
+) {
     val isInitialized by MePassaClientWrapper.isInitialized.collectAsState()
 
-    MePassaNavHost(isClientInitialized = isInitialized)
+    MePassaNavHost(
+        isClientInitialized = isInitialized,
+        pendingPeerId = pendingPeerId,
+        onPeerIdConsumed = onPeerIdConsumed
+    )
 }

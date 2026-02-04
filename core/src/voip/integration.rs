@@ -38,6 +38,9 @@ pub struct VoIPIntegration {
 
     // VoIP control events callback (mute/speaker/camera)
     voip_event_callback: Arc<RwLock<Option<Box<dyn crate::FfiVoipEventCallback>>>>,
+
+    // Call lifecycle callback (incoming/state/ended)
+    call_event_callback: Arc<RwLock<Option<Box<dyn crate::FfiCallEventCallback>>>>,
 }
 
 impl VoIPIntegration {
@@ -60,6 +63,7 @@ impl VoIPIntegration {
             #[cfg(any(feature = "voip", feature = "video"))]
             video_frame_callback: Arc::new(RwLock::new(None)),
             voip_event_callback: Arc::new(RwLock::new(None)),
+            call_event_callback: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -92,6 +96,15 @@ impl VoIPIntegration {
         tracing::info!("🎛️ VoIP event callback registered");
     }
 
+    pub async fn register_call_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiCallEventCallback>,
+    ) {
+        let mut cb = self.call_event_callback.write().await;
+        *cb = Some(callback);
+        tracing::info!("📞 Call event callback registered");
+    }
+
     /// Run the integration event loop
     ///
     /// Processes:
@@ -116,7 +129,7 @@ impl VoIPIntegration {
         };
 
         let this = Arc::clone(&self);
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             if let Err(e) = this.run_with_receivers(&mut signaling_rx, &mut call_event_rx).await {
                 tracing::error!("❌ VoIP integration stopped: {}", e);
             }
@@ -321,18 +334,26 @@ impl VoIPIntegration {
 
             CallEvent::Ended { call_id, reason } => {
                 tracing::info!("📴 Call ended: {} ({:?})", call_id, reason);
-                // Hangup signal should be sent explicitly via hangup_call()
-                // This event is just for logging/cleanup
+                let cb = self.call_event_callback.read().await;
+                if let Some(callback) = cb.as_ref() {
+                    callback.on_call_ended(call_id, reason.into());
+                }
             }
 
             CallEvent::StateChanged { call_id, new_state } => {
                 tracing::debug!("🔄 Call {} state changed to: {:?}", call_id, new_state);
-                // Just log state changes
+                let cb = self.call_event_callback.read().await;
+                if let Some(callback) = cb.as_ref() {
+                    callback.on_call_state_changed(call_id, new_state.into());
+                }
             }
 
             CallEvent::IncomingCall { call_id, from_peer_id } => {
                 tracing::info!("📲 Incoming call: {} from {}", call_id, from_peer_id);
-                // Already handled via network signals
+                let cb = self.call_event_callback.read().await;
+                if let Some(callback) = cb.as_ref() {
+                    callback.on_incoming_call(call_id, from_peer_id);
+                }
             }
 
             CallEvent::AudioReceived { .. } => {

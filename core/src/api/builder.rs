@@ -3,6 +3,7 @@
 //! Builder pattern for creating MePassa clients.
 
 use libp2p::{identity::Keypair, PeerId};
+use base64::{engine::general_purpose, Engine as _};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -77,6 +78,8 @@ impl ClientBuilder {
         // Get or generate keypair
         let keypair = if let Some(keypair) = self.keypair {
             keypair
+        } else if let Some(env_keypair) = load_keypair_from_env()? {
+            env_keypair
         } else {
             // Try to load from file, or generate new one
             let keypair_path = data_dir.join("identity.key");
@@ -174,7 +177,7 @@ impl ClientBuilder {
             network.set_voip_signaling_sender(voip_integration.signaling_sender());
         }
         #[cfg(any(feature = "voip", feature = "video"))]
-        voip_integration.spawn().await;
+        voip_integration.clone().spawn().await;
 
         // Create Group Manager (FASE 15)
         // database.clone() shares the same SQLite connection
@@ -291,6 +294,29 @@ fn load_keypair_from_file(path: &std::path::Path) -> Result<Keypair> {
     Keypair::from_protobuf_encoding(&bytes).map_err(|e| {
         MePassaError::Other(format!("Failed to decode keypair: {}", e))
     })
+}
+
+/// Load a keypair from environment variable (base64-encoded protobuf)
+fn load_keypair_from_env() -> Result<Option<Keypair>> {
+    let encoded = match std::env::var("MEPASSA_IDENTITY_B64") {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+
+    let encoded = encoded.trim();
+    if encoded.is_empty() {
+        return Ok(None);
+    }
+
+    let bytes = general_purpose::STANDARD.decode(encoded).map_err(|e| {
+        MePassaError::Other(format!("Failed to decode identity from env: {}", e))
+    })?;
+
+    let keypair = Keypair::from_protobuf_encoding(&bytes).map_err(|e| {
+        MePassaError::Other(format!("Failed to decode keypair from env: {}", e))
+    })?;
+
+    Ok(Some(keypair))
 }
 
 /// Save a keypair to a file

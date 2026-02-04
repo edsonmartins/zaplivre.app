@@ -114,6 +114,9 @@ dependencies {
     // DataStore (para salvar configs localmente)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
+    // Security Crypto (EncryptedSharedPreferences)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     // Accompanist (permissions, etc)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 

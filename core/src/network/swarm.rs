@@ -63,11 +63,11 @@ impl NetworkManager {
     ) -> Result<Self> {
         let local_peer_id = PeerId::from(keypair.public());
 
-        // Build transport
-        let transport = build_transport(&keypair)?;
+        // Build transport + relay behaviour
+        let (transport, relay_behaviour) = build_transport(&keypair, local_peer_id)?;
 
         // Create behaviour
-        let behaviour = MePassaBehaviour::new(local_peer_id, &keypair)?;
+        let behaviour = MePassaBehaviour::new(local_peer_id, &keypair, relay_behaviour)?;
 
         // Create swarm
         let swarm = Swarm::new(
@@ -335,11 +335,17 @@ impl NetworkManager {
                 // Connect to relay first if not connected
                 self.add_peer_to_dht(relay_peer, relay_addr.clone());
 
-                // Mark reservation as pending
-                // Note: In libp2p 0.53, relay reservation is handled at transport level
-                // We're marking it here for state tracking
-                // TODO: Integrate with actual relay transport API
-                tracing::warn!("⚠️ Relay reservation requires transport-level integration (libp2p 0.53)");
+                let listen_addr = relay_addr
+                    .clone()
+                    .with(libp2p::multiaddr::Protocol::P2p(relay_peer))
+                    .with(libp2p::multiaddr::Protocol::P2pCircuit);
+
+                self.swarm
+                    .listen_on(listen_addr)
+                    .map_err(|e| MePassaError::Network(format!("Failed to listen via relay: {}", e)))?;
+
+                // Mark reservation as pending until relay client confirms it.
+                self.relay_manager.mark_reservation_pending();
 
                 Ok(())
             } else {
@@ -571,7 +577,7 @@ impl NetworkManager {
                     libp2p::gossipsub::Event::Message { message, .. } => {
                         if let Some(group_manager) = &self.group_manager {
                             if let Err(e) = group_manager
-                                .handle_gossipsub_message(&message.topic, message)
+                                .handle_gossipsub_message(&message.topic.clone(), message)
                                 .await
                             {
                                 tracing::warn!("Failed to handle group message: {}", e);
@@ -790,16 +796,39 @@ impl NetworkManager {
                 }
             }
             MePassaBehaviourEvent::Dcutr(dcutr_event) => {
-                // DCUtR hole punching events
-                // Note: Event structure varies in libp2p 0.53, using debug for now
-                // TODO: Pattern match specific events when API is stable:
-                //   - RemoteInitiatedDirectConnectionUpgrade
-                //   - DirectConnectionUpgradeSucceeded
-                //   - DirectConnectionUpgradeFailed
-                tracing::debug!("🎯 DCUtR event: {:?}", dcutr_event);
-
-                // If this is a successful upgrade event, we'd update connection type to HolePunch
-                // self.connection_manager.record_success(peer_id, ConnectionType::HolePunch);
+                match dcutr_event.result {
+                    Ok(_) => {
+                        self.connection_manager
+                            .record_success(dcutr_event.remote_peer_id, ConnectionType::HolePunch);
+                        tracing::info!(
+                            "🎯 DCUtR upgrade succeeded for {}",
+                            dcutr_event.remote_peer_id
+                        );
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            "🎯 DCUtR upgrade failed for {}: {}",
+                            dcutr_event.remote_peer_id,
+                            err
+                        );
+                    }
+                }
+            }
+            MePassaBehaviourEvent::Relay(relay_event) => {
+                match relay_event {
+                    libp2p::relay::client::Event::ReservationReqAccepted {
+                        relay_peer_id, ..
+                    } => {
+                        tracing::info!("🔗 Relay reservation accepted by {}", relay_peer_id);
+                        self.relay_manager.mark_reservation_reserved(3600);
+                    }
+                    libp2p::relay::client::Event::OutboundCircuitEstablished { relay_peer_id, .. } => {
+                        tracing::info!("🌉 Relay circuit established via {}", relay_peer_id);
+                    }
+                    libp2p::relay::client::Event::InboundCircuitEstablished { src_peer_id, .. } => {
+                        tracing::info!("🌉 Inbound relayed connection from {}", src_peer_id);
+                    }
+                }
             }
         }
 

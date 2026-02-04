@@ -6,6 +6,7 @@ use base64::{engine::general_purpose, Engine as _};
 use mepassa_core::FfiMediaType;
 use tauri_plugin_notification::NotificationExt;
 use tauri::Manager;
+use crate::identity_store;
 
 // Global client state - use Arc to allow cloning the handle
 type ClientState = Arc<Mutex<Option<Arc<MePassaClient>>>>;
@@ -48,6 +49,12 @@ pub async fn init_client(
 ) -> Result<String, String> {
     tracing::info!("🔵 init_client CALLED with data_dir: {}", data_dir);
 
+    if let Ok(Some(b64)) = identity_store::load_identity_b64() {
+        std::env::set_var("MEPASSA_IDENTITY_B64", b64);
+    } else {
+        std::env::remove_var("MEPASSA_IDENTITY_B64");
+    }
+
     // MePassaClient::new() is synchronous, not async
     tracing::info!("🔵 Creating MePassaClient...");
     let client = Arc::new(MePassaClient::new(data_dir.clone()).map_err(|e| {
@@ -80,8 +87,27 @@ pub async fn init_client(
         }
     }
 
+    if let Some(encoded) = read_identity_key_b64(&data_dir) {
+        let _ = identity_store::save_identity_b64(&encoded);
+        let _ = remove_identity_key_file(&data_dir);
+    }
+
     tracing::info!("✅ Client initialized successfully with peer_id: {}", peer_id);
     Ok(peer_id)
+}
+
+fn read_identity_key_b64(data_dir: &str) -> Option<String> {
+    let path = std::path::Path::new(data_dir).join("identity.key");
+    let bytes = std::fs::read(path).ok()?;
+    Some(general_purpose::STANDARD.encode(bytes))
+}
+
+fn remove_identity_key_file(data_dir: &str) -> std::io::Result<()> {
+    let path = std::path::Path::new(data_dir).join("identity.key");
+    if path.exists() {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
