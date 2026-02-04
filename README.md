@@ -4,7 +4,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Status](https://img.shields.io/badge/status-FASE%2013%20iOS-green)](https://github.com/integralltech/mepassa)
+[![Status](https://img.shields.io/badge/status-FASE%2013%20iOS%20em%20progresso-yellow)](https://github.com/integralltech/mepassa)
 
 ## 🎯 Visão
 
@@ -91,9 +91,9 @@
 
 ## 🚧 Progresso Atual
 
-**Status:** 🎉 **FASE 13 (iOS App) - 100% DESENVOLVIMENTO COMPLETO** - Pronto para testes finais!
+**Status:** 🚧 **FASE 13 (iOS App) em progresso** - Push e testes finais pendentes.
 
-### ✅ Completado (12 de 19 fases - 63%)
+### ✅ Completado (11 de 19 fases - 58%)
 
 **FASE 1-5: Core Library (100%)** ✅
 - ✅ Identity (Ed25519) + Crypto (Signal Protocol Double Ratchet)
@@ -154,7 +154,7 @@
 - ✅ Call history database (SQLite schema v2)
 - 📊 **~4.600 LoC**, 24/24 tarefas completas
 
-**FASE 13: iOS App (100%)** ✅ **← DESENVOLVIMENTO COMPLETO**
+**FASE 13: iOS App (em progresso)** 🚧
 - ✅ Xcode project setup (via xcodegen CLI)
 - ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
 - ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
@@ -166,7 +166,7 @@
 - ✅ **Build bem-sucedida:** xcodebuild -scheme MePassa build → BUILD SUCCEEDED!
 - ✅ **Build pipeline automatizado** (build-all.sh, build-rust.sh, generate-bindings.sh)
 - ✅ **Documentação completa** (README.md com guias de setup, arquitetura, troubleshooting)
-- 📋 **Testes end-to-end:** Deferred to final testing phase
+- ⚠️ **Testes end-to-end:** pendente
 - 📊 **~3.700 LoC Swift + 2.357 LoC bindings**, 11/11 tarefas de desenvolvimento completas
 
 ### 📊 Estatísticas Gerais
@@ -176,13 +176,13 @@
 | Core (Rust) | ✅ 100% | 70 | ~11.200 | 110+ |
 | FFI Bindings | ✅ 100% | 5 | ~300 | - |
 | Android (Kotlin) | ✅ 100% | 30 | ~3.000 | - |
-| iOS (Swift) | 🔥 90% | 21 | ~6.100 | - |
+| iOS (Swift) | 🚧 85% | 21 | ~6.100 | - |
 | Desktop (TypeScript) | ✅ 100% | 25 | ~2.900 | - |
 | Servers (Rust) | ✅ 100% | 45 | ~4.200 | - |
 | Docs | ✅ | 14 | ~4.450 | - |
 | **TOTAL** | **77%** | **219** | **~28.864** | **110+** |
 
-### 🎯 Próximo: Completar iOS App (90% → 100%)
+### 🎯 Próximo: Completar iOS App (em progresso)
 
 **Finalizar FASE 13:**
 - [x] Resolver build Rust core para iOS (conditional compilation ✅)
@@ -193,7 +193,7 @@
 - [ ] Testar VoIP em 2 iPhones físicos
 - [ ] Configurar build pipeline e TestFlight
 
-**Status atual:** Build funcionando! Pronto para testes.
+**Status atual:** Build funcionando! Push e testes finais pendentes.
 
 **Após FASE 13:** Testes VoIP cross-platform (Android ↔ iOS)
 
@@ -224,7 +224,7 @@
 - [x] Qualidade validada
 - **Próximo:** Testes cross-platform com beta testers
 
-### Mês 5: iOS App 🔥 **90% COMPLETO**
+### Mês 5: iOS App 🚧 **85% COMPLETO**
 - [x] App iOS (Swift + SwiftUI)
 - [x] CallKit integration
 - [x] AVAudioEngine audio I/O
@@ -247,7 +247,7 @@
 
 ### Pré-requisitos
 
-- **Rust:** 1.75+ (`rustup default stable`)
+- **Rust:** 1.88+ (`rustup default stable`)
 - **Node.js:** 18+ (para desktop app)
 - **Android Studio:** Hedgehog+ (para Android app)
 - **NDK:** 26.1.10909125+
@@ -343,13 +343,13 @@ Aceitamos contribuições! Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes
 | 10 | P2P Relay + TURN | ✅ Completo | 100% |
 | 11 | Message Store | ✅ Completo | 100% |
 | 12 | VoIP Calls | ✅ Completo | 100% |
-| 13 | **iOS App** | 🔥 **Em progresso** | **78%** |
+| 13 | **iOS App** | 🚧 **Em progresso** | **85%** |
 | 14 | Videochamadas | ⏳ Aguardando | 0% |
 | 15 | Grupos | ⏳ Aguardando | 0% |
 | 16 | Mídia & Polimento | ⏳ Aguardando | 0% |
 | 17 | Multi-Device | ⏳ Aguardando | 0% |
 
-**Progresso geral:** 12/19 fases (63%) | ~28.764 LoC (75% do estimado)
+**Progresso geral:** 11/19 fases (58%) | ~28.764 LoC (75% do estimado)
 
 ---
 
