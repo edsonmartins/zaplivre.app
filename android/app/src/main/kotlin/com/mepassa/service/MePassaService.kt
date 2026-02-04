@@ -11,6 +11,7 @@ import com.mepassa.BuildConfig
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.mepassa.R
+import com.mepassa.core.AndroidPushTokenStore
 import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.push.PushServerClient
 import kotlinx.coroutines.*
@@ -192,9 +193,10 @@ class MePassaService : Service() {
                 return
             }
 
+            val pendingToken = AndroidPushTokenStore.loadToken(applicationContext)
             Log.d(TAG, "🔐 Getting FCM token...")
             // Obter token FCM atual
-            val token = FirebaseMessaging.getInstance().token.await()
+            val token = pendingToken ?: FirebaseMessaging.getInstance().token.await()
             Log.d(TAG, "📱 FCM token obtained: ${token.take(20)}...")
 
             // Registrar com Push Server
@@ -208,6 +210,7 @@ class MePassaService : Service() {
 
             if (success) {
                 Log.i(TAG, "✅ FCM token successfully registered with Push Server")
+                AndroidPushTokenStore.clearToken(applicationContext)
             } else {
                 Log.e(TAG, "❌ Failed to register FCM token with Push Server")
             }

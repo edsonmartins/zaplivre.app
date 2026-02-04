@@ -3,6 +3,7 @@ package com.mepassa.service
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.mepassa.core.AndroidPushTokenStore
 import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.push.PushServerClient
 import com.mepassa.util.NotificationHelper
@@ -24,6 +25,8 @@ class MePassaFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d(TAG, "New FCM token received: ${token.take(20)}...")
+
+        AndroidPushTokenStore.saveToken(applicationContext, token)
 
         // Send token to Push Server asynchronously
         sendTokenToServer(token)
@@ -64,6 +67,7 @@ class MePassaFirebaseMessagingService : FirebaseMessagingService() {
                 val peerId = MePassaClientWrapper.localPeerId.value
                 if (peerId == null) {
                     Log.w(TAG, "⚠️ PeerId not available yet, token will be sent when client initializes")
+                    AndroidPushTokenStore.saveToken(applicationContext, token)
                     // Token will be sent when MePassaService starts and client is initialized
                     return@launch
                 }
@@ -78,6 +82,7 @@ class MePassaFirebaseMessagingService : FirebaseMessagingService() {
 
                 if (success) {
                     Log.i(TAG, "✅ FCM token successfully registered with Push Server")
+                    AndroidPushTokenStore.clearToken(applicationContext)
                 } else {
                     Log.e(TAG, "❌ Failed to register FCM token with Push Server")
                 }
