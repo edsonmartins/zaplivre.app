@@ -28,12 +28,14 @@ export default function GroupChatView() {
   const [isLoading, setIsLoading] = useState(true)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [localPeerId, setLocalPeerId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     if (!groupId) return
 
+    loadLocalPeerId()
     loadGroup()
     loadMessages()
 
@@ -62,14 +64,36 @@ export default function GroupChatView() {
     }
   }
 
+  const loadLocalPeerId = async () => {
+    try {
+      const peerId = await invoke<string>('get_local_peer_id')
+      setLocalPeerId(peerId)
+      if (groupId) {
+        await loadMessages()
+      }
+    } catch (error) {
+      console.error('Failed to load local peer id:', error)
+    }
+  }
+
   const loadMessages = async () => {
     try {
-      // TODO: Implement when group messaging API is available
-      // const fetchedMessages = await invoke<GroupMessage[]>('get_group_messages', { groupId })
-      // setMessages(fetchedMessages)
+      const fetchedMessages = await invoke<Array<{
+        message_id: string
+        sender_peer_id: string
+        content_plaintext?: string | null
+        created_at: number
+      }>>('get_group_messages', { groupId })
 
-      // Mock implementation
-      setMessages([])
+      const mapped = fetchedMessages.map((msg) => ({
+        message_id: msg.message_id,
+        sender_peer_id: msg.sender_peer_id,
+        content: msg.content_plaintext ?? '',
+        created_at: msg.created_at,
+        is_own_message: msg.sender_peer_id === localPeerId,
+      }))
+
+      setMessages(mapped.reverse())
     } catch (error) {
       console.error('Failed to load messages:', error)
     } finally {
@@ -85,13 +109,8 @@ export default function GroupChatView() {
     setIsSending(true)
 
     try {
-      // TODO: Implement when group messaging API is available
-      // await invoke('send_group_message', { groupId, content })
-      // await loadMessages()
-
-      // Mock
-      console.log('Sending group message:', content)
-      setErrorMessage('Group messaging not yet implemented')
+      await invoke('send_group_message', { groupId, content })
+      await loadMessages()
     } catch (error) {
       console.error('Failed to send message:', error)
       setErrorMessage('Failed to send message: ' + String(error))

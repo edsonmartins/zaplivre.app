@@ -51,7 +51,7 @@ jobs:
       - name: Build Rust Core for Android
         run: |
           cd core
-          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 -o ../android/app/src/main/jniLibs build --release
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 -o ../android/app/src/main/jniLibs build --release --features voip
         continue-on-error: true
 
       - name: Grant execute permission for gradlew

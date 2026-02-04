@@ -364,30 +364,17 @@ class MePassaCore: ObservableObject {
 
     /// Get group messages
     func getGroupMessages(groupId: String, limit: Int? = nil) async throws -> [FfiMessageWrapper] {
-        // TODO: Implement when group messaging is available
-        /*
-        let messages = try await client?.getGroupMessages(
+        let messages = try client?.getGroupMessages(
             groupId: groupId,
             limit: limit.map { UInt32($0) },
             offset: nil
         ) ?? []
         return messages.map { FfiMessageWrapper(ffi: $0) }
-        */
-
-        return [] // Mock
     }
 
     /// Send message to group
     func sendGroupMessage(groupId: String, content: String) async throws -> String {
-        // TODO: Implement when group messaging is available
-        /*
         return try await client?.sendGroupMessage(groupId: groupId, content: content) ?? ""
-        */
-
-        // Mock
-        let messageId = UUID().uuidString
-        print("📨 Sent group message to \(groupId): \(content)")
-        return messageId
     }
 
     // MARK: - Video Methods (FASE 14)
@@ -455,6 +442,16 @@ class MePassaCore: ObservableObject {
 
         try await client.registerVideoFrameCallback(callback: callback)
         print("✅ Video frame callback registered")
+    }
+
+    /// Register callback for VoIP control events (mute/speaker/camera)
+    func registerVoipEventCallback(_ callback: FfiVoipEventCallback) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.registerVoipEventCallback(callback: callback)
+        print("✅ VoIP event callback registered")
     }
 }
 

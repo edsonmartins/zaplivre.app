@@ -27,7 +27,7 @@ base64 = "0.21"
 tokio = { version = "1.35", features = ["full"] }
 
 # Local dependency - mepassa-core with video support
-mepassa-core = { path = "../../core", features = ["video"] }
+mepassa-core = { path = "../../core", features = ["voip"] }
 
 # Error handling
 anyhow = "1.0"

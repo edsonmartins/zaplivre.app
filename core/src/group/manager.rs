@@ -4,9 +4,9 @@
 
 use super::storage;
 use super::types::{Group, GroupEvent, GroupMessage, GroupRole};
-use crate::storage::Database;
+use crate::storage::{Database, MessageStatus, NewMessage};
 use crate::utils::error::{MePassaError, Result};
-use libp2p::gossipsub::{self, TopicHash};
+use libp2p::gossipsub::{self, IdentTopic, TopicHash};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -52,15 +52,16 @@ impl GroupManager {
     }
 
     /// Initialize GroupManager by loading existing groups
-    pub async fn init(&self) -> Result<Vec<TopicHash>> {
+    pub async fn init(&self) -> Result<Vec<IdentTopic>> {
         let groups = storage::load_all_groups(&self.db)?;
         let mut topics = Vec::new();
 
         let mut groups_map = self.groups.write().await;
 
         for group in groups {
-            let topic_hash = group.topic_hash().hash();
-            topics.push(topic_hash.clone());
+            let topic = IdentTopic::new(&group.topic);
+            let topic_hash = topic.hash();
+            topics.push(topic.clone());
 
             self.subscribed_topics
                 .write()
@@ -83,7 +84,7 @@ impl GroupManager {
         &self,
         name: String,
         description: Option<String>,
-    ) -> Result<(Group, TopicHash)> {
+    ) -> Result<(Group, IdentTopic)> {
         // Generate group ID
         let group_id = uuid::Uuid::new_v4().to_string();
 
@@ -97,12 +98,14 @@ impl GroupManager {
 
         // Save to database
         storage::save_group(&self.db, &group)?;
+        self.ensure_group_conversation(&group)?;
 
         // Store in memory
         self.groups.write().await.insert(group_id.clone(), group.clone());
 
         // Get topic hash
-        let topic_hash = group.topic_hash().hash();
+        let topic = IdentTopic::new(&group.topic);
+        let topic_hash = topic.hash();
         self.subscribed_topics
             .write()
             .await
@@ -113,11 +116,11 @@ impl GroupManager {
             group: group.clone(),
         });
 
-        Ok((group, topic_hash))
+        Ok((group, topic))
     }
 
     /// Join an existing group (invited by admin)
-    pub async fn join_group(&self, group_id: String, group_name: String) -> Result<TopicHash> {
+    pub async fn join_group(&self, group_id: String, group_name: String) -> Result<IdentTopic> {
         // Create group entry (we'll receive metadata via group messages)
         let group = Group::new(
             group_id.clone(),
@@ -128,12 +131,14 @@ impl GroupManager {
 
         // Save to database
         storage::save_group(&self.db, &group)?;
+        self.ensure_group_conversation(&group)?;
 
         // Store in memory
         self.groups.write().await.insert(group_id.clone(), group.clone());
 
         // Get topic hash
-        let topic_hash = group.topic_hash().hash();
+        let topic = IdentTopic::new(&group.topic);
+        let topic_hash = topic.hash();
         self.subscribed_topics
             .write()
             .await
@@ -142,7 +147,7 @@ impl GroupManager {
         // Emit event
         self.emit_event(GroupEvent::GroupJoined { group_id });
 
-        Ok(topic_hash)
+        Ok(topic)
     }
 
     /// Leave a group
@@ -358,6 +363,9 @@ impl GroupManager {
 
             // TODO: Verify signature
 
+            self.ensure_group_conversation(group)?;
+            self.store_group_message(group, &group_msg)?;
+
             // Emit event
             self.emit_event(GroupEvent::MessageReceived {
                 message: group_msg,
@@ -370,6 +378,53 @@ impl GroupManager {
     /// Emit a group event
     fn emit_event(&self, event: GroupEvent) {
         let _ = self.event_tx.send(event);
+    }
+
+    fn ensure_group_conversation(&self, group: &Group) -> Result<()> {
+        let conversation_id = format!("group:{}", group.id);
+        let exists: bool = self
+            .db
+            .conn()
+            .query_row(
+                "SELECT 1 FROM conversations WHERE id = ?1",
+                rusqlite::params![&conversation_id],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+
+        if !exists {
+            self.db.conn().execute(
+                r#"
+                INSERT INTO conversations (id, conversation_type, group_id, display_name)
+                VALUES (?1, 'group', ?2, ?3)
+                "#,
+                rusqlite::params![conversation_id, &group.id, &group.name],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn store_group_message(&self, group: &Group, group_msg: &GroupMessage) -> Result<()> {
+        let conversation_id = format!("group:{}", group.id);
+        let content_plaintext = String::from_utf8(group_msg.content.clone()).ok();
+
+        let new_msg = NewMessage {
+            message_id: group_msg.message_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: group_msg.sender_peer_id.clone(),
+            recipient_peer_id: None,
+            message_type: "group_text".to_string(),
+            content_encrypted: None,
+            content_plaintext,
+            status: MessageStatus::Delivered,
+            parent_message_id: None,
+        };
+
+        self.db.insert_message(&new_msg)?;
+        self.db.update_conversation_last_message(&conversation_id, &group_msg.message_id)?;
+
+        Ok(())
     }
 }
 

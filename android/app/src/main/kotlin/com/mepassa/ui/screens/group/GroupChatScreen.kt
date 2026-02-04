@@ -54,9 +54,7 @@ fun GroupChatScreen(
                 group = groups.find { it.id == groupId }
 
                 // Carregar mensagens do grupo
-                // TODO: Implementar getGroupMessages quando disponível no FFI
-                // Por enquanto, usar uma lista vazia
-                messages = emptyList()
+                messages = MePassaClientWrapper.getGroupMessages(groupId)
                 isLoading = false
 
                 // Scroll para última mensagem
@@ -76,12 +74,13 @@ fun GroupChatScreen(
             kotlinx.coroutines.delay(3000) // A cada 3 segundos
             scope.launch {
                 try {
-                    // TODO: Implementar getGroupMessages quando disponível no FFI
-                    // val newMessages = MePassaClientWrapper.getGroupMessages(groupId)
-                    // if (newMessages.size > messages.size) {
-                    //     messages = newMessages
-                    //     listState.animateScrollToItem(messages.lastIndex)
-                    // }
+                    val newMessages = MePassaClientWrapper.getGroupMessages(groupId)
+                    if (newMessages.size != messages.size) {
+                        messages = newMessages
+                        if (messages.isNotEmpty()) {
+                            listState.animateScrollToItem(messages.lastIndex)
+                        }
+                    }
                 } catch (e: Exception) {
                     // Silently fail on background refresh
                 }
@@ -147,14 +146,11 @@ fun GroupChatScreen(
 
                         scope.launch {
                             try {
-                                // TODO: Implementar sendGroupMessage quando disponível no FFI
-                                // MePassaClientWrapper.sendGroupMessage(groupId, content)
-                                // Recarregar mensagens
-                                // messages = MePassaClientWrapper.getGroupMessages(groupId)
-                                // listState.animateScrollToItem(messages.lastIndex)
-
-                                // Por enquanto, apenas mostrar erro
-                                errorMessage = "Envio de mensagens em grupo ainda não implementado"
+                                MePassaClientWrapper.sendGroupMessage(groupId, content)
+                                messages = MePassaClientWrapper.getGroupMessages(groupId)
+                                if (messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(messages.lastIndex)
+                                }
                             } catch (e: Exception) {
                                 errorMessage = "Erro ao enviar mensagem: ${e.message}"
                             } finally {

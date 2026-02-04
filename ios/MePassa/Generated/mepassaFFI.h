@@ -250,6 +250,27 @@ typedef void (*UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0)(uint64_t, Ru
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK_METHOD0
+typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod0)(uint64_t, RustBuffer, int8_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK_METHOD1
+typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod1)(uint64_t, RustBuffer, int8_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK_METHOD2
+typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod2)(uint64_t, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK
 typedef struct UniffiVTableCallbackInterfaceFfiVideoFrameCallback {
@@ -257,6 +278,17 @@ typedef struct UniffiVTableCallbackInterfaceFfiVideoFrameCallback {
     UniffiCallbackInterfaceClone _Nonnull uniffiClone;
     UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 _Nonnull onVideoFrame;
 } UniffiVTableCallbackInterfaceFfiVideoFrameCallback;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VOIP_EVENT_CALLBACK
+typedef struct UniffiVTableCallbackInterfaceFfiVoipEventCallback {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceFfiVoipEventCallbackMethod0 _Nonnull onMuteChanged;
+    UniffiCallbackInterfaceFfiVoipEventCallbackMethod1 _Nonnull onSpeakerphoneChanged;
+    UniffiCallbackInterfaceFfiVoipEventCallbackMethod2 _Nonnull onCameraSwitchRequested;
+} UniffiVTableCallbackInterfaceFfiVoipEventCallback;
 
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_CLONE_MEPASSACLIENT
@@ -344,6 +376,11 @@ RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(ui
 RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(uint64_t ptr, RustBuffer peer_id, RustBuffer limit, RustBuffer offset, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUP_MESSAGES
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUP_MESSAGES
+RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_group_messages(uint64_t ptr, RustBuffer group_id, RustBuffer limit, RustBuffer offset, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUPS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUPS
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_get_groups(uint64_t ptr
@@ -404,6 +441,11 @@ void uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(uint64_t
 void uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VOIP_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VOIP_EVENT_CALLBACK
+void uniffi_mepassa_core_fn_method_mepassaclient_register_voip_event_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REJECT_CALL
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REJECT_CALL
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_reject_call(uint64_t ptr, RustBuffer call_id, RustBuffer reason
@@ -427,6 +469,11 @@ RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_search_messages(uint64_t 
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(uint64_t ptr, RustBuffer to_peer_id, RustBuffer file_data, RustBuffer file_name, RustBuffer mime_type
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_GROUP_MESSAGE
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_GROUP_MESSAGE
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_group_message(uint64_t ptr, RustBuffer group_id, RustBuffer content
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_IMAGE_MESSAGE
@@ -482,6 +529,11 @@ uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(uint64_
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVIDEOFRAMECALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVIDEOFRAMECALLBACK
 void uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(const UniffiVTableCallbackInterfaceFfiVideoFrameCallback* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVOIPEVENTCALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVOIPEVENTCALLBACK
+void uniffi_mepassa_core_fn_init_callback_vtable_ffivoipeventcallback(const UniffiVTableCallbackInterfaceFfiVoipEventCallback* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_MEPASSA_CORE_RUSTBUFFER_ALLOC
@@ -828,6 +880,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_mess
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUP_MESSAGES
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUP_MESSAGES
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUPS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUPS
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_get_groups(void
@@ -900,6 +958,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_VOIP_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_VOIP_EVENT_CALLBACK
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_voip_event_callback(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REJECT_CALL
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REJECT_CALL
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_reject_call(void
@@ -927,6 +991,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_search_messages(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEND_GROUP_MESSAGE
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEND_GROUP_MESSAGE
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_send_group_message(void
     
 );
 #endif
@@ -999,6 +1069,24 @@ uint16_t uniffi_mepassa_core_checksum_constructor_mepassaclient_new(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVIDEOFRAMECALLBACK_ON_VIDEO_FRAME
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVIDEOFRAMECALLBACK_ON_VIDEO_FRAME
 uint16_t uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVOIPEVENTCALLBACK_ON_MUTE_CHANGED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVOIPEVENTCALLBACK_ON_MUTE_CHANGED
+uint16_t uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_mute_changed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVOIPEVENTCALLBACK_ON_SPEAKERPHONE_CHANGED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVOIPEVENTCALLBACK_ON_SPEAKERPHONE_CHANGED
+uint16_t uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_speakerphone_changed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVOIPEVENTCALLBACK_ON_CAMERA_SWITCH_REQUESTED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIVOIPEVENTCALLBACK_ON_CAMERA_SWITCH_REQUESTED
+uint16_t uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_camera_switch_requested(void
     
 );
 #endif

@@ -17,12 +17,13 @@ use crate::{
         signal::{EncryptedMessage as CryptoEncryptedMessage, X3DH},
     },
     media::MediaEnvelope,
+    reactions::ReactionEnvelope,
     protocol::{
         pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
         MediaChunk, MediaOffer, MediaRequest, Message, MessageType, ReadReceipt, TextMessage,
         TypingIndicator,
     },
-    storage::{Database, MediaType, MessageStatus, NewMedia, NewMessage, UpdateMessage},
+    storage::{Database, MediaType, MessageStatus, NewMedia, NewMessage, NewReaction, UpdateMessage},
     utils::error::{MePassaError, Result},
 };
 use tokio::sync::RwLock;
@@ -221,6 +222,10 @@ impl MessageHandler {
     async fn handle_text_message(&self, message: &Message, text: &TextMessage) -> Result<()> {
         tracing::debug!("📝 Received text: \"{}\"", text.content);
 
+        if let Some(envelope) = ReactionEnvelope::decode(&text.content) {
+            return self.handle_reaction_envelope(message, envelope).await;
+        }
+
         if let Some(envelope) = MediaEnvelope::decode(&text.content) {
             return self.handle_media_envelope(message, envelope).await;
         }
@@ -334,6 +339,10 @@ impl MessageHandler {
         let plaintext = self.session_manager.decrypt_from(&peer_id, &crypto_msg)?;
         let text = String::from_utf8(plaintext)
             .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+
+        if let Some(envelope) = ReactionEnvelope::decode(&text) {
+            return self.handle_reaction_envelope(message, envelope).await;
+        }
 
         if let Some(envelope) = MediaEnvelope::decode(&text) {
             return self.handle_media_envelope(message, envelope).await;
@@ -739,6 +748,35 @@ impl MessageHandler {
             content: placeholder,
             message: display_message,
         });
+
+        Ok(())
+    }
+
+    async fn handle_reaction_envelope(
+        &self,
+        message: &Message,
+        envelope: ReactionEnvelope,
+    ) -> Result<()> {
+        let peer_id = message.sender_peer_id.clone();
+
+        match envelope.action.as_str() {
+            "add" => {
+                let new_reaction = NewReaction {
+                    reaction_id: uuid::Uuid::new_v4().to_string(),
+                    message_id: envelope.message_id,
+                    peer_id,
+                    emoji: envelope.emoji,
+                };
+                self.database.add_reaction(&new_reaction)?;
+            }
+            "remove" => {
+                self.database
+                    .remove_reaction(&envelope.message_id, &peer_id, &envelope.emoji)?;
+            }
+            other => {
+                tracing::warn!("Unknown reaction action received: {}", other);
+            }
+        }
 
         Ok(())
     }

@@ -58,21 +58,21 @@ echo -e "${GREEN}Building for Android ARM64 (aarch64-linux-android)...${NC}"
 cd "$CORE_DIR"
 export CC_aarch64_linux_android="$TOOLCHAIN_PATH/aarch64-linux-android24-clang"
 export CXX_aarch64_linux_android="$TOOLCHAIN_PATH/aarch64-linux-android24-clang++"
-cargo build --release --target aarch64-linux-android --no-default-features -p mepassa-core
+cargo build --release --target aarch64-linux-android --features voip -p mepassa-core
 echo ""
 
 # Build for Android ARMv7 (32-bit ARM - older devices)
 echo -e "${GREEN}Building for Android ARMv7 (armv7-linux-androideabi)...${NC}"
 export CC_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang"
 export CXX_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang++"
-cargo build --release --target armv7-linux-androideabi --no-default-features -p mepassa-core
+cargo build --release --target armv7-linux-androideabi --features voip -p mepassa-core
 echo ""
 
 # Build for Android x86_64 (emulators)
 echo -e "${GREEN}Building for Android x86_64 (x86_64-linux-android)...${NC}"
 export CC_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang"
 export CXX_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang++"
-cargo build --release --target x86_64-linux-android --no-default-features -p mepassa-core
+cargo build --release --target x86_64-linux-android --features voip -p mepassa-core
 echo ""
 
 # Copy libraries to jniLibs

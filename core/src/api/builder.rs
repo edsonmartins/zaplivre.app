@@ -168,6 +168,13 @@ impl ClientBuilder {
         let voip_integration = Arc::new(
             VoIPIntegration::new(Arc::clone(&network_arc), Arc::clone(&call_manager)).await,
         );
+        #[cfg(any(feature = "voip", feature = "video"))]
+        {
+            let mut network = network_arc.write().await;
+            network.set_voip_signaling_sender(voip_integration.signaling_sender());
+        }
+        #[cfg(any(feature = "voip", feature = "video"))]
+        voip_integration.spawn().await;
 
         // Create Group Manager (FASE 15)
         // database.clone() shares the same SQLite connection
@@ -180,9 +187,19 @@ impl ClientBuilder {
         );
 
         // Initialize group manager (load existing groups)
-        group_manager.init().await.map_err(|e| {
+        let group_topics = group_manager.init().await.map_err(|e| {
             MePassaError::Other(format!("Failed to initialize group manager: {}", e))
         })?;
+
+        {
+            let mut network = network_arc.write().await;
+            network.set_group_manager(Arc::clone(&group_manager));
+            for topic in group_topics {
+                if let Err(err) = network.subscribe_gossipsub(&topic) {
+                    tracing::warn!("Failed to subscribe to group topic: {}", err);
+                }
+            }
+        }
 
         // Create client (keep network as Arc since it's shared with VoIPIntegration)
         // Note: database.clone() shares the same SQLite connection with MessageHandler

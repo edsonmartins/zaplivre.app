@@ -30,17 +30,17 @@ mkdir -p "$LIBRARIES_DIR"
 # Build for iOS device (ARM64)
 echo -e "${GREEN}Building for iOS device (aarch64-apple-ios)...${NC}"
 cd "$CORE_DIR"
-cargo build --release --target aarch64-apple-ios --features video -p mepassa-core
+cargo build --release --target aarch64-apple-ios --features voip -p mepassa-core
 echo ""
 
 # Build for iOS Simulator (ARM64 - Apple Silicon)
 echo -e "${GREEN}Building for iOS Simulator ARM64 (aarch64-apple-ios-sim)...${NC}"
-cargo build --release --target aarch64-apple-ios-sim --features video -p mepassa-core
+cargo build --release --target aarch64-apple-ios-sim --features voip -p mepassa-core
 echo ""
 
 # Build for iOS Simulator (x86_64 - Intel)
 echo -e "${GREEN}Building for iOS Simulator x86_64 (x86_64-apple-ios)...${NC}"
-cargo build --release --target x86_64-apple-ios --features video -p mepassa-core
+cargo build --release --target x86_64-apple-ios --features voip -p mepassa-core
 echo ""
 
 # Copy iOS device library

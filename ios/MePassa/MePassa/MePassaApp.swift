@@ -61,6 +61,10 @@ struct MePassaApp: App {
                         appState.login(peerId: peerId)
                     }
                 }
+
+                let handler = VoipEventHandler(callManager: callManager)
+                appState.voipEventHandler = handler
+                try await MePassaCore.shared.registerVoipEventCallback(handler)
             } catch {
                 print("❌ Failed to initialize MePassa Core: \(error)")
             }
@@ -81,6 +85,7 @@ class AppState: ObservableObject {
     @Published var groups: [ChatGroup] = []
 
     private var refreshTimer: Timer?
+    var voipEventHandler: VoipEventHandler?
 
     func login(peerId: String) {
         self.isAuthenticated = true

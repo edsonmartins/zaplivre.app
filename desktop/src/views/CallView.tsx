@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
+import { useVoipState } from '../state/voipState'
 import '../styles/CallView.css'
 
 interface CallViewProps {
@@ -11,10 +12,14 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
   const { callId, remotePeerId } = useParams<{ callId: string; remotePeerId: string }>()
   const navigate = useNavigate()
 
-  const [isMuted, setIsMuted] = useState(false)
-  const [isSpeakerOn, setIsSpeakerOn] = useState(false)
+  const { voipState } = useVoipState()
   const [callDuration, setCallDuration] = useState(0)
   const [isCallActive, setIsCallActive] = useState(true)
+
+  const callState = callId ? voipState[callId] : undefined
+  const isMuted = callState?.isMuted ?? false
+  const isSpeakerOn = callState?.isSpeakerOn ?? false
+  const cameraSwitchCount = callState?.cameraSwitchCount ?? 0
 
   // Timer for call duration
   useEffect(() => {
@@ -38,7 +43,6 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
 
     try {
       await invoke('toggle_mute', { callId })
-      setIsMuted(!isMuted)
     } catch (error) {
       console.error('Failed to toggle mute:', error)
     }
@@ -49,9 +53,18 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
 
     try {
       await invoke('toggle_speakerphone', { callId })
-      setIsSpeakerOn(!isSpeakerOn)
     } catch (error) {
       console.error('Failed to toggle speakerphone:', error)
+    }
+  }
+
+  const handleCameraSwitch = async () => {
+    if (!callId) return
+
+    try {
+      await invoke('switch_camera', { callId })
+    } catch (error) {
+      console.error('Failed to switch camera:', error)
     }
   }
 
@@ -94,7 +107,14 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
             {remotePeerId ? remotePeerId.substring(0, 16) + '...' : 'Unknown'}
           </h2>
 
-          <p className="call-status">Chamada em andamento</p>
+          <p className="call-status">
+            Chamada em andamento
+            {isMuted && ' · 🔇 Muted'}
+            {isSpeakerOn && ' · 🔊 Speaker'}
+          </p>
+          {cameraSwitchCount > 0 && (
+            <p className="call-status">📸 Troca de câmera: {cameraSwitchCount}</p>
+          )}
 
           <div className="call-timer">{formatDuration(callDuration)}</div>
         </div>
@@ -144,6 +164,17 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
                 <path d="M7 9v6h4l5 5V4l-5 5H7z" />
               </svg>
             )}
+          </button>
+
+          {/* Camera Switch Button */}
+          <button
+            onClick={handleCameraSwitch}
+            className="control-btn"
+            title="Switch Camera"
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 4h-3.17l-1.84-2H9.01L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h4.05l1.83-2h4.24l1.83 2H20v12zm-8-1.5c2.48 0 4.5-2.02 4.5-4.5S14.48 7.5 12 7.5 7.5 9.52 7.5 12s2.02 4.5 4.5 4.5zm0-7c1.38 0 2.5 1.12 2.5 2.5S13.38 14.5 12 14.5 9.5 13.38 9.5 12 10.62 9.5 12 9.5z" />
+            </svg>
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { homeDir } from '@tauri-apps/api/path'
 import OnboardingView from './views/OnboardingView'
 import ConversationsView from './views/ConversationsView'
@@ -8,6 +9,14 @@ import ChatView from './views/ChatView'
 import CallView from './views/CallView'
 import GroupListView from './views/GroupListView'
 import GroupChatView from './views/GroupChatView'
+import { VoipStateProvider, useVoipState } from './state/voipState'
+import './styles/voipToast.css'
+
+type VoipToast = {
+  id: string
+  message: string
+  isClosing?: boolean
+}
 
 function App() {
   console.log('🔵 App component mounted')
@@ -16,8 +25,11 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [localPeerId, setLocalPeerId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const [toasts, setToasts] = useState<VoipToast[]>([])
   const navigate = useNavigate()
   const location = useLocation()
+
+  const { setVoipState } = useVoipState()
 
   useEffect(() => {
     console.log('🔵 useEffect running - about to call initializeApp')
@@ -73,6 +85,81 @@ function App() {
     }
 
     initializeApp()
+
+    const unsubs: Array<() => void> = []
+    const registerVoipListeners = async () => {
+      const mute = await listen<{ call_id: string; is_muted: boolean }>(
+        'voip:mute_changed',
+        (event) => {
+          console.log('🔇 voip:mute_changed', event.payload)
+          setVoipState((prev) => ({
+            ...prev,
+            [event.payload.call_id]: {
+              ...(prev[event.payload.call_id] || {}),
+              isMuted: event.payload.is_muted,
+            },
+          }))
+        }
+      )
+      const speaker = await listen<{ call_id: string; enabled: boolean }>(
+        'voip:speaker_changed',
+        (event) => {
+          console.log('🔊 voip:speaker_changed', event.payload)
+          setVoipState((prev) => ({
+            ...prev,
+            [event.payload.call_id]: {
+              ...(prev[event.payload.call_id] || {}),
+              isSpeakerOn: event.payload.enabled,
+            },
+          }))
+        }
+      )
+      const camera = await listen<{ call_id: string }>(
+        'voip:camera_switch_requested',
+        (event) => {
+          console.log('📸 voip:camera_switch_requested', event.payload)
+          setVoipState((prev) => {
+            const previous = prev[event.payload.call_id] || {}
+            return {
+              ...prev,
+              [event.payload.call_id]: {
+                ...previous,
+                cameraSwitchCount: (previous.cameraSwitchCount || 0) + 1,
+                lastCameraSwitchAt: Date.now(),
+              },
+            }
+          })
+          invoke('show_notification', {
+            title: 'Troca de câmera',
+            body: `Chamada ${event.payload.call_id}`,
+          }).catch(() => undefined)
+
+          const toastId = `${event.payload.call_id}:${Date.now()}`
+          setToasts((prev) => [
+            ...prev,
+            {
+              id: toastId,
+              message: `Troca de câmera solicitada (${event.payload.call_id.slice(0, 8)}...)`,
+            },
+          ])
+          setTimeout(() => {
+            setToasts((prev) =>
+              prev.map((t) => (t.id === toastId ? { ...t, isClosing: true } : t))
+            )
+            setTimeout(() => {
+              setToasts((prev) => prev.filter((t) => t.id !== toastId))
+            }, 200)
+          }, 6000)
+        }
+      )
+      unsubs.push(mute, speaker, camera)
+    }
+
+    registerVoipListeners()
+
+    return () => {
+      unsubs.forEach((unsub) => unsub())
+    }
   }, [])
 
   useEffect(() => {
@@ -130,7 +217,34 @@ function App() {
   }
 
   return (
-    <Routes>
+    <div className="app-root">
+      {toasts.length > 0 && (
+        <div className="voip-toast-container">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`voip-toast ${toast.isClosing ? 'is-closing' : ''}`}
+            >
+              <span>{toast.message}</span>
+              <button
+                className="voip-toast-close"
+                onClick={() => {
+                  setToasts((prev) =>
+                    prev.map((t) => (t.id === toast.id ? { ...t, isClosing: true } : t))
+                  )
+                  setTimeout(() => {
+                    setToasts((prev) => prev.filter((t) => t.id !== toast.id))
+                  }, 200)
+                }}
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Routes>
       <Route path="/onboarding" element={<OnboardingView localPeerId={localPeerId} />} />
       <Route path="/conversations" element={<ConversationsView localPeerId={localPeerId} />} />
       <Route path="/chat/:peerId" element={<ChatView localPeerId={localPeerId} />} />
@@ -138,8 +252,16 @@ function App() {
       <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
       <Route path="/group/:groupId" element={<GroupChatView />} />
       <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />
-    </Routes>
+      </Routes>
+    </div>
   )
 }
 
-export default App
+export default function AppWithProviders() {
+  return (
+    <VoipStateProvider>
+      <App />
+    </VoipStateProvider>
+  )
+}
+export { App }

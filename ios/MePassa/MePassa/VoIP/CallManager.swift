@@ -187,6 +187,32 @@ class CallManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - VoIP Event Handlers
+    func handleMuteChanged(_ muted: Bool) {
+        isMuted = muted
+        if muted {
+            audioManager.mute()
+        } else {
+            audioManager.unmute()
+        }
+        print("🔇 Mute updated from core: \(muted)")
+    }
+
+    func handleSpeakerChanged(_ enabled: Bool) {
+        isSpeakerOn = enabled
+        do {
+            try audioManager.enableSpeaker(enabled)
+        } catch {
+            print("❌ Error applying speaker state: \(error)")
+        }
+        print("🔊 Speaker updated from core: \(enabled)")
+    }
+
+    func handleCameraSwitchRequested() {
+        // Camera switching is handled by the UI layer (VideoCallScreen)
+        print("📸 Camera switch requested from core")
+    }
+
     // MARK: - WebRTC Integration (TODO)
     private func initiateWebRTCConnection(peerId: String) {
         // TODO: Call UniFFI to start WebRTC connection

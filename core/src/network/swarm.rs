@@ -12,6 +12,8 @@ use futures::stream::StreamExt;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::select;
 use tokio::sync::oneshot;
+#[cfg(any(feature = "voip", feature = "video"))]
+use tokio::sync::mpsc;
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -28,6 +30,7 @@ use crate::{
     protocol::{pb::message::Payload, Message, MessageType},
     utils::error::{MePassaError, Result},
 };
+use crate::group::GroupManager;
 
 /// P2P Network Manager
 pub struct NetworkManager {
@@ -40,6 +43,10 @@ pub struct NetworkManager {
     last_published_addr: Option<Multiaddr>,
     nat_detector: NatDetector,
     prefer_relay: bool,
+    group_manager: Option<Arc<GroupManager>>,
+    #[cfg(any(feature = "voip", feature = "video"))]
+    voip_signaling_sender:
+        Option<mpsc::UnboundedSender<(PeerId, crate::voip::signaling::SignalingMessage)>>,
 }
 
 impl NetworkManager {
@@ -87,6 +94,9 @@ impl NetworkManager {
             last_published_addr: None,
             nat_detector: NatDetector::new(),
             prefer_relay: false,
+            group_manager: None,
+            #[cfg(any(feature = "voip", feature = "video"))]
+            voip_signaling_sender: None,
         })
     }
 
@@ -98,6 +108,20 @@ impl NetworkManager {
     /// Set message handler for processing incoming messages
     pub fn set_message_handler(&mut self, handler: std::sync::Arc<MessageHandler>) {
         self.message_handler = Some(handler);
+    }
+
+    /// Set group manager for handling GossipSub group messages
+    pub fn set_group_manager(&mut self, manager: Arc<GroupManager>) {
+        self.group_manager = Some(manager);
+    }
+
+    /// Set VoIP signaling sender for forwarding inbound signals
+    #[cfg(any(feature = "voip", feature = "video"))]
+    pub fn set_voip_signaling_sender(
+        &mut self,
+        sender: mpsc::UnboundedSender<(PeerId, crate::voip::signaling::SignalingMessage)>,
+    ) {
+        self.voip_signaling_sender = Some(sender);
     }
 
     /// Start listening on a multiaddr
@@ -117,6 +141,46 @@ impl NetworkManager {
     /// Check if a peer is connected
     pub fn is_connected(&self, peer_id: &PeerId) -> bool {
         self.swarm.is_connected(peer_id)
+    }
+
+    /// Subscribe to a GossipSub topic
+    pub fn subscribe_gossipsub(
+        &mut self,
+        topic: &libp2p::gossipsub::IdentTopic,
+    ) -> Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .subscribe(topic)
+            .map_err(|e| MePassaError::Network(format!("GossipSub subscribe failed: {}", e)))?;
+        Ok(())
+    }
+
+    /// Unsubscribe from a GossipSub topic
+    pub fn unsubscribe_gossipsub(
+        &mut self,
+        topic: &libp2p::gossipsub::IdentTopic,
+    ) -> Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .unsubscribe(topic)
+            .map_err(|e| MePassaError::Network(format!("GossipSub unsubscribe failed: {}", e)))?;
+        Ok(())
+    }
+
+    /// Publish a GossipSub message
+    pub fn publish_gossipsub(
+        &mut self,
+        topic: &libp2p::gossipsub::IdentTopic,
+        payload: Vec<u8>,
+    ) -> Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(topic.clone(), payload)
+            .map_err(|e| MePassaError::Network(format!("GossipSub publish failed: {}", e)))?;
+        Ok(())
     }
 
     /// Dial a peer with automatic relay fallback
@@ -503,7 +567,21 @@ impl NetworkManager {
                 tracing::trace!("Ping event: {:?}", ping_event);
             }
             MePassaBehaviourEvent::Gossipsub(gossipsub_event) => {
-                tracing::debug!("GossipSub event: {:?}", gossipsub_event);
+                match gossipsub_event {
+                    libp2p::gossipsub::Event::Message { message, .. } => {
+                        if let Some(group_manager) = &self.group_manager {
+                            if let Err(e) = group_manager
+                                .handle_gossipsub_message(&message.topic, message)
+                                .await
+                            {
+                                tracing::warn!("Failed to handle group message: {}", e);
+                            }
+                        }
+                    }
+                    _ => {
+                        tracing::debug!("GossipSub event: {:?}", gossipsub_event);
+                    }
+                }
             }
             MePassaBehaviourEvent::RequestResponse(rr_event) => {
                 match rr_event {
@@ -629,7 +707,7 @@ impl NetworkManager {
                     }
                 }
             }
-            #[cfg(feature = "voip")]
+            #[cfg(any(feature = "voip", feature = "video"))]
             MePassaBehaviourEvent::VoipSignaling(voip_event) => {
                 match voip_event {
                     libp2p::request_response::Event::Message { peer, message } => {
@@ -645,10 +723,18 @@ impl NetworkManager {
                                     request,
                                     request_id
                                 );
-                                // TODO: Forward to CallManager via event channel (FASE 12)
-                                // For now, send automatic ACK
+                                if let Some(sender) = &self.voip_signaling_sender {
+                                    if let Err(err) = sender.send((peer, request.clone())) {
+                                        tracing::warn!(
+                                            "📞 Failed to forward VoIP signal to integration: {}",
+                                            err
+                                        );
+                                    }
+                                }
+
+                                // Send ACK to complete request/response cycle
                                 let ack = crate::voip::signaling::SignalingMessage::CallAccept {
-                                    call_id: "temp".to_string(),
+                                    call_id: request.call_id().to_string(),
                                 };
                                 let _ = self.send_voip_response(channel, ack);
                             }
@@ -662,7 +748,14 @@ impl NetworkManager {
                                     response,
                                     request_id
                                 );
-                                // TODO: Forward to CallManager (FASE 12)
+                                if let Some(sender) = &self.voip_signaling_sender {
+                                    if let Err(err) = sender.send((peer, response)) {
+                                        tracing::warn!(
+                                            "📞 Failed to forward VoIP response to integration: {}",
+                                            err
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -677,7 +770,7 @@ impl NetworkManager {
                             error,
                             request_id
                         );
-                        // TODO: Notify CallManager of failure (FASE 12)
+                        tracing::warn!("📞 VoIP request to {} failed: {:?}", peer, error);
                     }
                     libp2p::request_response::Event::InboundFailure {
                         peer,
@@ -707,13 +800,6 @@ impl NetworkManager {
 
                 // If this is a successful upgrade event, we'd update connection type to HolePunch
                 // self.connection_manager.record_success(peer_id, ConnectionType::HolePunch);
-            }
-            #[cfg(any(feature = "voip", feature = "video"))]
-            MePassaBehaviourEvent::VoipSignaling(voip_event) => {
-                // VoIP signaling events (WebRTC SDP/ICE)
-                // These are handled by the VoIPIntegration component
-                tracing::debug!("📞 VoIP signaling event: {:?}", voip_event);
-                // Events are forwarded to VoIPIntegration via callback in voip_integration.rs
             }
         }
 

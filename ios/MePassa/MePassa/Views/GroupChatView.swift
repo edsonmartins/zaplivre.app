@@ -112,28 +112,22 @@ struct GroupChatView: View {
         isLoading = true
 
         do {
-            // TODO: Load messages from MePassaCore
-            /*
             let fetchedMessages = try await MePassaCore.shared.getGroupMessages(
                 groupId: group.id
             )
 
+            let localPeerId = MePassaCore.shared.localPeerId ?? ""
             messages = fetchedMessages.map {
                 GroupMessage(
                     id: $0.id,
                     groupId: group.id,
                     senderPeerId: $0.senderPeerId,
-                    senderName: $0.senderPeerId.prefix(8).description, // TODO: Get actual name
+                    senderName: $0.senderPeerId.prefix(8).description,
                     content: $0.content ?? "",
                     timestamp: $0.createdAt,
-                    isOwnMessage: false // TODO: Compare with local peer ID
+                    isOwnMessage: $0.senderPeerId == localPeerId
                 )
             }
-            */
-
-            // Mock
-            try await Task.sleep(nanoseconds: 500_000_000)
-            messages = []
         } catch {
             print("❌ Error loading messages: \(error)")
         }
@@ -150,20 +144,13 @@ struct GroupChatView: View {
 
         Task {
             do {
-                // TODO: Send message via MePassaCore
-                /*
-                let messageId = try await MePassaCore.shared.sendGroupMessage(
+                _ = try await MePassaCore.shared.sendGroupMessage(
                     groupId: group.id,
                     content: content
                 )
 
                 // Reload messages
                 await loadMessages()
-                */
-
-                // Mock
-                try await Task.sleep(nanoseconds: 300_000_000)
-                print("📨 Message sent to group: \(content)")
             } catch {
                 print("❌ Error sending message: \(error)")
             }

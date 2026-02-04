@@ -169,6 +169,9 @@ enum ClientCommand {
     RegisterVideoFrameCallback {
         callback: Box<dyn crate::FfiVideoFrameCallback>,
     },
+    RegisterVoipEventCallback {
+        callback: Box<dyn crate::FfiVoipEventCallback>,
+    },
     // Group commands (FASE 15)
     CreateGroup {
         name: String,
@@ -196,6 +199,17 @@ enum ClientCommand {
     },
     GetGroups {
         response: oneshot::Sender<Result<Vec<FfiGroup>, MePassaFfiError>>,
+    },
+    GetGroupMessages {
+        group_id: String,
+        limit: Option<usize>,
+        offset: Option<usize>,
+        response: oneshot::Sender<Result<Vec<FfiMessage>, MePassaFfiError>>,
+    },
+    SendGroupMessage {
+        group_id: String,
+        content: String,
+        response: oneshot::Sender<Result<String, MePassaFfiError>>,
     },
     // Media commands (FASE 16 - Mídia & Polimento)
     SendImageMessage {
@@ -461,6 +475,10 @@ async fn run_client_task_arc(
                 // Register the callback with VoIPIntegration via Client
                 client.register_video_frame_callback(callback).await;
             }
+            #[cfg(any(feature = "voip", feature = "video"))]
+            ClientCommand::RegisterVoipEventCallback { callback } => {
+                client.register_voip_event_callback(callback).await;
+            }
             // Group command handlers (FASE 15)
             ClientCommand::CreateGroup {
                 name,
@@ -516,6 +534,29 @@ async fn run_client_task_arc(
             ClientCommand::GetGroups { response } => {
                 let result = client
                     .get_groups()
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::GetGroupMessages {
+                group_id,
+                limit,
+                offset,
+                response,
+            } => {
+                let result = client
+                    .get_group_messages(group_id, limit, offset)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::SendGroupMessage {
+                group_id,
+                content,
+                response,
+            } => {
+                let result = client
+                    .send_group_message(group_id, content)
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -1341,6 +1382,20 @@ impl MePassaClient {
             })
     }
 
+    #[cfg(any(feature = "voip", feature = "video"))]
+    /// Register callback for VoIP control events (mute/speaker/camera)
+    pub fn register_voip_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiVoipEventCallback>,
+    ) -> Result<(), MePassaFfiError> {
+        self.handle()
+            .sender
+            .send(ClientCommand::RegisterVoipEventCallback { callback })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })
+    }
+
     // ========== VoIP Method Stubs (when feature is disabled) ==========
 
     #[cfg(not(feature = "voip"))]
@@ -1558,6 +1613,52 @@ impl MePassaClient {
         self.handle()
             .sender
             .send(ClientCommand::GetGroups { response: tx })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub fn get_group_messages(
+        &self,
+        group_id: String,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> Result<Vec<FfiMessage>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetGroupMessages {
+                group_id,
+                limit: limit.map(|v| v as usize),
+                offset: offset.map(|v| v as usize),
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub async fn send_group_message(
+        &self,
+        group_id: String,
+        content: String,
+    ) -> Result<String, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendGroupMessage {
+                group_id,
+                content,
+                response: tx,
+            })
             .map_err(|_| MePassaFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;

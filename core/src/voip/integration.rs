@@ -5,7 +5,7 @@
 
 use libp2p::PeerId;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 use super::{
     call::{CallDirection, CallEndReason},
@@ -26,15 +26,18 @@ pub struct VoIPIntegration {
     call_manager: Arc<CallManager>,
 
     // Event channels
-    signaling_rx: mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>,
+    signaling_rx: Mutex<Option<mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>>>,
     signaling_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
 
     // Call events from CallManager
-    call_event_rx: mpsc::UnboundedReceiver<CallEvent>,
+    call_event_rx: Mutex<Option<broadcast::Receiver<CallEvent>>>,
 
     // Video frame callback (FASE 14)
     #[cfg(any(feature = "voip", feature = "video"))]
     video_frame_callback: Arc<RwLock<Option<Box<dyn crate::FfiVideoFrameCallback>>>>,
+
+    // VoIP control events callback (mute/speaker/camera)
+    voip_event_callback: Arc<RwLock<Option<Box<dyn crate::FfiVoipEventCallback>>>>,
 }
 
 impl VoIPIntegration {
@@ -46,16 +49,17 @@ impl VoIPIntegration {
         let (signaling_tx, signaling_rx) = mpsc::unbounded_channel();
 
         // Subscribe to call manager events
-        let call_event_rx = call_manager.subscribe_events().await;
+        let call_event_rx = call_manager.subscribe_events();
 
         Self {
             network_manager,
             call_manager,
-            signaling_rx,
+            signaling_rx: Mutex::new(Some(signaling_rx)),
             signaling_tx,
-            call_event_rx,
+            call_event_rx: Mutex::new(Some(call_event_rx)),
             #[cfg(any(feature = "voip", feature = "video"))]
             video_frame_callback: Arc::new(RwLock::new(None)),
+            voip_event_callback: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -78,28 +82,78 @@ impl VoIPIntegration {
         tracing::info!("📹 Video frame callback registered");
     }
 
+    /// Register callback for VoIP control events (mute/speaker/camera)
+    pub async fn register_voip_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiVoipEventCallback>,
+    ) {
+        let mut cb = self.voip_event_callback.write().await;
+        *cb = Some(callback);
+        tracing::info!("🎛️ VoIP event callback registered");
+    }
+
     /// Run the integration event loop
     ///
     /// Processes:
     /// - Incoming signaling messages from network
     /// - Outgoing signaling messages from CallManager
     /// - Call state changes and events
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn spawn(self: Arc<Self>) {
+        let mut signaling_rx = match self.signaling_rx.lock().await.take() {
+            Some(rx) => rx,
+            None => {
+                tracing::warn!("VoIP integration already started (signaling_rx missing)");
+                return;
+            }
+        };
+
+        let mut call_event_rx = match self.call_event_rx.lock().await.take() {
+            Some(rx) => rx,
+            None => {
+                tracing::warn!("VoIP integration already started (call_event_rx missing)");
+                return;
+            }
+        };
+
+        let this = Arc::clone(&self);
+        tokio::spawn(async move {
+            if let Err(e) = this.run_with_receivers(&mut signaling_rx, &mut call_event_rx).await {
+                tracing::error!("❌ VoIP integration stopped: {}", e);
+            }
+        });
+    }
+
+    async fn run_with_receivers(
+        &self,
+        signaling_rx: &mut mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>,
+        call_event_rx: &mut broadcast::Receiver<CallEvent>,
+    ) -> Result<()> {
         tracing::info!("🔗 VoIP integration started");
 
         loop {
             tokio::select! {
                 // Handle incoming signaling from network
-                Some((peer_id, signal)) = self.signaling_rx.recv() => {
+                Some((peer_id, signal)) = signaling_rx.recv() => {
                     if let Err(e) = self.handle_incoming_signal(peer_id, signal).await {
                         tracing::error!("❌ Failed to handle incoming signal: {}", e);
                     }
                 }
 
                 // Handle call events from CallManager
-                Some(event) = self.call_event_rx.recv() => {
-                    if let Err(e) = self.handle_call_event(event).await {
-                        tracing::error!("❌ Failed to handle call event: {}", e);
+                result = call_event_rx.recv() => {
+                    match result {
+                        Ok(event) => {
+                            if let Err(e) = self.handle_call_event(event).await {
+                                tracing::error!("❌ Failed to handle call event: {}", e);
+                            }
+                        }
+                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                            tracing::warn!("📞 Call event channel lagged, skipping events");
+                        }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            tracing::warn!("📞 Call event channel closed");
+                            break;
+                        }
                     }
                 }
 
@@ -303,6 +357,27 @@ impl VoIPIntegration {
             CallEvent::VideoDisabled { call_id } => {
                 tracing::info!("🚫 Video disabled for call: {}", call_id);
             }
+
+            CallEvent::MuteToggled { call_id, is_muted } => {
+                let cb = self.voip_event_callback.read().await;
+                if let Some(callback) = cb.as_ref() {
+                    callback.on_mute_changed(call_id, is_muted);
+                }
+            }
+
+            CallEvent::SpeakerphoneToggled { call_id, enabled } => {
+                let cb = self.voip_event_callback.read().await;
+                if let Some(callback) = cb.as_ref() {
+                    callback.on_speakerphone_changed(call_id, enabled);
+                }
+            }
+
+            CallEvent::CameraSwitchRequested { call_id } => {
+                let cb = self.voip_event_callback.read().await;
+                if let Some(callback) = cb.as_ref() {
+                    callback.on_camera_switch_requested(call_id);
+                }
+            }
         }
 
         Ok(())
@@ -325,7 +400,6 @@ impl VoIPIntegration {
 
         // CallManager will generate offer and emit it as event
         // Integration will send it via network when ready
-        // TODO: Listen for SignalingMessage from CallManager and send via network
 
         Ok(call_id)
     }
@@ -337,7 +411,6 @@ impl VoIPIntegration {
         self.call_manager.accept_call(call_id).await?;
 
         // CallManager will generate answer and we'll send it via network
-        // TODO: Listen for answer signal and send via network
 
         Ok(())
     }

@@ -4,14 +4,13 @@
 
 use super::{
     call::{Call, CallDirection, CallEndReason, CallState},
-    signaling::SignalingMessage,
     video::VideoCodec,
     webrtc::{build_turn_config, WebRTCPeer},
     Result, VoipError,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, RwLock};
 use webrtc::ice_transport::ice_server::RTCIceServer;
 
 /// TURN credentials from server
@@ -68,6 +67,23 @@ pub enum CallEvent {
         height: u32,
     },
 
+    /// Mute state toggled
+    MuteToggled {
+        call_id: String,
+        is_muted: bool,
+    },
+
+    /// Speakerphone state toggled
+    SpeakerphoneToggled {
+        call_id: String,
+        enabled: bool,
+    },
+
+    /// Camera switch requested (platform should handle)
+    CameraSwitchRequested {
+        call_id: String,
+    },
+
     /// Signaling: Need to send offer to remote peer
     SignalingOffer {
         call_id: String,
@@ -103,11 +119,8 @@ pub struct CallManager {
     /// Video enabled state by call_id
     video_enabled: Arc<RwLock<HashMap<String, bool>>>,
 
-    /// Event sender
-    event_tx: mpsc::UnboundedSender<CallEvent>,
-
-    /// Event receiver
-    event_rx: Arc<RwLock<mpsc::UnboundedReceiver<CallEvent>>>,
+    /// Event broadcaster
+    event_tx: broadcast::Sender<CallEvent>,
 
     /// TURN credentials (cached)
     turn_credentials: Arc<RwLock<Option<TurnCredentials>>>,
@@ -116,14 +129,13 @@ pub struct CallManager {
 impl CallManager {
     /// Create a new call manager
     pub fn new() -> Self {
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
+        let (event_tx, _event_rx) = broadcast::channel(128);
 
         Self {
             calls: Arc::new(RwLock::new(HashMap::new())),
             peers: Arc::new(RwLock::new(HashMap::new())),
             video_enabled: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
-            event_rx: Arc::new(RwLock::new(event_rx)),
             turn_credentials: Arc::new(RwLock::new(None)),
         }
     }
@@ -174,6 +186,21 @@ impl CallManager {
                 height,
             });
         }).await?;
+
+        // Register callback for local ICE candidates
+        let ice_event_tx = self.event_tx.clone();
+        let call_id_for_ice = call_id.clone();
+        let remote_peer_for_ice = remote_peer_id.clone();
+        peer.on_ice_candidate(move |candidate, sdp_mid, sdp_m_line_index| {
+            let _ = ice_event_tx.send(CallEvent::SignalingIceCandidate {
+                call_id: call_id_for_ice.clone(),
+                to_peer_id: remote_peer_for_ice.clone(),
+                candidate,
+                sdp_mid,
+                sdp_m_line_index,
+            });
+        })
+        .await?;
 
         // Add audio track (only with voip feature - video-only calls don't need audio)
         #[cfg(feature = "voip")]
@@ -235,6 +262,25 @@ impl CallManager {
             });
         })
         .await?;
+
+        // Register callback for local ICE candidates
+        let ice_event_tx = self.event_tx.clone();
+        let call_id_for_ice = call_id.clone();
+        let remote_peer_for_ice = remote_peer_id.clone();
+        peer.on_ice_candidate(move |candidate, sdp_mid, sdp_m_line_index| {
+            let _ = ice_event_tx.send(CallEvent::SignalingIceCandidate {
+                call_id: call_id_for_ice.clone(),
+                to_peer_id: remote_peer_for_ice.clone(),
+                candidate,
+                sdp_mid,
+                sdp_m_line_index,
+            });
+        })
+        .await?;
+
+        // Add audio track (only with voip feature - video-only calls don't need audio)
+        #[cfg(feature = "voip")]
+        peer.add_audio_track().await?;
 
         // Set remote offer
         peer.set_remote_description(offer_sdp, "offer").await?;
@@ -340,6 +386,8 @@ impl CallManager {
         &self,
         call_id: String,
         candidate: String,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
     ) -> Result<()> {
         let peers = self.peers.read().await;
         let peer_lock = peers
@@ -347,7 +395,8 @@ impl CallManager {
             .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
 
         let peer = peer_lock.read().await;
-        peer.add_ice_candidate(candidate).await?;
+        peer.add_ice_candidate(candidate, sdp_mid, sdp_m_line_index)
+            .await?;
 
         tracing::debug!("🧊 ICE candidate added for call: {}", call_id);
 
@@ -498,8 +547,9 @@ impl CallManager {
 
         tracing::info!("📸 Switch camera requested for call: {}", call_id);
 
-        // TODO: Emit event for platform to handle camera switching
-        // Platform-specific code will receive this and call their camera manager
+        let _ = self.event_tx.send(CallEvent::CameraSwitchRequested {
+            call_id: call_id.to_string(),
+        });
 
         Ok(())
     }
@@ -521,9 +571,10 @@ impl CallManager {
             call_id
         );
 
-        // TODO: Actually mute/unmute audio track in WebRTCPeer
-        // For now, this just updates the call state
-        // Real implementation would call peer.mute_audio_track(is_muted)
+        let _ = self.event_tx.send(CallEvent::MuteToggled {
+            call_id: call_id.clone(),
+            is_muted,
+        });
 
         Ok(())
     }
@@ -545,11 +596,10 @@ impl CallManager {
             call_id
         );
 
-        // TODO: Actually switch audio output device
-        // For now, this just updates the call state
-        // Real implementation would:
-        // - On mobile: switch between earpiece and loudspeaker
-        // - On desktop: switch audio output device
+        let _ = self.event_tx.send(CallEvent::SpeakerphoneToggled {
+            call_id: call_id.clone(),
+            enabled: is_speaker,
+        });
 
         Ok(())
     }
@@ -567,16 +617,8 @@ impl CallManager {
     }
 
     /// Subscribe to call events
-    pub async fn subscribe_events(&self) -> mpsc::UnboundedReceiver<CallEvent> {
-        // Create a new channel for this subscriber
-        // Note: This is a simplified implementation
-        // In production, we'd use a broadcast channel
-        let (tx, rx) = mpsc::unbounded_channel();
-
-        // TODO: Implement proper event broadcasting
-        // For now, this is a placeholder
-
-        rx
+    pub fn subscribe_events(&self) -> broadcast::Receiver<CallEvent> {
+        self.event_tx.subscribe()
     }
 
     // === Compatibility wrappers for VoIPIntegration ===
@@ -591,12 +633,11 @@ impl CallManager {
         &self,
         call_id: String,
         candidate: String,
-        _sdp_mid: Option<String>,
-        _sdp_m_line_index: Option<u16>,
+        sdp_mid: Option<String>,
+        sdp_m_line_index: Option<u16>,
     ) -> Result<()> {
-        // Current implementation doesn't use sdp_mid/sdp_m_line_index
-        // TODO: Pass these to WebRTCPeer when implementing full ICE support
-        self.add_ice_candidate(call_id, candidate).await
+        self.add_ice_candidate(call_id, candidate, sdp_mid, sdp_m_line_index)
+            .await
     }
 
     /// End a call with specific reason

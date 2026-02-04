@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import uniffi.mepassa.*
 import java.io.File
 import android.util.Base64
+import com.mepassa.voip.VoipEventHandler
 
 /**
  * Wrapper Singleton para MePassaClient do UniFFI
@@ -59,6 +60,13 @@ object MePassaClientWrapper {
             val peerId = client!!.localPeerId()
             _localPeerId.value = peerId
             _isInitialized.value = true
+
+            // Register VoIP event callback (mute/speaker/camera)
+            try {
+                registerVoipEventCallback(VoipEventHandler(context))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to register VoIP event callback", e)
+            }
 
             Log.i(TAG, "Client initialized successfully. PeerId: $peerId")
             true
@@ -482,6 +490,47 @@ object MePassaClientWrapper {
             emptyList()
         }
     }
+
+    /**
+     * Register callback for VoIP control events (mute/speaker/camera)
+     */
+    fun registerVoipEventCallback(callback: uniffi.mepassa.FfiVoipEventCallback) {
+        try {
+            getClient().registerVoipEventCallback(callback)
+            Log.i(TAG, "VoIP event callback registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register VoIP event callback", e)
+        }
+    }
+
+    /**
+     * Retorna mensagens de um grupo
+     */
+    suspend fun getGroupMessages(
+        groupId: String,
+        limit: UInt? = null,
+        offset: UInt? = null
+    ): List<FfiMessage> = withContext(Dispatchers.IO) {
+        try {
+            getClient().getGroupMessages(groupId, limit, offset)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get group messages", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Envia mensagem para um grupo
+     */
+    suspend fun sendGroupMessage(groupId: String, content: String): String =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().sendGroupMessage(groupId, content)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send group message", e)
+                throw e
+            }
+        }
 
     // ========== Video Methods (FASE 14) ==========
 

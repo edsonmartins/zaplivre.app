@@ -116,6 +116,28 @@ impl WebRTCPeer {
         Ok(())
     }
 
+    /// Register callback for local ICE candidates
+    pub async fn on_ice_candidate<F>(&self, callback: F) -> Result<()>
+    where
+        F: Fn(String, Option<String>, Option<u16>) + Send + Sync + 'static,
+    {
+        let pc = Arc::clone(&self.peer_connection);
+        let callback = Arc::new(callback);
+
+        pc.on_ice_candidate(Box::new(move |candidate| {
+            let callback = Arc::clone(&callback);
+            Box::pin(async move {
+                if let Some(candidate) = candidate {
+                    if let Ok(json) = candidate.to_json() {
+                        callback(json.candidate, json.sdp_mid, json.sdp_mline_index);
+                    }
+                }
+            })
+        }));
+
+        Ok(())
+    }
+
     /// Add audio track to the peer connection
     pub async fn add_audio_track(&mut self) -> Result<()> {
         // Create an audio track (Opus codec)
@@ -289,9 +311,16 @@ impl WebRTCPeer {
     }
 
     /// Add remote ICE candidate
-    pub async fn add_ice_candidate(&self, candidate: String) -> Result<()> {
+    pub async fn add_ice_candidate(
+        &self,
+        candidate: String,
+        sdp_mid: Option<String>,
+        sdp_mline_index: Option<u16>,
+    ) -> Result<()> {
         let ice_candidate = RTCIceCandidateInit {
             candidate,
+            sdp_mid,
+            sdp_mline_index,
             ..Default::default()
         };
 

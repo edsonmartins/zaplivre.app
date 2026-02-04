@@ -15,6 +15,7 @@ use crate::{
     identity::Identity,
     network::NetworkManager,
     protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest, Message, MessageType, TextMessage},
+    reactions::ReactionEnvelope,
     storage::{contacts::{NewContact, UpdateContact}, Database, MediaType, MessageStatus, NewMessage, StorageError},
     utils::error::{MePassaError, Result},
 };
@@ -419,6 +420,38 @@ impl Client {
         network.is_connected(&peer_id)
     }
 
+    async fn ensure_peer_connected_with(
+        network: Arc<RwLock<NetworkManager>>,
+        peer_id: PeerId,
+    ) -> bool {
+        let rx = {
+            let mut network = network.write().await;
+            if network.is_connected(&peer_id) {
+                return true;
+            } else {
+                Some(network.resolve_peer_address(peer_id))
+            }
+        };
+
+        let Some(rx) = rx else { return false };
+
+        let resolved = match timeout(Duration::from_secs(5), rx).await {
+            Ok(Ok(Some(addr))) => Some(addr),
+            _ => None,
+        };
+
+        if let Some(addr) = resolved {
+            let mut network = network.write().await;
+            if !network.is_connected(&peer_id) {
+                network.add_peer_to_dht(peer_id, addr.clone());
+                let _ = network.dial(peer_id, addr);
+            }
+        }
+
+        let network = network.read().await;
+        network.is_connected(&peer_id)
+    }
+
     async fn deliver_message(
         &self,
         to: PeerId,
@@ -444,6 +477,57 @@ impl Client {
         Err(MePassaError::Network(
             "Peer offline and message store not configured".to_string(),
         ))
+    }
+
+    async fn deliver_message_with(
+        network: Arc<RwLock<NetworkManager>>,
+        to: PeerId,
+        proto_message: Message,
+        message_type: &str,
+        message_store_url: Option<String>,
+        message_store_http: reqwest::Client,
+    ) -> Result<()> {
+        let connected = Self::ensure_peer_connected_with(Arc::clone(&network), to).await;
+        if connected {
+            let mut network = network.write().await;
+            network.send_message(to, proto_message)?;
+            return Ok(());
+        }
+
+        let Some(base_url) = message_store_url
+            .as_ref()
+            .map(|url| url.trim_end_matches('/').to_string())
+        else {
+            return Err(MePassaError::Network(
+                "Peer offline and message store not configured".to_string(),
+            ));
+        };
+
+        let payload = crate::protocol::codec::encode(&proto_message)?;
+        let request = StoreMessageRequest {
+            recipient_peer_id: proto_message.recipient_peer_id.clone(),
+            sender_peer_id: proto_message.sender_peer_id.clone(),
+            encrypted_payload: base64::encode(payload),
+            message_type: Some(message_type.to_string()),
+            message_id: proto_message.id.clone(),
+        };
+
+        let url = format!("{}/api/store", base_url);
+        let resp = message_store_http
+            .post(url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
+
+        if !resp.status().is_success() {
+            return Err(MePassaError::Network(format!(
+                "Message store returned {}",
+                resp.status()
+            )));
+        }
+
+        Ok(())
     }
 
     fn message_store_base_url(&self) -> Option<String> {
@@ -1166,15 +1250,57 @@ impl Client {
                 .unwrap_or_default()
         );
 
+        let (message_type, payload) =
+            match self.encrypt_message_for_peer(&to_peer_id, forwarded_content.as_bytes()) {
+                Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
+                Ok(None) => (
+                    MessageType::Text,
+                    Payload::Text(TextMessage {
+                        content: forwarded_content.clone(),
+                        reply_to_id: original_msg.message_id.clone(),
+                        metadata: std::collections::HashMap::new(),
+                    }),
+                ),
+                Err(e) => {
+                    tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
+                    (
+                        MessageType::Text,
+                        Payload::Text(TextMessage {
+                            content: forwarded_content.clone(),
+                            reply_to_id: original_msg.message_id.clone(),
+                            metadata: std::collections::HashMap::new(),
+                        }),
+                    )
+                }
+            };
+
+        let proto_message = Message {
+            id: new_message_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to_peer_id.to_string(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        let outcome = self
+            .deliver_message(to_peer_id, &proto_message, "forward")
+            .await;
+        let status = match outcome {
+            Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
+            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            _ => MessageStatus::Failed,
+        };
+
         let new_msg = crate::storage::NewMessage {
             message_id: new_message_id.clone(),
-            conversation_id,
+            conversation_id: conversation_id.clone(),
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to_peer_id.to_string()),
-            message_type: original_msg.message_type.clone(),
+            message_type: "text".to_string(),
             content_encrypted: self.encrypt_for_storage(forwarded_content.as_bytes()).ok(),
             content_plaintext: None,
-            status: crate::storage::MessageStatus::Sent,
+            status,
             parent_message_id: Some(original_msg.message_id.clone()),
         };
 
@@ -1182,7 +1308,13 @@ impl Client {
             .insert_message(&new_msg)
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
-        // TODO: Send forwarded message via network
+        self.database
+            .update_conversation_last_message(&conversation_id, &new_message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        if let Err(e) = outcome {
+            return Err(e);
+        }
 
         Ok(new_message_id)
     }
@@ -1207,7 +1339,7 @@ impl Client {
             .add_reaction(&new_reaction)
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
-        // TODO: Broadcast reaction to other peers via P2P
+        self.spawn_reaction_broadcast(message_id, emoji, "add")?;
 
         Ok(())
     }
@@ -1220,7 +1352,97 @@ impl Client {
             .remove_reaction(message_id, &peer_id, emoji)
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
-        // TODO: Broadcast reaction removal to other peers via P2P
+        self.spawn_reaction_broadcast(message_id, emoji, "remove")?;
+
+        Ok(())
+    }
+
+    fn reaction_target_peer_id(&self, message_id: &str) -> Result<PeerId> {
+        let message = self
+            .database
+            .get_message(message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        let local_peer_id = self.local_peer_id().to_string();
+        let remote_peer_id = if message.sender_peer_id == local_peer_id {
+            message
+                .recipient_peer_id
+                .ok_or_else(|| MePassaError::Protocol("Missing recipient peer id".to_string()))?
+        } else {
+            message.sender_peer_id
+        };
+
+        PeerId::from_str(&remote_peer_id)
+            .map_err(|_| MePassaError::Network("Invalid peer ID".to_string()))
+    }
+
+    fn spawn_reaction_broadcast(
+        &self,
+        message_id: &str,
+        emoji: &str,
+        action: &str,
+    ) -> Result<()> {
+        let to_peer_id = self.reaction_target_peer_id(message_id)?;
+
+        let envelope = ReactionEnvelope {
+            version: 1,
+            action: action.to_string(),
+            message_id: message_id.to_string(),
+            emoji: emoji.to_string(),
+        };
+        let content = envelope.encode()?;
+
+        let (message_type, payload) =
+            match self.encrypt_message_for_peer(&to_peer_id, content.as_bytes()) {
+                Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
+                Ok(None) => (
+                    MessageType::Text,
+                    Payload::Text(TextMessage {
+                        content: content.clone(),
+                        reply_to_id: String::new(),
+                        metadata: std::collections::HashMap::new(),
+                    }),
+                ),
+                Err(e) => {
+                    tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
+                    (
+                        MessageType::Text,
+                        Payload::Text(TextMessage {
+                            content: content.clone(),
+                            reply_to_id: String::new(),
+                            metadata: std::collections::HashMap::new(),
+                        }),
+                    )
+                }
+            };
+
+        let proto_message = Message {
+            id: uuid::Uuid::new_v4().to_string(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: to_peer_id.to_string(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        let network = Arc::clone(&self.network);
+        let message_store_url = self.message_store_url.clone();
+        let message_store_http = self.message_store_http.clone();
+
+        tokio::spawn(async move {
+            if let Err(e) = Client::deliver_message_with(
+                network,
+                to_peer_id,
+                proto_message,
+                "reaction",
+                message_store_url,
+                message_store_http,
+            )
+            .await
+            {
+                tracing::warn!("Failed to broadcast reaction: {}", e);
+            }
+        });
 
         Ok(())
     }
@@ -1418,6 +1640,16 @@ impl Client {
         self.voip_integration.register_video_frame_callback(callback).await;
     }
 
+    /// Register callback for VoIP control events (mute/speaker/camera)
+    pub async fn register_voip_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiVoipEventCallback>,
+    ) {
+        self.voip_integration
+            .register_voip_event_callback(callback)
+            .await;
+    }
+
     // ========== Group Methods (FASE 15) ==========
 
     /// Create a new group
@@ -1428,26 +1660,44 @@ impl Client {
     ) -> Result<crate::ffi::FfiGroup> {
         use crate::ffi::FfiGroup;
 
-        let (group, _topic_hash) = self
+        let (group, topic) = self
             .group_manager
             .create_group(name, description)
             .await
             .map_err(|e| MePassaError::Other(format!("Failed to create group: {}", e)))?;
+
+        {
+            let mut network = self.network.write().await;
+            if let Err(e) = network.subscribe_gossipsub(&topic) {
+                tracing::warn!("Failed to subscribe to group topic: {}", e);
+            }
+        }
 
         Ok(FfiGroup::from_group(&group, &self.local_peer_id().to_string()))
     }
 
     /// Join an existing group
     pub async fn join_group(&self, group_id: String, group_name: String) -> Result<()> {
-        let _topic_hash = self.group_manager
+        let topic = self.group_manager
             .join_group(group_id, group_name)
             .await
             .map_err(|e| MePassaError::Other(format!("Failed to join group: {}", e)))?;
+        let mut network = self.network.write().await;
+        if let Err(e) = network.subscribe_gossipsub(&topic) {
+            tracing::warn!("Failed to subscribe to group topic: {}", e);
+        }
         Ok(())
     }
 
     /// Leave a group
     pub async fn leave_group(&self, group_id: String) -> Result<()> {
+        if let Some(group) = self.group_manager.get_group(&group_id).await {
+            let topic = libp2p::gossipsub::IdentTopic::new(&group.topic);
+            let mut network = self.network.write().await;
+            if let Err(e) = network.unsubscribe_gossipsub(&topic) {
+                tracing::warn!("Failed to unsubscribe from group topic: {}", e);
+            }
+        }
         self.group_manager
             .leave_group(&group_id)
             .await
@@ -1481,6 +1731,72 @@ impl Client {
             .iter()
             .map(|g| FfiGroup::from_group(g, &local_peer_id))
             .collect())
+    }
+
+    /// Get messages for a group
+    pub async fn get_group_messages(
+        &self,
+        group_id: String,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<Vec<crate::ffi::FfiMessage>> {
+        let conversation_id = format!("group:{}", group_id);
+        let messages = self
+            .database
+            .get_conversation_messages(&conversation_id, limit, offset)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+        Ok(messages.into_iter().map(|m| m.into()).collect())
+    }
+
+    /// Send a text message to a group
+    pub async fn send_group_message(&self, group_id: String, content: String) -> Result<String> {
+        let group = self
+            .group_manager
+            .get_group(&group_id)
+            .await
+            .ok_or_else(|| MePassaError::NotFound("Group not found".to_string()))?;
+
+        let message_id = uuid::Uuid::new_v4().to_string();
+        let conversation_id = format!("group:{}", group_id);
+
+        let group_message = crate::group::GroupMessage {
+            message_id: message_id.clone(),
+            group_id: group_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            message_type: crate::group::types::GroupMessageType::Text,
+            content: content.as_bytes().to_vec(),
+            timestamp: chrono::Utc::now().timestamp(),
+            signature: Vec::new(),
+        };
+
+        let payload = serde_json::to_vec(&group_message)
+            .map_err(|e| MePassaError::Protocol(format!("Invalid group message: {}", e)))?;
+
+        {
+            let mut network = self.network.write().await;
+            let topic = libp2p::gossipsub::IdentTopic::new(&group.topic);
+            network.publish_gossipsub(&topic, payload)?;
+        }
+
+        let new_msg = crate::storage::NewMessage {
+            message_id: message_id.clone(),
+            conversation_id: conversation_id.clone(),
+            sender_peer_id: self.local_peer_id().to_string(),
+            recipient_peer_id: None,
+            message_type: "group_text".to_string(),
+            content_encrypted: None,
+            content_plaintext: Some(content),
+            status: MessageStatus::Sent,
+            parent_message_id: None,
+        };
+        self.database
+            .insert_message(&new_msg)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+        self.database
+            .update_conversation_last_message(&conversation_id, &message_id)
+            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+
+        Ok(message_id)
     }
 
     /// Run network event loop (blocking)

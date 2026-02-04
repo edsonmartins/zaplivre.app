@@ -1,17 +1,50 @@
 use mepassa_core::ffi::MePassaClient;
+use mepassa_core::FfiVoipEventCallback;
 use std::sync::{Arc, Mutex};
 use tauri::State;
 use base64::{engine::general_purpose, Engine as _};
 use mepassa_core::FfiMediaType;
 use tauri_plugin_notification::NotificationExt;
+use tauri::Manager;
 
 // Global client state - use Arc to allow cloning the handle
 type ClientState = Arc<Mutex<Option<Arc<MePassaClient>>>>;
+
+struct VoipEventLogger {
+    app: tauri::AppHandle,
+}
+
+impl FfiVoipEventCallback for VoipEventLogger {
+    fn on_mute_changed(&self, call_id: String, is_muted: bool) {
+        tracing::info!("🔇 VoIP mute changed: {} -> {}", call_id, is_muted);
+        let _ = self.app.emit_all(
+            "voip:mute_changed",
+            serde_json::json!({ "call_id": call_id, "is_muted": is_muted }),
+        );
+    }
+
+    fn on_speakerphone_changed(&self, call_id: String, enabled: bool) {
+        tracing::info!("🔊 VoIP speaker changed: {} -> {}", call_id, enabled);
+        let _ = self.app.emit_all(
+            "voip:speaker_changed",
+            serde_json::json!({ "call_id": call_id, "enabled": enabled }),
+        );
+    }
+
+    fn on_camera_switch_requested(&self, call_id: String) {
+        tracing::info!("📸 VoIP camera switch requested: {}", call_id);
+        let _ = self.app.emit_all(
+            "voip:camera_switch_requested",
+            serde_json::json!({ "call_id": call_id }),
+        );
+    }
+}
 
 #[tauri::command]
 pub async fn init_client(
     state: State<'_, ClientState>,
     data_dir: String,
+    app: tauri::AppHandle,
 ) -> Result<String, String> {
     tracing::info!("🔵 init_client CALLED with data_dir: {}", data_dir);
 
@@ -40,6 +73,12 @@ pub async fn init_client(
         e.to_string()
     })?;
     *client_guard = Some(client);
+
+    if let Some(client) = client_guard.as_ref() {
+        if let Err(err) = client.register_voip_event_callback(Box::new(VoipEventLogger { app })) {
+            tracing::warn!("Failed to register VoIP event callback: {}", err);
+        }
+    }
 
     tracing::info!("✅ Client initialized successfully with peer_id: {}", peer_id);
     Ok(peer_id)
@@ -365,6 +404,160 @@ pub async fn bootstrap(state: State<'_, ClientState>) -> Result<(), String> {
     };
 
     client.bootstrap().await.map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Group Commands (FASE 15)
+// ============================================================================
+
+#[tauri::command]
+pub async fn create_group(
+    state: State<'_, ClientState>,
+    name: String,
+    description: Option<String>,
+) -> Result<mepassa_core::FfiGroup, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .create_group(name, description)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn join_group(
+    state: State<'_, ClientState>,
+    group_id: String,
+    group_name: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .join_group(group_id, group_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn leave_group(
+    state: State<'_, ClientState>,
+    group_id: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client.leave_group(group_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn add_group_member(
+    state: State<'_, ClientState>,
+    group_id: String,
+    peer_id: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .add_group_member(group_id, peer_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn remove_group_member(
+    state: State<'_, ClientState>,
+    group_id: String,
+    peer_id: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .remove_group_member(group_id, peer_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_groups(state: State<'_, ClientState>) -> Result<Vec<mepassa_core::FfiGroup>, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client.get_groups().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_group_messages(
+    state: State<'_, ClientState>,
+    group_id: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Vec<mepassa_core::FfiMessage>, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .get_group_messages(group_id, limit.map(|v| v as usize), offset.map(|v| v as usize))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn send_group_message(
+    state: State<'_, ClientState>,
+    group_id: String,
+    content: String,
+) -> Result<String, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .send_group_message(group_id, content)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

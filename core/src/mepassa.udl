@@ -64,6 +64,13 @@ callback interface FfiVideoFrameCallback {
     void on_video_frame(string call_id, sequence<u8> frame_data, u32 width, u32 height);
 };
 
+// VoIP control event callback (mute/speaker/camera)
+callback interface FfiVoipEventCallback {
+    void on_mute_changed(string call_id, boolean is_muted);
+    void on_speakerphone_changed(string call_id, boolean enabled);
+    void on_camera_switch_requested(string call_id);
+};
+
 // Message record
 dictionary FfiMessage {
     string message_id;
@@ -260,6 +267,9 @@ interface MePassaClient {
     [Throws=MePassaFfiError]
     void register_video_frame_callback(FfiVideoFrameCallback callback);
 
+    [Throws=MePassaFfiError]
+    void register_voip_event_callback(FfiVoipEventCallback callback);
+
     // Group methods (FASE 15)
     [Throws=MePassaFfiError, Async]
     FfiGroup create_group(string name, string? description);
@@ -278,6 +288,12 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError, Async]
     sequence<FfiGroup> get_groups();
+
+    [Throws=MePassaFfiError]
+    sequence<FfiMessage> get_group_messages(string group_id, u32? limit, u32? offset);
+
+    [Throws=MePassaFfiError, Async]
+    string send_group_message(string group_id, string content);
 
     // Media methods (FASE 16 - Mídia & Polimento)
     [Throws=MePassaFfiError, Async]

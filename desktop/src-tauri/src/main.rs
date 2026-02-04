@@ -41,6 +41,15 @@ fn main() {
             commands::get_listening_addresses,
             commands::bootstrap,
             commands::show_notification,
+            // Group commands (FASE 15)
+            commands::create_group,
+            commands::join_group,
+            commands::leave_group,
+            commands::add_group_member,
+            commands::remove_group_member,
+            commands::get_groups,
+            commands::get_group_messages,
+            commands::send_group_message,
             // VoIP commands (FASE 12)
             commands::start_call,
             commands::accept_call,

@@ -664,6 +664,15 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 internal interface UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`frameData`: RustBuffer.ByValue,`width`: Int,`height`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
+internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`isMuted`: Byte,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`enabled`: Byte,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod2 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 @Structure.FieldOrder("onVideoFrame", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
     @JvmField internal var `onVideoFrame`: UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0? = null,
@@ -680,6 +689,38 @@ internal open class UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
     }
 
 }
+@Structure.FieldOrder("onMuteChanged", "onSpeakerphoneChanged", "onCameraSwitchRequested", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceFfiVoipEventCallback(
+    @JvmField internal var `onMuteChanged`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod0? = null,
+    @JvmField internal var `onSpeakerphoneChanged`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod1? = null,
+    @JvmField internal var `onCameraSwitchRequested`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod2? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onMuteChanged`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod0? = null,
+        `onSpeakerphoneChanged`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod1? = null,
+        `onCameraSwitchRequested`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod2? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceFfiVoipEventCallback(`onMuteChanged`,`onSpeakerphoneChanged`,`onCameraSwitchRequested`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceFfiVoipEventCallback) {
+        `onMuteChanged` = other.`onMuteChanged`
+        `onSpeakerphoneChanged` = other.`onSpeakerphoneChanged`
+        `onCameraSwitchRequested` = other.`onCameraSwitchRequested`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -837,6 +878,7 @@ internal interface UniffiLib : Library {
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
                 uniffiCallbackInterfaceFfiVideoFrameCallback.register(lib)
+                uniffiCallbackInterfaceFfiVoipEventCallback.register(lib)
                 }
         }
         
@@ -880,6 +922,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_group_messages(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_groups(`ptr`: Pointer,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -904,6 +948,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_mepassa_core_fn_method_mepassaclient_register_voip_event_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_reject_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_remove_group_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,
@@ -913,6 +959,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_fn_method_mepassaclient_search_messages(`ptr`: Pointer,`query`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`fileData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`mimeType`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_group_message(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_send_image_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`imageData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`quality`: Int,
     ): Long
@@ -935,6 +983,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiVideoFrameCallback,
+    ): Unit
+    fun uniffi_mepassa_core_fn_init_callback_vtable_ffivoipeventcallback(`vtable`: UniffiVTableCallbackInterfaceFfiVoipEventCallback,
     ): Unit
     fun ffi_mepassa_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1076,6 +1126,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_groups(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions(
@@ -1100,6 +1152,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_register_voip_event_callback(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_reject_call(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_remove_group_member(
@@ -1109,6 +1163,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_method_mepassaclient_search_messages(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_group_message(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_send_image_message(
     ): Short
@@ -1133,6 +1189,12 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_constructor_mepassaclient_new(
     ): Short
     fun uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_mute_changed(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_speakerphone_changed(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_camera_switch_requested(
     ): Short
     fun ffi_mepassa_core_uniffi_contract_version(
     ): Int
@@ -1193,6 +1255,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 5424.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages() != 42981.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_groups() != 26850.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1229,6 +1294,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 25102.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_voip_event_callback() != 32446.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_reject_call() != 59311.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1242,6 +1310,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message() != 14185.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_group_message() != 25134.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_image_message() != 63432.toShort()) {
@@ -1278,6 +1349,15 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame() != 35554.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_mute_changed() != 20602.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_speakerphone_changed() != 16413.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_ffivoipeventcallback_on_camera_switch_requested() != 27637.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1754,6 +1834,8 @@ public interface MePassaClientInterface {
     
     fun `getConversationMessages`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
     
+    fun `getGroupMessages`(`groupId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
+    
     suspend fun `getGroups`(): List<FfiGroup>
     
     fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction>
@@ -1778,6 +1860,8 @@ public interface MePassaClientInterface {
     
     fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
     
+    fun `registerVoipEventCallback`(`callback`: FfiVoipEventCallback)
+    
     suspend fun `rejectCall`(`callId`: kotlin.String, `reason`: kotlin.String?)
     
     suspend fun `removeGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String)
@@ -1787,6 +1871,8 @@ public interface MePassaClientInterface {
     fun `searchMessages`(`query`: kotlin.String, `limit`: kotlin.UInt?): List<FfiMessage>
     
     suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: List<kotlin.UByte>, `fileName`: kotlin.String, `mimeType`: kotlin.String): kotlin.String
+    
+    suspend fun `sendGroupMessage`(`groupId`: kotlin.String, `content`: kotlin.String): kotlin.String
     
     suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: List<kotlin.UByte>, `fileName`: kotlin.String, `quality`: kotlin.UInt): kotlin.String
     
@@ -2166,6 +2252,19 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     
 
     
+    @Throws(MePassaFfiException::class)override fun `getGroupMessages`(`groupId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage> {
+            return FfiConverterSequenceTypeFfiMessage.lift(
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_group_messages(
+        it, FfiConverterString.lower(`groupId`),FfiConverterOptionalUInt.lower(`limit`),FfiConverterOptionalUInt.lower(`offset`),_status)
+}
+    }
+    )
+    }
+    
+
+    
     @Throws(MePassaFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getGroups`() : List<FfiGroup> {
@@ -2380,6 +2479,18 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     
 
     
+    @Throws(MePassaFfiException::class)override fun `registerVoipEventCallback`(`callback`: FfiVoipEventCallback)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_register_voip_event_callback(
+        it, FfiConverterTypeFfiVoipEventCallback.lower(`callback`),_status)
+}
+    }
+    
+    
+
+    
     @Throws(MePassaFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `rejectCall`(`callId`: kotlin.String, `reason`: kotlin.String?) {
@@ -2457,6 +2568,27 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
             UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(
                 thisPtr,
                 FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`fileData`),FfiConverterString.lower(`fileName`),FfiConverterString.lower(`mimeType`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendGroupMessage`(`groupId`: kotlin.String, `content`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_group_message(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),FfiConverterString.lower(`content`),
             )
         },
         { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -3716,6 +3848,91 @@ internal object uniffiCallbackInterfaceFfiVideoFrameCallback {
  * @suppress
  */
 public object FfiConverterTypeFfiVideoFrameCallback: FfiConverterCallbackInterface<FfiVideoFrameCallback>()
+
+
+
+
+
+public interface FfiVoipEventCallback {
+    
+    fun `onMuteChanged`(`callId`: kotlin.String, `isMuted`: kotlin.Boolean)
+    
+    fun `onSpeakerphoneChanged`(`callId`: kotlin.String, `enabled`: kotlin.Boolean)
+    
+    fun `onCameraSwitchRequested`(`callId`: kotlin.String)
+    
+    companion object
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceFfiVoipEventCallback {
+    internal object `onMuteChanged`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`isMuted`: Byte,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiVoipEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onMuteChanged`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterBoolean.lift(`isMuted`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onSpeakerphoneChanged`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod1 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`enabled`: Byte,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiVoipEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onSpeakerphoneChanged`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterBoolean.lift(`enabled`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onCameraSwitchRequested`: UniffiCallbackInterfaceFfiVoipEventCallbackMethod2 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiVoipEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onCameraSwitchRequested`(
+                    FfiConverterString.lift(`callId`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeFfiVoipEventCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceFfiVoipEventCallback.UniffiByValue(
+        `onMuteChanged`,
+        `onSpeakerphoneChanged`,
+        `onCameraSwitchRequested`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_mepassa_core_fn_init_callback_vtable_ffivoipeventcallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeFfiVoipEventCallback: FfiConverterCallbackInterface<FfiVoipEventCallback>()
 
 
 

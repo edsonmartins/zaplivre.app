@@ -107,6 +107,19 @@ class CallAudioManager(private val context: Context) {
     }
 
     /**
+     * Force speakerphone state
+     */
+    fun setSpeakerphone(enabled: Boolean) {
+        if (enabled && audioManager.isBluetoothScoOn) {
+            audioManager.stopBluetoothSco()
+            audioManager.isBluetoothScoOn = false
+        }
+
+        audioManager.isSpeakerphoneOn = enabled
+        Log.i(TAG, "Speakerphone set to: $enabled")
+    }
+
+    /**
      * Toggle mute do microfone
      *
      * @return true se microfone está mutado após toggle
@@ -117,6 +130,14 @@ class CallAudioManager(private val context: Context) {
         Log.i(TAG, "Microphone mute toggled: $newState")
 
         return newState
+    }
+
+    /**
+     * Force mute state
+     */
+    fun setMuted(muted: Boolean) {
+        audioManager.isMicrophoneMute = muted
+        Log.i(TAG, "Microphone mute set to: $muted")
     }
 
     /**
