@@ -113,3 +113,14 @@ fn sanitize_apns_token(token: &str) -> String {
         .replace('\n', "")
         .replace('\t', "")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_apns_token;
+
+    #[test]
+    fn test_sanitize_apns_token() {
+        let raw = " <abc def\n123\t> ";
+        assert_eq!(sanitize_apns_token(raw), "abcdef123");
+    }
+}
