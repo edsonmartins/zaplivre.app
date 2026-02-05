@@ -32,25 +32,32 @@ pub async fn handle(
     State(state): State<AppState>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<RegisterResponse>, (StatusCode, String)> {
+    let platform = req.platform.trim().to_lowercase();
+
     tracing::info!(
         "📝 Register request - peer_id: {}, platform: {}, device_id: {}",
         req.peer_id,
-        req.platform,
+        platform,
         req.device_id
     );
 
     // Validate platform
-    if req.platform != "fcm" && req.platform != "apns" {
-        tracing::warn!("❌ Invalid platform: {}", req.platform);
+    if platform != "fcm" && platform != "apns" {
+        tracing::warn!("❌ Invalid platform: {}", platform);
         return Err((
             StatusCode::BAD_REQUEST,
-            format!("Invalid platform: {}. Must be 'fcm' or 'apns'", req.platform),
+            format!("Invalid platform: {}. Must be 'fcm' or 'apns'", platform),
         ));
     }
 
     // Insert or update token in database
     let device_name = req.device_name.unwrap_or_else(|| "Unknown".to_string());
     let app_version = req.app_version.unwrap_or_else(|| "0.1.0".to_string());
+    let token = if platform == "apns" {
+        sanitize_apns_token(&req.token)
+    } else {
+        req.token.trim().to_string()
+    };
 
     let result = sqlx::query(
         r#"
@@ -67,9 +74,9 @@ pub async fn handle(
         "#,
     )
     .bind(&req.peer_id)
-    .bind(&req.platform)
+    .bind(&platform)
     .bind(&req.device_id)
-    .bind(&req.token)
+    .bind(&token)
     .bind(&device_name)
     .bind(&app_version)
     .execute(&state.db_pool)
@@ -95,4 +102,14 @@ pub async fn handle(
             ))
         }
     }
+}
+
+fn sanitize_apns_token(token: &str) -> String {
+    token
+        .trim()
+        .trim_matches('<')
+        .trim_matches('>')
+        .replace(' ', "")
+        .replace('\n', "")
+        .replace('\t', "")
 }

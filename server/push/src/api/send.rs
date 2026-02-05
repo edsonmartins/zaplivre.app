@@ -40,6 +40,10 @@ pub async fn handle(
         req.title
     );
 
+    let mut data = req.data.clone();
+    data.entry("peer_id".to_string())
+        .or_insert_with(|| req.peer_id.clone());
+
     // Get all active tokens for this peer
     let tokens = sqlx::query_as::<_, (String, String, String)>(
         r#"
@@ -91,7 +95,7 @@ pub async fn handle(
                 // Send via FCM
                 match state
                     .fcm_client
-                    .send(&token, &req.title, &req.body, &req.data)
+                    .send(&token, &req.title, &req.body, &data)
                     .await
                 {
                     Ok(_) => {
@@ -132,7 +136,7 @@ pub async fn handle(
                 match &state.apns_client {
                     Some(apns_client) => {
                         match apns_client
-                            .send(&token, &req.title, &req.body, &req.data, Some(1))
+                            .send(&token, &req.title, &req.body, &data, Some(1))
                             .await
                         {
                             Ok(_) => {

@@ -240,6 +240,7 @@ impl ApnsClient {
             .uri(&url)
             .header("authorization", format!("bearer {}", jwt_token))
             .header("apns-topic", &self.bundle_id)
+            .header("apns-push-type", "alert")
             .header("apns-expiration", "0") // Immediate expiration if delivery fails
             .header("apns-priority", "10") // High priority
             .header("content-type", "application/json")
