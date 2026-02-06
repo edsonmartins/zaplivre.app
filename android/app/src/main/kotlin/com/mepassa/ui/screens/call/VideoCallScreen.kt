@@ -48,6 +48,13 @@ fun VideoCallScreen(
 
     val audioManager = remember { CallAudioManager(context) }
 
+    DisposableEffect(Unit) {
+        audioManager.startCall()
+        onDispose {
+            audioManager.stopCall()
+        }
+    }
+
     // Camera permission
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
@@ -364,9 +371,3 @@ private fun formatDuration(seconds: Int): String {
         String.format("%02d:%02d", minutes, secs)
     }
 }
-    DisposableEffect(Unit) {
-        audioManager.startCall()
-        onDispose {
-            audioManager.stopCall()
-        }
-    }

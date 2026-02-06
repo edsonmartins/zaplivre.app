@@ -38,7 +38,7 @@ class VideoEncoder(
             setInteger(MediaFormat.KEY_FRAME_RATE, FPS)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL)
             if (Build.VERSION.SDK_INT >= 23) {
-                setInteger(MediaFormat.KEY_PREPEND_HEADER_TO_SYNC_FRAME, 1)
+                setInteger("prepend-header-to-sync-frame", 1)
             }
         }
 
