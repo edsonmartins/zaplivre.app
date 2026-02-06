@@ -32,6 +32,7 @@ import kotlin.time.Duration.Companion.seconds
 fun CallScreen(
     callId: String,
     remotePeerId: String,
+    onOpenVideo: () -> Unit,
     onCallEnded: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -132,6 +133,24 @@ fun CallScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Botão Video
+                IconButton(
+                    onClick = onOpenVideo,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primary,
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Videocam,
+                        contentDescription = "Video",
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+
                 // Botão Mute
                 IconButton(
                     onClick = {

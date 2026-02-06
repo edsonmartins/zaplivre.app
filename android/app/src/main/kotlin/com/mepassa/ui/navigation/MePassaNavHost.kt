@@ -15,6 +15,7 @@ import androidx.navigation.navArgument
 import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.ui.screens.call.CallScreen
 import com.mepassa.ui.screens.call.IncomingCallScreen
+import com.mepassa.ui.screens.call.VideoCallScreen
 import com.mepassa.ui.screens.chat.ChatScreen
 import com.mepassa.ui.screens.conversations.ConversationsScreen
 import com.mepassa.ui.screens.group.GroupChatScreen
@@ -46,6 +47,9 @@ sealed class Screen(val route: String) {
     }
     object ActiveCall : Screen("active_call/{callId}/{remotePeerId}") {
         fun createRoute(callId: String, remotePeerId: String) = "active_call/$callId/$remotePeerId"
+    }
+    object VideoCall : Screen("video_call/{callId}/{remotePeerId}") {
+        fun createRoute(callId: String, remotePeerId: String) = "video_call/$callId/$remotePeerId"
     }
 }
 
@@ -268,8 +272,31 @@ fun MePassaNavHost(
             CallScreen(
                 callId = callId,
                 remotePeerId = remotePeerId,
+                onOpenVideo = {
+                    navController.navigate(Screen.VideoCall.createRoute(callId, remotePeerId))
+                },
                 onCallEnded = {
                     // Voltar para Conversations
+                    navController.popBackStack(Screen.Conversations.route, inclusive = false)
+                }
+            )
+        }
+
+        // Video Call (video ativa)
+        composable(
+            route = Screen.VideoCall.route,
+            arguments = listOf(
+                navArgument("callId") { type = NavType.StringType },
+                navArgument("remotePeerId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: return@composable
+            val remotePeerId = backStackEntry.arguments?.getString("remotePeerId") ?: return@composable
+
+            VideoCallScreen(
+                callId = callId,
+                peerName = remotePeerId.take(16) + "...",
+                onHangup = {
                     navController.popBackStack(Screen.Conversations.route, inclusive = false)
                 }
             )

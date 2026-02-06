@@ -65,12 +65,7 @@ class CameraManager(private val context: Context) {
                     .also { analysis ->
                         analysis.setAnalyzer(cameraExecutor) { imageProxy ->
                             try {
-                                // Convert ImageProxy to byte array
-                                val buffer = imageProxy.planes[0].buffer
-                                val data = ByteArray(buffer.remaining())
-                                buffer.get(data)
-
-                                // Send frame via callback
+                                val data = yuv420ToNv21(imageProxy)
                                 onFrameCallback(data, imageProxy.width, imageProxy.height)
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error processing frame", e)
@@ -159,5 +154,53 @@ class CameraManager(private val context: Context) {
     fun release() {
         stopCamera()
         cameraExecutor.shutdown()
+    }
+
+    private fun yuv420ToNv21(image: androidx.camera.core.ImageProxy): ByteArray {
+        val width = image.width
+        val height = image.height
+        val ySize = width * height
+        val uvSize = width * height / 2
+        val nv21 = ByteArray(ySize + uvSize)
+
+        val yPlane = image.planes[0]
+        val uPlane = image.planes[1]
+        val vPlane = image.planes[2]
+
+        val yBuffer = yPlane.buffer
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+
+        val yRowStride = yPlane.rowStride
+        val yPixelStride = yPlane.pixelStride
+        val uRowStride = uPlane.rowStride
+        val uPixelStride = uPlane.pixelStride
+        val vRowStride = vPlane.rowStride
+        val vPixelStride = vPlane.pixelStride
+
+        var pos = 0
+        for (row in 0 until height) {
+            var col = 0
+            while (col < width) {
+                nv21[pos++] = yBuffer.get(row * yRowStride + col * yPixelStride)
+                col++
+            }
+        }
+
+        var uvPos = ySize
+        val chromaHeight = height / 2
+        val chromaWidth = width / 2
+        for (row in 0 until chromaHeight) {
+            var col = 0
+            while (col < chromaWidth) {
+                val vIndex = row * vRowStride + col * vPixelStride
+                val uIndex = row * uRowStride + col * uPixelStride
+                nv21[uvPos++] = vBuffer.get(vIndex)
+                nv21[uvPos++] = uBuffer.get(uIndex)
+                col++
+            }
+        }
+
+        return nv21
     }
 }

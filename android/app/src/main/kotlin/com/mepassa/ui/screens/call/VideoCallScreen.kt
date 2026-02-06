@@ -26,6 +26,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.ui.components.RemoteVideoView
 import com.mepassa.voip.CameraManager
+import com.mepassa.voip.CallAudioManager
+import com.mepassa.voip.VideoEncoder
 import kotlinx.coroutines.launch
 import uniffi.mepassa.FfiVideoCodec
 
@@ -44,6 +46,8 @@ fun VideoCallScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
+    val audioManager = remember { CallAudioManager(context) }
+
     // Camera permission
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
@@ -61,6 +65,22 @@ fun VideoCallScreen(
 
     // Camera manager
     val cameraManager = remember { CameraManager(context) }
+    val videoEncoder = remember {
+        VideoEncoder(width = 640, height = 480) { encoded, _ ->
+            scope.launch {
+                try {
+                    MePassaClientWrapper.sendVideoFrame(
+                        callId = callId,
+                        frameData = encoded,
+                        width = 640u,
+                        height = 480u
+                    )
+                } catch (e: Exception) {
+                    // Frame drop is acceptable
+                }
+            }
+        }
+    }
 
     // Preview views
     var localPreviewView by remember { mutableStateOf<PreviewView?>(null) }
@@ -68,23 +88,13 @@ fun VideoCallScreen(
     DisposableEffect(cameraPermissionState.status.isGranted, videoEnabled, localPreviewView) {
         // Start camera when screen appears and permission is granted
         if (cameraPermissionState.status.isGranted && videoEnabled && localPreviewView != null) {
+            videoEncoder.start()
             cameraManager.startCamera(
                 lifecycleOwner = lifecycleOwner,
                 previewView = localPreviewView!!,
                 onFrameCallback = { data, width, height ->
-                    // Send frame to WebRTC via FFI
-                    scope.launch {
-                        try {
-                            MePassaClientWrapper.sendVideoFrame(
-                                callId = callId,
-                                frameData = data,
-                                width = width.toUInt(),
-                                height = height.toUInt()
-                            )
-                        } catch (e: Exception) {
-                            // Frame drop is acceptable
-                        }
-                    }
+                    val pts = System.nanoTime() / 1000
+                    videoEncoder.encodeFrame(data, pts)
                 }
             )
 
@@ -101,6 +111,7 @@ fun VideoCallScreen(
         onDispose {
             cameraManager.stopCamera()
             cameraManager.release()
+            videoEncoder.stop()
         }
     }
 
@@ -128,22 +139,13 @@ fun VideoCallScreen(
                         PreviewView(ctx).also { preview ->
                             localPreviewView = preview
                             if (cameraPermissionState.status.isGranted && videoEnabled) {
+                                videoEncoder.start()
                                 cameraManager.startCamera(
                                     lifecycleOwner = lifecycleOwner,
                                     previewView = preview,
                                     onFrameCallback = { data, width, height ->
-                                        scope.launch {
-                                            try {
-                                                MePassaClientWrapper.sendVideoFrame(
-                                                    callId = callId,
-                                                    frameData = data,
-                                                    width = width.toUInt(),
-                                                    height = height.toUInt()
-                                                )
-                                            } catch (e: Exception) {
-                                                // Frame drop is acceptable
-                                            }
-                                        }
+                                        val pts = System.nanoTime() / 1000
+                                        videoEncoder.encodeFrame(data, pts)
                                     }
                                 )
                             }
@@ -195,22 +197,13 @@ fun VideoCallScreen(
 
                         videoEnabled = !videoEnabled
                         if (videoEnabled && localPreviewView != null) {
+                            videoEncoder.start()
                             cameraManager.startCamera(
                                 lifecycleOwner = lifecycleOwner,
                                 previewView = localPreviewView!!,
                                 onFrameCallback = { data, width, height ->
-                                    scope.launch {
-                                        try {
-                                            MePassaClientWrapper.sendVideoFrame(
-                                                callId = callId,
-                                                frameData = data,
-                                                width = width.toUInt(),
-                                                height = height.toUInt()
-                                            )
-                                        } catch (e: Exception) {
-                                            // Frame drop is acceptable
-                                        }
-                                    }
+                                    val pts = System.nanoTime() / 1000
+                                    videoEncoder.encodeFrame(data, pts)
                                 }
                             )
                             // Enable video track on WebRTC
@@ -223,6 +216,7 @@ fun VideoCallScreen(
                             }
                         } else {
                             cameraManager.stopCamera()
+                            videoEncoder.stop()
                             // Disable video track on WebRTC
                             scope.launch {
                                 try {
@@ -252,9 +246,14 @@ fun VideoCallScreen(
                 // Mute toggle
                 IconButton(
                     onClick = {
-                        isMuted = !isMuted
-                        // TODO: Call FFI toggle_mute
-                        // MePassaClientWrapper.toggleMute(callId)
+                        scope.launch {
+                            try {
+                                MePassaClientWrapper.toggleMute(callId)
+                                isMuted = audioManager.toggleMute()
+                            } catch (e: Exception) {
+                                Log.e("VideoCallScreen", "Failed to toggle mute", e)
+                            }
+                        }
                     },
                     modifier = Modifier
                         .size(56.dp)
@@ -286,18 +285,8 @@ fun VideoCallScreen(
                                 lifecycleOwner = lifecycleOwner,
                                 previewView = localPreviewView!!,
                                 onFrameCallback = { data, width, height ->
-                                    scope.launch {
-                                        try {
-                                            MePassaClientWrapper.sendVideoFrame(
-                                                callId = callId,
-                                                frameData = data,
-                                                width = width.toUInt(),
-                                                height = height.toUInt()
-                                            )
-                                        } catch (e: Exception) {
-                                            // Frame drop is acceptable
-                                        }
-                                    }
+                                    val pts = System.nanoTime() / 1000
+                                    videoEncoder.encodeFrame(data, pts)
                                 }
                             )
                             // Notify FFI about camera switch
@@ -326,7 +315,17 @@ fun VideoCallScreen(
 
                 // Hangup
                 IconButton(
-                    onClick = onHangup,
+                    onClick = {
+                        scope.launch {
+                            try {
+                                MePassaClientWrapper.hangupCall(callId)
+                            } catch (e: Exception) {
+                                Log.e("VideoCallScreen", "Failed to hangup", e)
+                            } finally {
+                                onHangup()
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .size(72.dp)
                         .background(color = Color(0xFFE53935), shape = CircleShape)
@@ -365,3 +364,9 @@ private fun formatDuration(seconds: Int): String {
         String.format("%02d:%02d", minutes, secs)
     }
 }
+    DisposableEffect(Unit) {
+        audioManager.startCall()
+        onDispose {
+            audioManager.stopCall()
+        }
+    }
