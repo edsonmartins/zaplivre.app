@@ -1,0 +1,118 @@
+.video-call-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1f2937, #0f172a);
+  color: #e2e8f0;
+}
+
+.video-call-container {
+  width: min(1100px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.video-stage {
+  position: relative;
+  background: #0b1220;
+  border-radius: 20px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 520px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.remote-video {
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 440px;
+}
+
+.local-video {
+  position: absolute;
+  right: 32px;
+  top: 32px;
+  width: 220px;
+  height: 140px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.video-placeholder {
+  text-align: center;
+  padding: 12px;
+}
+
+.video-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.video-metrics {
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.video-call-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.peer-info {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.video-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.video-btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.video-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.video-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.video-btn.hangup {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+@media (max-width: 900px) {
+  .video-call-footer {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .local-video {
+    width: 160px;
+    height: 100px;
+    right: 20px;
+    top: 20px;
+  }
+}

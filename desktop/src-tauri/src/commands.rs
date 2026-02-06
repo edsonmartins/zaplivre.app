@@ -1,5 +1,5 @@
 use mepassa_core::ffi::MePassaClient;
-use mepassa_core::FfiVoipEventCallback;
+use mepassa_core::{FfiVideoCodec, FfiVideoFrameCallback, FfiVoipEventCallback};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 use base64::{engine::general_purpose, Engine as _};
@@ -38,6 +38,23 @@ impl FfiVoipEventCallback for VoipEventLogger {
             "voip:camera_switch_requested",
             serde_json::json!({ "call_id": call_id }),
         );
+    }
+}
+
+struct VideoFrameEmitter {
+    app: tauri::AppHandle,
+}
+
+impl FfiVideoFrameCallback for VideoFrameEmitter {
+    fn on_video_frame(&self, call_id: String, frame_data: Vec<u8>, width: u32, height: u32) {
+        let payload = serde_json::json!({
+            "call_id": call_id,
+            "width": width,
+            "height": height,
+            "size": frame_data.len(),
+            "data_b64": general_purpose::STANDARD.encode(frame_data),
+        });
+        let _ = self.app.emit_all("voip:video_frame", payload);
     }
 }
 
@@ -720,5 +737,66 @@ pub async fn toggle_speakerphone(
     client
         .toggle_speakerphone(call_id)
         .await
+        .map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// VoIP Video Commands (FASE 14)
+// ============================================================================
+
+#[tauri::command]
+pub async fn enable_video(
+    state: State<'_, ClientState>,
+    call_id: String,
+    codec: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    let codec = match codec.to_lowercase().as_str() {
+        "vp8" => FfiVideoCodec::Vp8,
+        "vp9" => FfiVideoCodec::Vp9,
+        _ => FfiVideoCodec::H264,
+    };
+
+    client.enable_video(call_id, codec).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn disable_video(
+    state: State<'_, ClientState>,
+    call_id: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client.disable_video(call_id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn register_video_frame_callback(
+    state: State<'_, ClientState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .register_video_frame_callback(Box::new(VideoFrameEmitter { app }))
         .map_err(|e| e.to_string())
 }

@@ -7,6 +7,7 @@ import OnboardingView from './views/OnboardingView'
 import ConversationsView from './views/ConversationsView'
 import ChatView from './views/ChatView'
 import CallView from './views/CallView'
+import VideoCallView from './views/VideoCallView'
 import GroupListView from './views/GroupListView'
 import GroupChatView from './views/GroupChatView'
 import { VoipStateProvider, useVoipState } from './state/voipState'
@@ -249,6 +250,7 @@ function App() {
       <Route path="/conversations" element={<ConversationsView localPeerId={localPeerId} />} />
       <Route path="/chat/:peerId" element={<ChatView localPeerId={localPeerId} />} />
       <Route path="/call/:callId/:remotePeerId" element={<CallView localPeerId={localPeerId} />} />
+      <Route path="/video-call/:callId/:remotePeerId" element={<VideoCallView />} />
       <Route path="/groups" element={<GroupListView localPeerId={localPeerId} />} />
       <Route path="/group/:groupId" element={<GroupChatView />} />
       <Route path="*" element={<Navigate to={isInitialized ? "/conversations" : "/onboarding"} replace />} />

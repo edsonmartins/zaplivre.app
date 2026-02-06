@@ -58,6 +58,9 @@ fn main() {
             commands::hangup_call,
             commands::toggle_mute,
             commands::toggle_speakerphone,
+            commands::enable_video,
+            commands::disable_video,
+            commands::register_video_frame_callback,
         ])
         .setup(|app| {
             // Setup app-specific initialization here

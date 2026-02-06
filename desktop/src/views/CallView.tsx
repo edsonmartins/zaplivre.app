@@ -82,6 +82,11 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
     }
   }
 
+  const handleOpenVideo = () => {
+    if (!callId || !remotePeerId) return
+    navigate(`/video-call/${callId}/${remotePeerId}`)
+  }
+
   return (
     <div className="call-view">
       <div className="call-container">
@@ -121,6 +126,16 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
 
         {/* Controls */}
         <div className="call-controls">
+          {/* Video Button */}
+          <button
+            onClick={handleOpenVideo}
+            className="control-btn speaker-on"
+            title="Video call"
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 10.5V7c0-1.1-.9-2-2-2H5C3.9 5 3 5.9 3 7v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-3.5l4 4v-11l-4 4z" />
+            </svg>
+          </button>
           {/* Mute Button */}
           <button
             onClick={handleMuteToggle}
