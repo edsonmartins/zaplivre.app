@@ -16,6 +16,7 @@ Objetivo: definir o pipeline de video end-to-end e o escopo do MVP.
 
 - Codec inicial: **VP8** (menos carga, suporte amplo).
 - Opcional futuro: **VP9**.
+- H.264 (MVP) usa **Annex B** com start codes `0x00000001` entre NALUs.
 - Payload: RTP com frame fragmentation e reassembly.
 - Tamanho alvo: 640x360 @ 15-30fps (MVP).
 
@@ -39,7 +40,9 @@ Usar o canal P2P existente para negociar:
   - preview local
   - video remoto
   - botoes mute, camera on/off, hangup
-- Indicador de conexao (connecting, connected, failed)
+  - Indicador de conexao (connecting, connected, failed)
+- Desktop: renderizacao H.264 via WebCodecs quando suportado pelo WebView.
+- macOS: fallback nativo via VideoToolbox no backend Tauri com frames RGBA.
 
 ## 6) Telemetria e logs
 

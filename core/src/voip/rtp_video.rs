@@ -21,6 +21,7 @@ pub const RTP_HEADER_SIZE: usize = 12;
 
 /// Maximum RTP payload size per packet
 pub const RTP_MAX_PAYLOAD: usize = RTP_MTU - RTP_HEADER_SIZE;
+pub const H264_START_CODE: [u8; 4] = [0x00, 0x00, 0x00, 0x01];
 
 /// RTP packet header (RFC 3550)
 ///
@@ -253,21 +254,46 @@ impl RtpPacketizer {
     fn packetize_h264(&mut self, frame_data: &[u8], timestamp: u32) -> Vec<RtpPacket> {
         let mut packets = Vec::new();
 
-        // If frame fits in one packet, send as single NALU
-        if frame_data.len() <= RTP_MAX_PAYLOAD {
+        let nalus = split_annexb_nalus(frame_data);
+        if nalus.is_empty() {
+            return packets;
+        }
+
+        for (index, nalu) in nalus.iter().enumerate() {
+            let is_last_nalu = index == nalus.len() - 1;
+            packets.extend(self.packetize_h264_nalu(nalu, timestamp, is_last_nalu));
+        }
+
+        packets
+    }
+
+    fn packetize_h264_nalu(
+        &mut self,
+        nalu: &[u8],
+        timestamp: u32,
+        is_last_nalu: bool,
+    ) -> Vec<RtpPacket> {
+        let mut packets = Vec::new();
+
+        if nalu.is_empty() {
+            return packets;
+        }
+
+        // If NALU fits in one packet, send as single NALU
+        if nalu.len() <= RTP_MAX_PAYLOAD {
             let header = RtpHeader::new(
                 self.next_sequence_number(),
                 timestamp,
                 self.ssrc,
                 self.payload_type,
-                true, // marker bit set (last packet of frame)
+                is_last_nalu, // marker bit set only on last NALU of frame
             );
 
-            packets.push(RtpPacket::new(header, frame_data.to_vec()));
+            packets.push(RtpPacket::new(header, nalu.to_vec()));
             return packets;
         }
 
-        // Large frame: use FU-A fragmentation (RFC 6184 Section 5.8)
+        // Large NALU: use FU-A fragmentation (RFC 6184 Section 5.8)
 
         // FU-A Header:
         // +---------------+
@@ -278,14 +304,14 @@ impl RtpPacketizer {
         // |S|E|R|  Type   |  <- FU-A indicator
         // +---------------+
 
-        let nalu_header = frame_data[0];
+        let nalu_header = nalu[0];
         let nalu_type = nalu_header & 0x1F;
         let nri = nalu_header & 0x60;
 
         // FU-A indicator: F=0, NRI=original, Type=28 (FU-A)
         let fu_indicator = nri | 28;
 
-        let payload_data = &frame_data[1..]; // Skip NALU header
+        let payload_data = &nalu[1..]; // Skip NALU header
         let mut offset = 0;
 
         while offset < payload_data.len() {
@@ -314,7 +340,7 @@ impl RtpPacketizer {
                 timestamp,
                 self.ssrc,
                 self.payload_type,
-                is_last, // marker bit only on last packet
+                is_last && is_last_nalu, // marker bit only on last fragment of last NALU
             );
 
             packets.push(RtpPacket::new(header, payload));
@@ -496,6 +522,8 @@ impl RtpDepacketizer {
             let original_nalu_type = fu_header & 0x1F;
 
             if is_start {
+                // Prepend Annex B start code for reconstructed NALU
+                self.frame_buffer.extend_from_slice(&H264_START_CODE);
                 // First fragment: reconstruct NALU header
                 let nri = packet.payload[0] & 0x60;
                 let nalu_header = nri | original_nalu_type;
@@ -506,6 +534,7 @@ impl RtpDepacketizer {
             self.frame_buffer.extend_from_slice(&packet.payload[2..]);
         } else {
             // Single NALU packet
+            self.frame_buffer.extend_from_slice(&H264_START_CODE);
             self.frame_buffer.extend_from_slice(&packet.payload);
         }
 
@@ -629,7 +658,8 @@ mod tests {
         let mut depacketizer = RtpDepacketizer::new(VideoCodec::H264);
 
         // Create a frame that requires fragmentation
-        let mut original_frame = vec![0x65]; // NALU header
+        let mut original_frame = Vec::from(H264_START_CODE);
+        original_frame.push(0x65); // NALU header
         original_frame.extend(vec![0xAB; 2500]);
 
         let timestamp = 270000;
@@ -647,6 +677,31 @@ mod tests {
 
         // Frame should be reconstructed
         assert!(reconstructed_frame.is_some());
+        assert_eq!(reconstructed_frame.unwrap(), original_frame);
+    }
+
+    #[test]
+    fn test_annexb_multi_nalu_round_trip() {
+        let mut packetizer = RtpPacketizer::new(12345, VideoCodec::H264);
+        let mut depacketizer = RtpDepacketizer::new(VideoCodec::H264);
+
+        let mut original_frame = Vec::from(H264_START_CODE);
+        original_frame.extend_from_slice(&[0x67, 0x42, 0x00, 0x1F]); // SPS
+        original_frame.extend_from_slice(&H264_START_CODE);
+        original_frame.extend_from_slice(&[0x68, 0xCE, 0x06, 0xE2]); // PPS
+        original_frame.extend_from_slice(&H264_START_CODE);
+        original_frame.extend_from_slice(&[0x65, 0x88, 0x84]); // IDR
+
+        let timestamp = 123000;
+        let packets = packetizer.packetize(&original_frame, timestamp);
+
+        let mut reconstructed_frame = None;
+        for packet in packets {
+            if let Some(frame) = depacketizer.depacketize(&packet).unwrap() {
+                reconstructed_frame = Some(frame);
+            }
+        }
+
         assert_eq!(reconstructed_frame.unwrap(), original_frame);
     }
 
@@ -678,4 +733,45 @@ mod tests {
         assert_eq!(packets2[0].header.sequence_number, 65535);
         assert_eq!(packets3[0].header.sequence_number, 0); // Wrapped around
     }
+}
+
+fn split_annexb_nalus(frame_data: &[u8]) -> Vec<Vec<u8>> {
+    let mut nalus = Vec::new();
+    let mut start: Option<usize> = None;
+    let mut i = 0;
+
+    while i + 3 < frame_data.len() {
+        let is_start_code_4 = frame_data[i] == 0
+            && frame_data[i + 1] == 0
+            && frame_data[i + 2] == 0
+            && frame_data[i + 3] == 1;
+        let is_start_code_3 =
+            frame_data[i] == 0 && frame_data[i + 1] == 0 && frame_data[i + 2] == 1;
+
+        if is_start_code_4 || is_start_code_3 {
+            let start_code_len = if is_start_code_4 { 4 } else { 3 };
+            if let Some(nalu_start) = start {
+                if nalu_start < i {
+                    nalus.push(frame_data[nalu_start..i].to_vec());
+                }
+            }
+            start = Some(i + start_code_len);
+            i += start_code_len;
+            continue;
+        }
+
+        i += 1;
+    }
+
+    if let Some(nalu_start) = start {
+        if nalu_start < frame_data.len() {
+            nalus.push(frame_data[nalu_start..].to_vec());
+        }
+    }
+
+    if nalus.is_empty() && !frame_data.is_empty() {
+        nalus.push(frame_data.to_vec());
+    }
+
+    nalus
 }

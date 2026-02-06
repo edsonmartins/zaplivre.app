@@ -7,6 +7,8 @@ use mepassa_core::FfiMediaType;
 use tauri_plugin_notification::NotificationExt;
 use tauri::Emitter;
 use crate::identity_store;
+#[cfg(target_os = "macos")]
+use crate::macos_video::MacVideoDecoder;
 
 // Global client state - use Arc to allow cloning the handle
 type ClientState = Arc<Mutex<Option<Arc<MePassaClient>>>>;
@@ -43,10 +45,29 @@ impl FfiVoipEventCallback for VoipEventLogger {
 
 struct VideoFrameEmitter {
     app: tauri::AppHandle,
+    #[cfg(target_os = "macos")]
+    decoder: std::sync::Mutex<MacVideoDecoder>,
 }
 
 impl FfiVideoFrameCallback for VideoFrameEmitter {
     fn on_video_frame(&self, call_id: String, frame_data: Vec<u8>, width: u32, height: u32) {
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(mut decoder) = self.decoder.lock() {
+                if let Some(decoded) = decoder.decode_annexb(&frame_data) {
+                    let payload = serde_json::json!({
+                        "call_id": call_id,
+                        "width": decoded.width,
+                        "height": decoded.height,
+                        "size": decoded.rgba.len(),
+                        "data_b64": general_purpose::STANDARD.encode(decoded.rgba),
+                    });
+                    let _ = self.app.emit("voip:video_frame_rgba", payload);
+                    return;
+                }
+            }
+        }
+
         let payload = serde_json::json!({
             "call_id": call_id,
             "width": width,
@@ -834,6 +855,10 @@ pub async fn register_video_frame_callback(
     };
 
     client
-        .register_video_frame_callback(Box::new(VideoFrameEmitter { app }))
+        .register_video_frame_callback(Box::new(VideoFrameEmitter {
+            app,
+            #[cfg(target_os = "macos")]
+            decoder: std::sync::Mutex::new(MacVideoDecoder::new()),
+        }))
         .map_err(|e| e.to_string())
 }

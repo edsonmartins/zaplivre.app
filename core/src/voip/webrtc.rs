@@ -2,6 +2,7 @@
 //!
 //! Handles WebRTC peer connections, media tracks (audio + video), and ICE/DTLS.
 
+use super::rtp_video::{RtpDepacketizer, RtpPacket, RtpPacketizer};
 use super::video::VideoCodec;
 use super::VoipError;
 use crate::voip::Result;
@@ -29,11 +30,11 @@ pub struct WebRTCPeer {
     audio_track: Option<Arc<TrackLocalStaticRTP>>,
     video_track: Option<Arc<TrackLocalStaticRTP>>,
     video_rtp_state: Mutex<VideoRtpState>,
+    video_packetizer: Mutex<Option<RtpPacketizer>>,
 }
 
 struct VideoRtpState {
     ssrc: u32,
-    seq: u16,
     ts_base: u32,
     started_at: Instant,
     clock_rate: u32,
@@ -88,11 +89,11 @@ impl WebRTCPeer {
             video_track: None,
             video_rtp_state: Mutex::new(VideoRtpState {
                 ssrc: rand::random::<u32>(),
-                seq: rand::random::<u16>(),
                 ts_base: rand::random::<u32>(),
                 started_at: Instant::now(),
                 clock_rate: 90_000,
             }),
+            video_packetizer: Mutex::new(None),
         })
     }
 
@@ -109,6 +110,7 @@ impl WebRTCPeer {
         // Register handler for when remote track is added
         pc.on_track(Box::new(move |track, _receiver, _transceiver| {
             let callback = Arc::clone(&callback);
+            let depacketizer = Arc::new(Mutex::new(RtpDepacketizer::new(VideoCodec::H264)));
 
             // Check if this is a video track
             if track.kind() == webrtc::rtp_transceiver::rtp_codec::RTPCodecType::Video {
@@ -117,13 +119,27 @@ impl WebRTCPeer {
                 Box::pin(async move {
                     // Read RTP packets from the track
                     while let Ok((rtp_packet, _)) = track.read_rtp().await {
-                        // Extract payload (video frame data)
-                        let payload = rtp_packet.payload.to_vec();
+                        let header = rtp_packet.header;
+                        let packet = RtpPacket::new(
+                            super::rtp_video::RtpHeader {
+                                version: header.version,
+                                padding: header.padding,
+                                extension: header.extension,
+                                csrc_count: header.csrc.len() as u8,
+                                marker: header.marker,
+                                payload_type: header.payload_type,
+                                sequence_number: header.sequence_number,
+                                timestamp: header.timestamp,
+                                ssrc: header.ssrc,
+                            },
+                            rtp_packet.payload.to_vec(),
+                        );
 
-                        // For now, we'll pass the raw RTP payload
-                        // In production, this should be decoded first
-                        // Assuming VGA resolution for now (should be extracted from SDP)
-                        callback(payload, 640, 480);
+                        let mut depacketizer = depacketizer.lock().await;
+                        if let Ok(Some(frame)) = depacketizer.depacketize(&packet) {
+                            // Assuming VGA resolution for now (should be extracted from SDP)
+                            callback(frame, 640, 480);
+                        }
                     }
                 })
             } else {
@@ -207,6 +223,16 @@ impl WebRTCPeer {
             .map_err(|e| VoipError::WebRtcError(format!("Failed to add video track: {}", e)))?;
 
         self.video_track = Some(video_track);
+        {
+            let mut state = self.video_rtp_state.lock().await;
+            state.started_at = Instant::now();
+            state.clock_rate = codec.clock_rate();
+        }
+        {
+            let state = self.video_rtp_state.lock().await;
+            let mut packetizer = self.video_packetizer.lock().await;
+            *packetizer = Some(RtpPacketizer::new(state.ssrc, codec));
+        }
 
         tracing::info!("✅ Video track added to peer connection - codec: {:?}", codec);
         Ok(())
@@ -217,35 +243,42 @@ impl WebRTCPeer {
     /// Frame data should be pre-encoded (H.264 NALUs or VP8 frames)
     pub async fn send_video_frame(&self, frame: &[u8]) -> Result<()> {
         if let Some(video_track) = &self.video_track {
-            // For MVP, we create a simple RTP packet with the frame data
-            // In production, this should be properly packetized
-            use webrtc::rtp::packet::Packet;
-
-            let mut state = self.video_rtp_state.lock().await;
-            state.seq = state.seq.wrapping_add(1);
-            let elapsed = state.started_at.elapsed();
-            let elapsed_ts = (elapsed.as_secs_f64() * state.clock_rate as f64) as u32;
-            let timestamp = state.ts_base.wrapping_add(elapsed_ts);
-
-            let packet = Packet {
-                header: webrtc::rtp::header::Header {
-                    version: 2,
-                    padding: false,
-                    extension: false,
-                    marker: true,
-                    payload_type: 96, // Dynamic payload type for H.264
-                    sequence_number: state.seq,
-                    timestamp,
-                    ssrc: state.ssrc,
-                    ..Default::default()
-                },
-                payload: frame.to_vec().into(),
+            let timestamp = {
+                let state = self.video_rtp_state.lock().await;
+                let elapsed = state.started_at.elapsed();
+                let elapsed_ts = (elapsed.as_secs_f64() * state.clock_rate as f64) as u32;
+                state.ts_base.wrapping_add(elapsed_ts)
             };
 
-            video_track
-                .write_rtp(&packet)
-                .await
-                .map_err(|e| VoipError::WebRtcError(format!("Failed to write video frame: {}", e)))?;
+            let packets = {
+                let mut packetizer = self.video_packetizer.lock().await;
+                let packetizer = packetizer.as_mut().ok_or_else(|| {
+                    VoipError::InvalidState("Video packetizer not initialized".to_string())
+                })?;
+                packetizer.packetize(frame, timestamp)
+            };
+
+            for packet in packets {
+                let packet = webrtc::rtp::packet::Packet {
+                    header: webrtc::rtp::header::Header {
+                        version: packet.header.version,
+                        padding: packet.header.padding,
+                        extension: packet.header.extension,
+                        marker: packet.header.marker,
+                        payload_type: packet.header.payload_type,
+                        sequence_number: packet.header.sequence_number,
+                        timestamp: packet.header.timestamp,
+                        ssrc: packet.header.ssrc,
+                        ..Default::default()
+                    },
+                    payload: packet.payload.into(),
+                };
+
+                video_track
+                    .write_rtp(&packet)
+                    .await
+                    .map_err(|e| VoipError::WebRtcError(format!("Failed to write video frame: {}", e)))?;
+            }
 
             Ok(())
         } else {

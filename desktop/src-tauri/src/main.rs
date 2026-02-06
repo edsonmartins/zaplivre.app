@@ -3,6 +3,8 @@
 
 mod commands;
 mod identity_store;
+#[cfg(target_os = "macos")]
+mod macos_video;
 
 use std::sync::{Arc, Mutex};
 use tracing_subscriber;
