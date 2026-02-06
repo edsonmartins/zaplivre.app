@@ -95,14 +95,16 @@ class VideoFrameHandler: FfiVideoFrameCallback {
         var formatDesc: CMFormatDescription?
         let status = sps.withUnsafeBytes { spsPtr in
             pps.withUnsafeBytes { ppsPtr in
-                let spsPointer = spsPtr.bindMemory(to: UInt8.self).baseAddress
-                let ppsPointer = ppsPtr.bindMemory(to: UInt8.self).baseAddress
-                let pointers = [spsPointer, ppsPointer]
+                guard let spsPointer = spsPtr.bindMemory(to: UInt8.self).baseAddress,
+                      let ppsPointer = ppsPtr.bindMemory(to: UInt8.self).baseAddress else {
+                    return OSStatus(-1)
+                }
+                let pointers: [UnsafePointer<UInt8>] = [spsPointer, ppsPointer]
                 let sizes = [sps.count, pps.count]
                 return CMVideoFormatDescriptionCreateFromH264ParameterSets(
                     allocator: kCFAllocatorDefault,
                     parameterSetCount: 2,
-                    parameterSetPointers: pointers as [UnsafePointer<UInt8>?],
+                    parameterSetPointers: pointers,
                     parameterSetSizes: sizes,
                     nalUnitHeaderLength: 4,
                     formatDescriptionOut: &formatDesc

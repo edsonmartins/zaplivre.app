@@ -21,6 +21,7 @@
 		30D3C758F82481E8A59BCDD3 /* MessageUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD9585E273A8EAA1F5E554E /* MessageUtils.swift */; };
 		317F5E0D0F79C3A24CFC1B32 /* CallEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19B7B4E72CE4755EB2D4DB78 /* CallEventHandler.swift */; };
 		3579145296BB46C07BB636CF /* MePassaCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048D5B493E51EA326AE8095D /* MePassaCore.swift */; };
+		35A1B2C3D4E5F60789ABCDEF /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7E8F90123456789ABCDEF0 /* KeychainStore.swift */; };
 		3978C89B59BCADC464CE1F04 /* PushNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6EF334613690B61354C773 /* PushNotificationManager.swift */; };
 		4475F63B77DBB0FF8A4CA529 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E5CCC74D5177EEF2F6A9821 /* CameraManager.swift */; };
 		47AB699B1B0938D767191186 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664577EECF2F85A1B1C6FD0D /* Foundation.framework */; };
@@ -74,6 +75,7 @@
 /* Begin PBXFileReference section */
 		03AB283A501D288A8EB8077E /* SkeletonLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonLoader.swift; sourceTree = "<group>"; };
 		048D5B493E51EA326AE8095D /* MePassaCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaCore.swift; sourceTree = "<group>"; };
+		6D7E8F90123456789ABCDEF0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		08EEE700880F93A1A7B4D234 /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
 		0A6EF334613690B61354C773 /* PushNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationManager.swift; sourceTree = "<group>"; };
 		0F48331DA30F6E63A5D30BBF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -279,6 +281,7 @@
 			children = (
 				0F48331DA30F6E63A5D30BBF /* AppDelegate.swift */,
 				FC9521FC7AFF178E13A5FBA2 /* AudioRecorder.swift */,
+				6D7E8F90123456789ABCDEF0 /* KeychainStore.swift */,
 				C4F11E99C555E9473FE13033 /* MediaPickerViewModel.swift */,
 				048D5B493E51EA326AE8095D /* MePassaCore.swift */,
 				0A6EF334613690B61354C773 /* PushNotificationManager.swift */,
@@ -408,6 +411,7 @@
 				D9CDA99C4A9F8FE73BB08202 /* LoginView.swift in Sources */,
 				D1CDF8C187A43F255957FD9E /* MePassaApp.swift in Sources */,
 				3579145296BB46C07BB636CF /* MePassaCore.swift in Sources */,
+				35A1B2C3D4E5F60789ABCDEF /* KeychainStore.swift in Sources */,
 				9562758745B3EDC488C7EA74 /* MediaGalleryView.swift in Sources */,
 				723BDF0B21A4899BBDF57179 /* MediaPickerViewModel.swift in Sources */,
 				90846B03E60CA26B31A60A0E /* MediaViewerView.swift in Sources */,
