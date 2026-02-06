@@ -5,7 +5,7 @@ use tauri::State;
 use base64::{engine::general_purpose, Engine as _};
 use mepassa_core::FfiMediaType;
 use tauri_plugin_notification::NotificationExt;
-use tauri::Manager;
+use tauri::Emitter;
 use crate::identity_store;
 
 // Global client state - use Arc to allow cloning the handle
@@ -18,7 +18,7 @@ struct VoipEventLogger {
 impl FfiVoipEventCallback for VoipEventLogger {
     fn on_mute_changed(&self, call_id: String, is_muted: bool) {
         tracing::info!("🔇 VoIP mute changed: {} -> {}", call_id, is_muted);
-        let _ = self.app.emit_all(
+        let _ = self.app.emit(
             "voip:mute_changed",
             serde_json::json!({ "call_id": call_id, "is_muted": is_muted }),
         );
@@ -26,7 +26,7 @@ impl FfiVoipEventCallback for VoipEventLogger {
 
     fn on_speakerphone_changed(&self, call_id: String, enabled: bool) {
         tracing::info!("🔊 VoIP speaker changed: {} -> {}", call_id, enabled);
-        let _ = self.app.emit_all(
+        let _ = self.app.emit(
             "voip:speaker_changed",
             serde_json::json!({ "call_id": call_id, "enabled": enabled }),
         );
@@ -34,7 +34,7 @@ impl FfiVoipEventCallback for VoipEventLogger {
 
     fn on_camera_switch_requested(&self, call_id: String) {
         tracing::info!("📸 VoIP camera switch requested: {}", call_id);
-        let _ = self.app.emit_all(
+        let _ = self.app.emit(
             "voip:camera_switch_requested",
             serde_json::json!({ "call_id": call_id }),
         );
@@ -54,7 +54,7 @@ impl FfiVideoFrameCallback for VideoFrameEmitter {
             "size": frame_data.len(),
             "data_b64": general_purpose::STANDARD.encode(frame_data),
         });
-        let _ = self.app.emit_all("voip:video_frame", payload);
+        let _ = self.app.emit("voip:video_frame", payload);
     }
 }
 
@@ -458,7 +458,7 @@ pub async fn create_group(
     state: State<'_, ClientState>,
     name: String,
     description: Option<String>,
-) -> Result<mepassa_core::FfiGroup, String> {
+) -> Result<serde_json::Value, String> {
     let client = {
         let client_guard = state.lock().map_err(|e| e.to_string())?;
         client_guard
@@ -467,10 +467,19 @@ pub async fn create_group(
             .clone()
     };
 
-    client
+    let group = client
         .create_group(name, description)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "id": group.id,
+        "name": group.name,
+        "description": group.description,
+        "member_count": group.member_count,
+        "is_admin": group.is_admin,
+        "created_at": group.created_at,
+    }))
 }
 
 #[tauri::command]
@@ -550,7 +559,7 @@ pub async fn remove_group_member(
 }
 
 #[tauri::command]
-pub async fn get_groups(state: State<'_, ClientState>) -> Result<Vec<mepassa_core::FfiGroup>, String> {
+pub async fn get_groups(state: State<'_, ClientState>) -> Result<Vec<serde_json::Value>, String> {
     let client = {
         let client_guard = state.lock().map_err(|e| e.to_string())?;
         client_guard
@@ -559,7 +568,22 @@ pub async fn get_groups(state: State<'_, ClientState>) -> Result<Vec<mepassa_cor
             .clone()
     };
 
-    client.get_groups().await.map_err(|e| e.to_string())
+    let groups = client.get_groups().await.map_err(|e| e.to_string())?;
+    let json_groups = groups
+        .into_iter()
+        .map(|group| {
+            serde_json::json!({
+                "id": group.id,
+                "name": group.name,
+                "description": group.description,
+                "member_count": group.member_count,
+                "is_admin": group.is_admin,
+                "created_at": group.created_at,
+            })
+        })
+        .collect();
+
+    Ok(json_groups)
 }
 
 #[tauri::command]
@@ -568,7 +592,7 @@ pub async fn get_group_messages(
     group_id: String,
     limit: Option<u32>,
     offset: Option<u32>,
-) -> Result<Vec<mepassa_core::FfiMessage>, String> {
+) -> Result<Vec<serde_json::Value>, String> {
     let client = {
         let client_guard = state.lock().map_err(|e| e.to_string())?;
         client_guard
@@ -577,10 +601,23 @@ pub async fn get_group_messages(
             .clone()
     };
 
-    client
-        .get_group_messages(group_id, limit.map(|v| v as usize), offset.map(|v| v as usize))
-        .await
-        .map_err(|e| e.to_string())
+    let messages = client
+        .get_group_messages(group_id, limit, offset)
+        .map_err(|e| e.to_string())?;
+
+    let json_messages = messages
+        .into_iter()
+        .map(|msg| {
+            serde_json::json!({
+                "message_id": msg.message_id,
+                "sender_peer_id": msg.sender_peer_id,
+                "content_plaintext": msg.content_plaintext,
+                "created_at": msg.created_at,
+            })
+        })
+        .collect();
+
+    Ok(json_messages)
 }
 
 #[tauri::command]
@@ -759,8 +796,8 @@ pub async fn enable_video(
     };
 
     let codec = match codec.to_lowercase().as_str() {
-        "vp8" => FfiVideoCodec::Vp8,
-        "vp9" => FfiVideoCodec::Vp9,
+        "vp8" => FfiVideoCodec::VP8,
+        "vp9" => FfiVideoCodec::VP9,
         _ => FfiVideoCodec::H264,
     };
 

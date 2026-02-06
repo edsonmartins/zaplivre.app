@@ -329,14 +329,13 @@ impl NetworkManager {
     /// Attempt to reserve relay slot
     pub fn reserve_relay_slot(&mut self) -> Result<()> {
         if let Some(relay_peer) = self.relay_manager.bootstrap_relay_peer {
-            if let Some(relay_addr) = &self.relay_manager.relay_addr {
+            if let Some(relay_addr) = self.relay_manager.relay_addr.clone() {
                 tracing::info!("🔗 Requesting relay reservation from {}", relay_peer);
 
                 // Connect to relay first if not connected
                 self.add_peer_to_dht(relay_peer, relay_addr.clone());
 
                 let listen_addr = relay_addr
-                    .clone()
                     .with(libp2p::multiaddr::Protocol::P2p(relay_peer))
                     .with(libp2p::multiaddr::Protocol::P2pCircuit);
 

@@ -62,7 +62,7 @@ fn main() {
             commands::disable_video,
             commands::register_video_frame_callback,
         ])
-        .setup(|app| {
+        .setup(|_app| {
             // Setup app-specific initialization here
             tracing::info!("MePassa Desktop starting...");
             Ok(())
