@@ -53,6 +53,7 @@
 		B33866EEA82DA00D2CB863BD /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38ADF4D6FBEAF0931EAA6E74 /* DocumentPicker.swift */; };
 		B7C56CF83BEDAB8677193649 /* PushKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37D522D28608A864490872ED /* PushKit.framework */; };
 		BC301A0C2E6C3F555490C1A8 /* MessageStatusIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ACC2C929D33A1B4CD21215B /* MessageStatusIndicator.swift */; };
+		B1C2D3E4F5061728394A5B6C /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C3D4E5F60718293A4B5C6D /* VideoEncoder.swift */; };
 		C1F8145EA5817DE3F7819FCC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D623CBBB8C2C5D88DA12769 /* ContentView.swift */; };
 		CBED27D990276C2F7603BADD /* VoipEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C838466A13309D59012626C1 /* VoipEventHandler.swift */; };
 		CDEF932AA0AB3982F7AE874C /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E55AB1DA8D1F48CB73BA35D /* ChatView.swift */; };
@@ -115,6 +116,7 @@
 		953C087ADAE72A6F84B50781 /* ConversationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsView.swift; sourceTree = "<group>"; };
 		A0DFD82B314B4E75DB36FE9D /* GroupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupListView.swift; sourceTree = "<group>"; };
 		A5D7C2097E25D4CC457B961E /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		A2C3D4E5F60718293A4B5C6D /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
 		AAD9585E273A8EAA1F5E554E /* MessageUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageUtils.swift; sourceTree = "<group>"; };
 		AD9D23D740AC9EFF0D859F00 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = AVFoundation.framework; sourceTree = "<group>"; };
 		B285A8BCD34AFF49441179F4 /* VideoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPicker.swift; sourceTree = "<group>"; };
@@ -245,6 +247,7 @@
 				19B7B4E72CE4755EB2D4DB78 /* CallEventHandler.swift */,
 				5B50CC90605463C028220F6E /* CallManager.swift */,
 				6E5CCC74D5177EEF2F6A9821 /* CameraManager.swift */,
+				A2C3D4E5F60718293A4B5C6D /* VideoEncoder.swift */,
 				8D7F5F0DCBEC9C3248D4B86D /* VideoFrameHandler.swift */,
 				C838466A13309D59012626C1 /* VoipEventHandler.swift */,
 			);
@@ -424,6 +427,7 @@
 				7C51150F519C4ADB1DCE10AA /* SkeletonLoader.swift in Sources */,
 				27642EEC81405F0130CD99D7 /* TypingIndicator.swift in Sources */,
 				10960C1BB73B8F46FF2FD9CB /* VideoCallScreen.swift in Sources */,
+				B1C2D3E4F5061728394A5B6C /* VideoEncoder.swift in Sources */,
 				EDF06F2AA0605EF6467B3372 /* VideoFrameHandler.swift in Sources */,
 				53302E33F98F895B2D451BA5 /* VideoPicker.swift in Sources */,
 				4985E2A1D02B6AAECCA3C433 /* VideoPlayerView.swift in Sources */,

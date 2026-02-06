@@ -21,6 +21,8 @@ class VideoFrameHandler: FfiVideoFrameCallback {
     private let callId: String
     private var displayLayer: AVSampleBufferDisplayLayer?
     private var formatDescription: CMVideoFormatDescription?
+    private var lastSps: [UInt8]?
+    private var lastPps: [UInt8]?
 
     // Callback for frame rendered events
     var onFrameRendered: ((UInt32, UInt32) -> Void)?
@@ -59,96 +61,103 @@ class VideoFrameHandler: FfiVideoFrameCallback {
             return
         }
 
-        // Create CMSampleBuffer from frame data
-        guard let sampleBuffer = createSampleBuffer(from: frameData, width: width, height: height) else {
-            print("❌ Failed to create sample buffer")
-            return
-        }
+        let nalus = splitNalUnits(frameData)
+        for nalu in nalus {
+            guard !nalu.isEmpty else { continue }
+            let naluType = nalu[0] & 0x1F
+            if naluType == 7 { // SPS
+                lastSps = nalu
+                updateFormatDescriptionIfNeeded()
+                continue
+            }
+            if naluType == 8 { // PPS
+                lastPps = nalu
+                updateFormatDescriptionIfNeeded()
+                continue
+            }
 
-        // Enqueue sample buffer for rendering
-        DispatchQueue.main.async { [weak self] in
-            displayLayer.enqueue(sampleBuffer)
+            guard let sampleBuffer = createSampleBuffer(from: nalu) else {
+                continue
+            }
 
-            // Notify callback
-            self?.onFrameRendered?(width, height)
+            DispatchQueue.main.async { [weak self] in
+                displayLayer.enqueue(sampleBuffer)
+                self?.onFrameRendered?(width, height)
+            }
         }
     }
 
-    /// Create CMSampleBuffer from H.264 frame data
-    ///
-    /// - Parameters:
-    ///   - frameData: Raw H.264 NALU data
-    ///   - width: Frame width
-    ///   - height: Frame height
-    /// - Returns: CMSampleBuffer ready for rendering, or nil if creation fails
-    private func createSampleBuffer(from frameData: [UInt8], width: UInt32, height: UInt32) -> CMSampleBuffer? {
-        // Create format description if not already created
-        if formatDescription == nil {
-            var formatDesc: CMFormatDescription?
+    private func updateFormatDescriptionIfNeeded() {
+        guard formatDescription == nil,
+              let sps = lastSps,
+              let pps = lastPps else { return }
 
-            // SPS (Sequence Parameter Set) - simplified for VGA H.264
-            let sps: [UInt8] = [0x67, 0x42, 0x00, 0x1e, 0xab, 0x40, 0x50, 0x1e, 0xd0, 0x0f, 0x08, 0x84, 0x6a]
-            // PPS (Picture Parameter Set)
-            let pps: [UInt8] = [0x68, 0xce, 0x3c, 0x80]
-
-            let parameterSetPointers: [UnsafePointer<UInt8>] = [
-                UnsafePointer<UInt8>(sps),
-                UnsafePointer<UInt8>(pps)
-            ]
-            let parameterSetSizes: [Int] = [sps.count, pps.count]
-
-            let status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
-                allocator: kCFAllocatorDefault,
-                parameterSetCount: 2,
-                parameterSetPointers: parameterSetPointers,
-                parameterSetSizes: parameterSetSizes,
-                nalUnitHeaderLength: 4,
-                formatDescriptionOut: &formatDesc
-            )
-
-            guard status == noErr, let formatDesc = formatDesc else {
-                print("❌ Failed to create format description: \(status)")
-                return nil
+        var formatDesc: CMFormatDescription?
+        let status = sps.withUnsafeBytes { spsPtr in
+            pps.withUnsafeBytes { ppsPtr in
+                let spsPointer = spsPtr.bindMemory(to: UInt8.self).baseAddress
+                let ppsPointer = ppsPtr.bindMemory(to: UInt8.self).baseAddress
+                let pointers = [spsPointer, ppsPointer]
+                let sizes = [sps.count, pps.count]
+                return CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                    allocator: kCFAllocatorDefault,
+                    parameterSetCount: 2,
+                    parameterSetPointers: pointers as [UnsafePointer<UInt8>?],
+                    parameterSetSizes: sizes,
+                    nalUnitHeaderLength: 4,
+                    formatDescriptionOut: &formatDesc
+                )
             }
-
-            formatDescription = formatDesc
         }
 
-        // Create block buffer from frame data
-        var blockBuffer: CMBlockBuffer?
-        let dataPointer = UnsafeMutablePointer<UInt8>(mutating: frameData)
+        guard status == noErr, let formatDesc = formatDesc else {
+            print("❌ Failed to create format description: \(status)")
+            return
+        }
 
+        formatDescription = formatDesc
+    }
+
+    /// Create CMSampleBuffer from a single NALU (no start code).
+    private func createSampleBuffer(from nalu: [UInt8]) -> CMSampleBuffer? {
+        guard let formatDescription = formatDescription else {
+            return nil
+        }
+
+        var length = UInt32(nalu.count).bigEndian
+        var data = Data(bytes: &length, count: 4)
+        data.append(contentsOf: nalu)
+
+        var blockBuffer: CMBlockBuffer?
         var status = CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault,
             memoryBlock: nil,
-            blockLength: frameData.count,
+            blockLength: data.count,
             blockAllocator: kCFAllocatorDefault,
             customBlockSource: nil,
             offsetToData: 0,
-            dataLength: frameData.count,
+            dataLength: data.count,
             flags: 0,
             blockBufferOut: &blockBuffer
         )
 
         guard status == kCMBlockBufferNoErr, let blockBuffer = blockBuffer else {
-            print("❌ Failed to create block buffer: \(status)")
             return nil
         }
 
-        // Copy frame data to block buffer
-        status = CMBlockBufferReplaceDataBytes(
-            with: dataPointer,
-            blockBuffer: blockBuffer,
-            offsetIntoDestination: 0,
-            dataLength: frameData.count
-        )
+        status = data.withUnsafeBytes { buffer in
+            CMBlockBufferReplaceDataBytes(
+                with: buffer.baseAddress!,
+                blockBuffer: blockBuffer,
+                offsetIntoDestination: 0,
+                dataLength: data.count
+            )
+        }
 
         guard status == kCMBlockBufferNoErr else {
-            print("❌ Failed to copy data to block buffer: \(status)")
             return nil
         }
 
-        // Create sample buffer
         var sampleBuffer: CMSampleBuffer?
         var timingInfo = CMSampleTimingInfo(
             duration: CMTime.invalid,
@@ -172,17 +181,47 @@ class VideoFrameHandler: FfiVideoFrameCallback {
         )
 
         guard status == noErr, let sampleBuffer = sampleBuffer else {
-            print("❌ Failed to create sample buffer: \(status)")
             return nil
         }
 
         return sampleBuffer
     }
 
+    private func splitNalUnits(_ data: [UInt8]) -> [[UInt8]] {
+        var nalus = [[UInt8]]()
+        var start = -1
+        var i = 0
+
+        while i + 3 < data.count {
+            let isStartCode4 = data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0 && data[i + 3] == 1
+            let isStartCode3 = data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 1
+
+            if isStartCode4 || isStartCode3 {
+                let startCodeLength = isStartCode4 ? 4 : 3
+                if start >= 0 {
+                    let nalu = Array(data[start..<i])
+                    nalus.append(nalu)
+                }
+                start = i + startCodeLength
+                i += startCodeLength
+                continue
+            }
+            i += 1
+        }
+
+        if start >= 0 && start < data.count {
+            nalus.append(Array(data[start..<data.count]))
+        }
+
+        return nalus
+    }
+
     /// Cleanup resources
     func release() {
         displayLayer = nil
         formatDescription = nil
+        lastSps = nil
+        lastPps = nil
         print("🧹 VideoFrameHandler released for call: \(callId)")
     }
 }

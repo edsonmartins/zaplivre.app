@@ -35,6 +35,7 @@ struct ChatView: View {
 
     // Media gallery state
     @State private var showMediaGallery = false
+    @State private var activeVideoCallId: String?
 
     // Search state
     @State private var showSearch = false
@@ -151,6 +152,28 @@ struct ChatView: View {
                 }
             }
         }
+        .background(
+            NavigationLink(
+                destination: Group {
+                    if let callId = activeVideoCallId {
+                        VideoCallScreen(
+                            callId: callId,
+                            peerName: conversation.displayName,
+                            onHangup: { activeVideoCallId = nil }
+                        )
+                    }
+                },
+                isActive: Binding(
+                    get: { activeVideoCallId != nil },
+                    set: { active in
+                        if !active {
+                            activeVideoCallId = nil
+                        }
+                    }
+                )
+            ) { EmptyView() }
+            .hidden()
+        )
         .alert("Excluir Mensagem", isPresented: $showDeleteAlert) {
             Button("Cancelar", role: .cancel) {}
             Button("Excluir", role: .destructive) {
@@ -427,8 +450,16 @@ struct ChatView: View {
     }
 
     private func startVideoCall() {
-        // TODO: Initiate video call
-        print("📹 Starting video call with \(conversation.peerId)")
+        Task {
+            do {
+                let callId = try await MePassaCore.shared.startCall(to: conversation.peerId)
+                await MainActor.run {
+                    activeVideoCallId = callId
+                }
+            } catch {
+                print("❌ Failed to start video call: \(error)")
+            }
+        }
     }
 
     private func deleteMessage(_ message: Message) {

@@ -42,7 +42,7 @@ class CallManager: NSObject, ObservableObject {
     // MARK: - CallKit Configuration
     private func configureCallKit() {
         let configuration = CXProviderConfiguration(localizedName: "MePassa")
-        configuration.supportsVideo = false // TODO: Enable for FASE 14 (video calls)
+        configuration.supportsVideo = true
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic]
@@ -83,7 +83,7 @@ class CallManager: NSObject, ObservableObject {
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsDTMF = false
-        update.hasVideo = false
+        update.hasVideo = true
 
         provider?.reportNewIncomingCall(with: callId, update: update) { [weak self] error in
             if let error = error {

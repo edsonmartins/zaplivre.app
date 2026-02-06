@@ -19,6 +19,7 @@ struct VideoCallScreen: View {
     @State private var videoEnabled = true
     @State private var isMuted = false
     @State private var callDuration = 0
+    @State private var videoEncoder: VideoEncoder?
     
     // Timer for call duration
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -180,47 +181,32 @@ struct VideoCallScreen: View {
     }
     
     private func startVideo() {
-        cameraManager.startCapture { sampleBuffer in
+        if videoEncoder == nil {
+            videoEncoder = VideoEncoder(width: 640, height: 480) { frame, _ in
+                Task {
+                    do {
+                        try await MePassaCore.shared.sendVideoFrame(
+                            callId: self.callId,
+                            frameData: frame,
+                            width: 640,
+                            height: 480
+                        )
+                    } catch {
+                        // Frame drop is acceptable
+                    }
+                }
+            }
+        }
 
-            // Extract pixel buffer from sample buffer
+        videoEncoder?.start()
+
+        cameraManager.startCapture { sampleBuffer in
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 return
             }
 
-            // Get frame dimensions
-            let width = CVPixelBufferGetWidth(pixelBuffer)
-            let height = CVPixelBufferGetHeight(pixelBuffer)
-
-            // Lock the pixel buffer for reading
-            CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
-            defer {
-                CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
-            }
-
-            // Get raw pixel data
-            guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
-                return
-            }
-
-            let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
-            let dataSize = bytesPerRow * height
-            let data = Data(bytes: baseAddress, count: dataSize)
-
-            // Convert to UInt8 array and send via FFI
-            let frameData = [UInt8](data)
-
-            Task {
-                do {
-                    try await MePassaCore.shared.sendVideoFrame(
-                        callId: self.callId,
-                        frameData: frameData,
-                        width: UInt32(width),
-                        height: UInt32(height)
-                    )
-                } catch {
-                    // Frame drop is acceptable
-                }
-            }
+            let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            videoEncoder?.encode(pixelBuffer: pixelBuffer, pts: pts)
         }
 
         // Enable video track on WebRTC
@@ -235,6 +221,7 @@ struct VideoCallScreen: View {
     
     private func stopVideo() {
         cameraManager.stopCapture()
+        videoEncoder?.stop()
     }
     
     // MARK: - Helpers
