@@ -72,6 +72,14 @@ class MePassaService : Service() {
                         Log.w(TAG, "Failed to set MESSAGE_STORE_URL env", e)
                     }
                 }
+                val signalingUrl = BuildConfig.SIGNALING_SERVER_URL
+                if (signalingUrl.isNotBlank()) {
+                    try {
+                        Os.setenv("SIGNALING_SERVER_URL", signalingUrl, true)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to set SIGNALING_SERVER_URL env", e)
+                    }
+                }
                 val success = MePassaClientWrapper.initialize(applicationContext)
                 if (!success) {
                     Log.e(TAG, "Failed to initialize client, stopping service")

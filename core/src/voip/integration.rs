@@ -10,6 +10,7 @@ use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use super::{
     call::{CallDirection, CallEndReason},
     manager::{CallEvent, CallManager},
+    signaling_server::SignalingServerClient,
     signaling::SignalingMessage,
     Result, // Use voip::Result instead of utils::error::Result
 };
@@ -24,6 +25,7 @@ use crate::utils::error::MePassaError;
 pub struct VoIPIntegration {
     network_manager: Arc<RwLock<NetworkManager>>,
     call_manager: Arc<CallManager>,
+    signaling_server: Option<SignalingServerClient>,
 
     // Event channels
     signaling_rx: Mutex<Option<mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>>>,
@@ -52,15 +54,30 @@ impl VoIPIntegration {
     pub async fn new(
         network_manager: Arc<RwLock<NetworkManager>>,
         call_manager: Arc<CallManager>,
+        signaling_server_url: Option<String>,
+        local_peer_id: PeerId,
     ) -> Self {
         let (signaling_tx, signaling_rx) = mpsc::unbounded_channel();
 
         // Subscribe to call manager events
         let call_event_rx = call_manager.subscribe_events();
 
+        let signaling_server = if let Some(url) = signaling_server_url {
+            match SignalingServerClient::connect(url, local_peer_id, signaling_tx.clone()).await {
+                Ok(client) => Some(client),
+                Err(err) => {
+                    tracing::warn!("⚠️ Failed to connect signaling server: {}", err);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         Self {
             network_manager,
             call_manager,
+            signaling_server,
             signaling_rx: Mutex::new(Some(signaling_rx)),
             signaling_tx,
             call_event_rx: Mutex::new(Some(call_event_rx)),
@@ -435,9 +452,18 @@ impl VoIPIntegration {
     /// Send signaling message via network
     pub async fn send_signal(&self, peer_id: PeerId, signal: SignalingMessage) -> Result<()> {
         let mut network = self.network_manager.write().await;
-        network
-            .send_voip_signal(peer_id, signal)
-            .map_err(|e| super::VoipError::NetworkError(e.to_string()))
+        let send_result = network.send_voip_signal(peer_id, signal.clone());
+        drop(network);
+        match send_result {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                tracing::warn!("📞 P2P signaling failed, trying server fallback: {}", err);
+                if let Some(server) = &self.signaling_server {
+                    return server.send_signal(peer_id, signal);
+                }
+                Err(super::VoipError::NetworkError(err.to_string()))
+            }
+        }
     }
 
     /// Initiate a call to a peer

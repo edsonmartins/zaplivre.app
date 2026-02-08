@@ -22,6 +22,9 @@ fn main() {
     if std::env::var("MESSAGE_STORE_URL").is_err() {
         std::env::set_var("MESSAGE_STORE_URL", "https://store.associahub.com.br");
     }
+    if std::env::var("SIGNALING_SERVER_URL").is_err() {
+        std::env::set_var("SIGNALING_SERVER_URL", "wss://signaling.associahub.com.br/ws");
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

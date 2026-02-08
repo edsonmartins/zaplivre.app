@@ -138,15 +138,25 @@ See `scripts/build-dmg.md` for more details.
 
 ```bash
 cd server
-docker-compose up -d bootstrap-node-1 coturn
+docker-compose up -d bootstrap-node-1 coturn signaling-server
 
 # Verificar logs
 docker-compose logs -f bootstrap-node-1
 docker-compose logs -f coturn
+docker-compose logs -f signaling-server
 
 # Verificar health
 curl http://localhost:8000/health  # Bootstrap
 curl http://localhost:8001/health  # TURN credentials (se disponível)
+curl http://localhost:8086/health  # Signaling server
+```
+
+### Signaling server (fallback)
+
+Para fallback quando o P2P falhar, configure nos clientes:
+
+```
+SIGNALING_SERVER_URL=wss://signaling.associahub.com.br/ws
 ```
 
 ### Teste 1: P2P Direto (Mesma Rede)

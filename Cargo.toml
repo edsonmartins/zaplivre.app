@@ -9,6 +9,7 @@ members = [
     "server/identity",
     "server/store",
     "server/push",
+    "server/signaling",
     "server/turn-credentials",
 ]
 

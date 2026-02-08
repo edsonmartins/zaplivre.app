@@ -26,6 +26,7 @@ pub struct ClientBuilder {
     keypair: Option<Keypair>,
     bootstrap_peers: Vec<(libp2p::PeerId, libp2p::Multiaddr)>,
     message_store_url: Option<String>,
+    signaling_server_url: Option<String>,
 }
 
 impl ClientBuilder {
@@ -36,6 +37,7 @@ impl ClientBuilder {
             keypair: None,
             bootstrap_peers: Vec::new(),
             message_store_url: None,
+            signaling_server_url: None,
         }
     }
 
@@ -60,6 +62,12 @@ impl ClientBuilder {
     /// Set message store URL (store-and-forward)
     pub fn message_store_url(mut self, url: String) -> Self {
         self.message_store_url = Some(url);
+        self
+    }
+
+    /// Set signaling server URL (WebRTC fallback signaling)
+    pub fn signaling_server_url(mut self, url: String) -> Self {
+        self.signaling_server_url = Some(url);
         self
     }
 
@@ -169,7 +177,13 @@ impl ClientBuilder {
         let call_manager = Arc::new(CallManager::new());
         #[cfg(any(feature = "voip", feature = "video"))]
         let voip_integration = Arc::new(
-            VoIPIntegration::new(Arc::clone(&network_arc), Arc::clone(&call_manager)).await,
+            VoIPIntegration::new(
+                Arc::clone(&network_arc),
+                Arc::clone(&call_manager),
+                self.signaling_server_url.clone(),
+                peer_id,
+            )
+            .await,
         );
         #[cfg(any(feature = "voip", feature = "video"))]
         {

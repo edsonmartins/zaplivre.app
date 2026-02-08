@@ -13,6 +13,7 @@ pub mod manager;
 pub mod pipeline;
 pub mod rtp_video;
 pub mod signaling;
+pub mod signaling_server;
 pub mod turn;
 pub mod video;
 pub mod video_pipeline;
@@ -54,6 +55,7 @@ pub use manager::{CallEvent, CallManager, TurnCredentials};
 #[cfg(feature = "voip")]
 pub use pipeline::AudioPipeline;
 pub use signaling::{SignalingCodec, SignalingMessage};
+pub use signaling_server::SignalingServerClient;
 pub use turn::TurnCredentialsClient;
 pub use rtp_video::{RtpDepacketizer, RtpHeader, RtpPacket, RtpPacketizer, RTP_MAX_PAYLOAD, RTP_MTU};
 pub use video::{

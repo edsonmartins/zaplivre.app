@@ -45,6 +45,11 @@ class MePassaCore: ObservableObject {
                 setenv("MESSAGE_STORE_URL", storeUrl, 1)
             }
         }
+        if let signalingUrl = Bundle.main.object(forInfoDictionaryKey: "SIGNALING_SERVER_URL") as? String {
+            if !signalingUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                setenv("SIGNALING_SERVER_URL", signalingUrl, 1)
+            }
+        }
 
         setIdentityEnvFromKeychain()
 

@@ -1595,6 +1595,7 @@ Perguntar aos beta testers: **"Você usaria MePassa como seu chat principal?"**
 
 **Core VoIP Modules (9 arquivos, ~2.500 LoC):**
 - ✅ `signaling.rs` (262 linhas) - Protocolo libp2p `/mepassa/voip/1.0.0`
+- ✅ `server/signaling` - WebSocket signaling fallback
 - ✅ `call.rs` (284 linhas) - State machine (Initiating → Ringing → Active → Ended)
 - ✅ `webrtc.rs` (269 linhas) - PeerConnection wrapper (SDP, ICE)
 - ✅ `manager.rs` (421 linhas) - Orquestrador central + CallEvent system

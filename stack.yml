@@ -254,6 +254,35 @@ services:
         delay: 5s
         max_attempts: 5
 
+  # Signaling Server (WebRTC fallback)
+  signaling-server:
+    image: ghcr.io/integrall-tech/mepassa-signaling:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - mepassa-network
+      - traefik-network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-signaling.rule=Host(`signaling.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-signaling.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-signaling.tls=true"
+        - "traefik.http.routers.mepassa-signaling.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-signaling.loadbalancer.server.port=8086"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
   # Prometheus - Metrics (Optional)
   prometheus:
     image: prom/prometheus:latest

@@ -34,6 +34,11 @@ android {
             ?: System.getenv("PUSH_SERVER_URL")
             ?: "https://push.associahub.com.br"
         buildConfigField("String", "PUSH_SERVER_URL", "\"$pushServerUrl\"")
+
+        val signalingServerUrl = (project.findProperty("SIGNALING_SERVER_URL") as String?)
+            ?: System.getenv("SIGNALING_SERVER_URL")
+            ?: "wss://signaling.associahub.com.br/ws"
+        buildConfigField("String", "SIGNALING_SERVER_URL", "\"$signalingServerUrl\"")
     }
 
     buildTypes {

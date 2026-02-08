@@ -145,6 +145,7 @@
 - ✅ WebRTC integration (webrtc-rs + SDP + ICE)
 - ✅ Opus codec (24kbps, 20ms frames)
 - ✅ P2P signaling via libp2p
+- ✅ Signaling server WebSocket (fallback) - `server/signaling`
 - ✅ TURN client integration
 - ✅ Android UI (CallScreen + IncomingCallScreen)
 - ✅ Desktop UI (CallView + IncomingCallModal)

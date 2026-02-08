@@ -877,6 +877,12 @@ impl MePassaClient {
                         }
                     }
 
+                    if let Ok(url) = std::env::var("SIGNALING_SERVER_URL") {
+                        if !url.trim().is_empty() {
+                            builder = builder.signaling_server_url(url);
+                        }
+                    }
+
                     // Bootstrap peers (produção): substitua pelos seus bootstraps públicos.
                     // Exemplo:
                     // let custom_bootstrap_peers = vec![
