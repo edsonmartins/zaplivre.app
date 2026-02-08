@@ -140,6 +140,14 @@ enum ClientCommand {
         call_id: String,
         response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
+    #[cfg(feature = "voip")]
+    SendAudioFrame {
+        call_id: String,
+        audio_data: Vec<u8>,
+        sample_rate: u32,
+        channels: u32,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
     // Video commands (FASE 14)
     #[cfg(any(feature = "voip", feature = "video"))]
     EnableVideo {
@@ -169,9 +177,15 @@ enum ClientCommand {
     RegisterVideoFrameCallback {
         callback: Box<dyn crate::FfiVideoFrameCallback>,
     },
+    #[cfg(feature = "voip")]
+    RegisterAudioFrameCallback {
+        callback: Box<dyn crate::FfiAudioFrameCallback>,
+    },
+    #[allow(dead_code)]
     RegisterVoipEventCallback {
         callback: Box<dyn crate::FfiVoipEventCallback>,
     },
+    #[allow(dead_code)]
     RegisterCallEventCallback {
         callback: Box<dyn crate::FfiCallEventCallback>,
     },
@@ -213,6 +227,16 @@ enum ClientCommand {
         group_id: String,
         content: String,
         response: oneshot::Sender<Result<String, MePassaFfiError>>,
+    },
+    GetGroupSenderKeySeed {
+        group_id: String,
+        response: oneshot::Sender<Result<Vec<u8>, MePassaFfiError>>,
+    },
+    AddGroupSenderKey {
+        group_id: String,
+        sender_peer_id: String,
+        sender_key_seed: Vec<u8>,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
     },
     // Media commands (FASE 16 - Mídia & Polimento)
     SendImageMessage {
@@ -284,6 +308,7 @@ enum ClientCommand {
 }
 
 /// Run the client task (processes commands) - takes owned Client
+#[allow(dead_code)]
 async fn run_client_task(
     receiver: mpsc::UnboundedReceiver<ClientCommand>,
     client: Client,
@@ -434,6 +459,20 @@ async fn run_client_task_arc(
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
+            #[cfg(feature = "voip")]
+            ClientCommand::SendAudioFrame {
+                call_id,
+                audio_data,
+                sample_rate,
+                channels,
+                response,
+            } => {
+                let result = client
+                    .send_audio_frame(call_id, &audio_data, sample_rate, channels)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
             // Video command handlers (FASE 14)
             #[cfg(any(feature = "voip", feature = "video"))]
             ClientCommand::EnableVideo { call_id, codec, response } => {
@@ -478,13 +517,33 @@ async fn run_client_task_arc(
                 // Register the callback with VoIPIntegration via Client
                 client.register_video_frame_callback(callback).await;
             }
-            #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::RegisterVoipEventCallback { callback } => {
-                client.register_voip_event_callback(callback).await;
+            #[cfg(feature = "voip")]
+            ClientCommand::RegisterAudioFrameCallback { callback } => {
+                client.register_audio_frame_callback(callback).await;
             }
-            #[cfg(any(feature = "voip", feature = "video"))]
+            ClientCommand::RegisterVoipEventCallback { callback } => {
+                #[cfg(any(feature = "voip", feature = "video"))]
+                {
+                    client.register_voip_event_callback(callback).await;
+                }
+
+                #[cfg(not(any(feature = "voip", feature = "video")))]
+                {
+                    let _ = callback;
+                    tracing::warn!("VoIP/video feature disabled; ignoring VoIP event callback");
+                }
+            }
             ClientCommand::RegisterCallEventCallback { callback } => {
-                client.register_call_event_callback(callback).await;
+                #[cfg(any(feature = "voip", feature = "video"))]
+                {
+                    client.register_call_event_callback(callback).await;
+                }
+
+                #[cfg(not(any(feature = "voip", feature = "video")))]
+                {
+                    let _ = callback;
+                    tracing::warn!("VoIP/video feature disabled; ignoring call event callback");
+                }
             }
             // Group command handlers (FASE 15)
             ClientCommand::CreateGroup {
@@ -564,6 +623,25 @@ async fn run_client_task_arc(
             } => {
                 let result = client
                     .send_group_message(group_id, content)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::GetGroupSenderKeySeed { group_id, response } => {
+                let result = client
+                    .get_group_sender_key_seed(group_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::AddGroupSenderKey {
+                group_id,
+                sender_peer_id,
+                sender_key_seed,
+                response,
+            } => {
+                let result = client
+                    .add_group_sender_key(group_id, sender_peer_id, sender_key_seed)
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -771,6 +849,7 @@ async fn run_client_task_arc(
 
 /// MePassa client (exposed via interface pattern)
 pub struct MePassaClient {
+    #[allow(dead_code)]
     data_dir: String,
 }
 
@@ -1264,6 +1343,34 @@ impl MePassaClient {
         })?
     }
 
+    #[cfg(feature = "voip")]
+    /// Send raw PCM audio frame to remote peer (Opus encoded in core)
+    pub async fn send_audio_frame(
+        &self,
+        call_id: String,
+        audio_data: Vec<u8>,
+        sample_rate: u32,
+        channels: u32,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::SendAudioFrame {
+                call_id,
+                audio_data,
+                sample_rate,
+                channels,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
     // ========== Video Methods (FASE 14) ==========
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1362,7 +1469,6 @@ impl MePassaClient {
         })?
     }
 
-    #[cfg(any(feature = "voip", feature = "video"))]
     /// Register a callback for receiving remote video frames
     ///
     /// The callback will be invoked on a background thread whenever a remote
@@ -1379,42 +1485,99 @@ impl MePassaClient {
         &self,
         callback: Box<dyn crate::FfiVideoFrameCallback>,
     ) -> Result<(), MePassaFfiError> {
-        self.handle()
-            .sender
-            .send(ClientCommand::RegisterVideoFrameCallback {
-                callback,
-            })
-            .map_err(|_| MePassaFfiError::Other {
-                details: "Failed to send command".to_string(),
-            })
+        #[cfg(any(feature = "voip", feature = "video"))]
+        {
+            return self
+                .handle()
+                .sender
+                .send(ClientCommand::RegisterVideoFrameCallback { callback })
+                .map_err(|_| MePassaFfiError::Other {
+                    details: "Failed to send command".to_string(),
+                });
+        }
+
+        #[cfg(not(any(feature = "voip", feature = "video")))]
+        {
+            let _ = callback;
+            return Err(MePassaFfiError::Other {
+                details: "VoIP/video feature disabled".to_string(),
+            });
+        }
     }
 
-    #[cfg(any(feature = "voip", feature = "video"))]
+    /// Register callback for receiving remote audio frames (decoded PCM)
+    pub fn register_audio_frame_callback(
+        &self,
+        callback: Box<dyn crate::FfiAudioFrameCallback>,
+    ) -> Result<(), MePassaFfiError> {
+        #[cfg(feature = "voip")]
+        {
+            return self
+                .handle()
+                .sender
+                .send(ClientCommand::RegisterAudioFrameCallback { callback })
+                .map_err(|_| MePassaFfiError::Other {
+                    details: "Failed to send command".to_string(),
+                });
+        }
+
+        #[cfg(not(feature = "voip"))]
+        {
+            let _ = callback;
+            return Err(MePassaFfiError::Other {
+                details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+            });
+        }
+    }
+
     /// Register callback for VoIP control events (mute/speaker/camera)
     pub fn register_voip_event_callback(
         &self,
         callback: Box<dyn crate::FfiVoipEventCallback>,
     ) -> Result<(), MePassaFfiError> {
-        self.handle()
-            .sender
-            .send(ClientCommand::RegisterVoipEventCallback { callback })
-            .map_err(|_| MePassaFfiError::Other {
-                details: "Failed to send command".to_string(),
-            })
+        #[cfg(any(feature = "voip", feature = "video"))]
+        {
+            return self
+                .handle()
+                .sender
+                .send(ClientCommand::RegisterVoipEventCallback { callback })
+                .map_err(|_| MePassaFfiError::Other {
+                    details: "Failed to send command".to_string(),
+                });
+        }
+
+        #[cfg(not(any(feature = "voip", feature = "video")))]
+        {
+            let _ = callback;
+            return Err(MePassaFfiError::Other {
+                details: "VoIP/video feature disabled".to_string(),
+            });
+        }
     }
 
     /// Register callback for call lifecycle events (incoming/state/ended)
-    #[cfg(any(feature = "voip", feature = "video"))]
     pub fn register_call_event_callback(
         &self,
         callback: Box<dyn crate::FfiCallEventCallback>,
     ) -> Result<(), MePassaFfiError> {
-        self.handle()
-            .sender
-            .send(ClientCommand::RegisterCallEventCallback { callback })
-            .map_err(|_| MePassaFfiError::Other {
-                details: "Failed to send command".to_string(),
-            })
+        #[cfg(any(feature = "voip", feature = "video"))]
+        {
+            return self
+                .handle()
+                .sender
+                .send(ClientCommand::RegisterCallEventCallback { callback })
+                .map_err(|_| MePassaFfiError::Other {
+                    details: "Failed to send command".to_string(),
+                });
+        }
+
+        #[cfg(not(any(feature = "voip", feature = "video")))]
+        {
+            let _ = callback;
+            return Err(MePassaFfiError::Other {
+                details: "VoIP/video feature disabled".to_string(),
+            });
+        }
     }
 
     // ========== VoIP Method Stubs (when feature is disabled) ==========
@@ -1467,6 +1630,20 @@ impl MePassaClient {
         })
     }
 
+    #[cfg(not(feature = "voip"))]
+    /// Send audio frame (stub - VoIP feature disabled)
+    pub async fn send_audio_frame(
+        &self,
+        _call_id: String,
+        _audio_data: Vec<u8>,
+        _sample_rate: u32,
+        _channels: u32,
+    ) -> Result<(), MePassaFfiError> {
+        Err(MePassaFfiError::Other {
+            details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
+        })
+    }
+
     #[cfg(not(any(feature = "voip", feature = "video")))]
     /// Enable video (stub - VoIP/video features disabled)
     pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), MePassaFfiError> {
@@ -1500,28 +1677,6 @@ impl MePassaClient {
     #[cfg(not(any(feature = "voip", feature = "video")))]
     /// Switch camera (stub - VoIP/video features disabled)
     pub async fn switch_camera(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
-            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
-        })
-    }
-
-    #[cfg(not(any(feature = "voip", feature = "video")))]
-    /// Register video frame callback (stub - VoIP/video features disabled)
-    pub fn register_video_frame_callback(
-        &self,
-        _callback: Box<dyn crate::FfiVideoFrameCallback>,
-    ) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
-            details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
-        })
-    }
-
-    #[cfg(not(any(feature = "voip", feature = "video")))]
-    /// Register call event callback (stub - VoIP/video features disabled)
-    pub fn register_call_event_callback(
-        &self,
-        _callback: Box<dyn crate::FfiCallEventCallback>,
-    ) -> Result<(), MePassaFfiError> {
         Err(MePassaFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
@@ -1689,6 +1844,50 @@ impl MePassaClient {
             .send(ClientCommand::SendGroupMessage {
                 group_id,
                 content,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub async fn get_group_sender_key_seed(
+        &self,
+        group_id: String,
+    ) -> Result<Vec<u8>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetGroupSenderKeySeed {
+                group_id,
+                response: tx,
+            })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub async fn add_group_sender_key(
+        &self,
+        group_id: String,
+        sender_peer_id: String,
+        sender_key_seed: Vec<u8>,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::AddGroupSenderKey {
+                group_id,
+                sender_peer_id,
+                sender_key_seed,
                 response: tx,
             })
             .map_err(|_| MePassaFfiError::Other {

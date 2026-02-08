@@ -36,6 +36,10 @@ pub struct VoIPIntegration {
     #[cfg(any(feature = "voip", feature = "video"))]
     video_frame_callback: Arc<RwLock<Option<Box<dyn crate::FfiVideoFrameCallback>>>>,
 
+    // Audio frame callback (decoded PCM)
+    #[cfg(feature = "voip")]
+    audio_frame_callback: Arc<RwLock<Option<Box<dyn crate::FfiAudioFrameCallback>>>>,
+
     // VoIP control events callback (mute/speaker/camera)
     voip_event_callback: Arc<RwLock<Option<Box<dyn crate::FfiVoipEventCallback>>>>,
 
@@ -62,6 +66,8 @@ impl VoIPIntegration {
             call_event_rx: Mutex::new(Some(call_event_rx)),
             #[cfg(any(feature = "voip", feature = "video"))]
             video_frame_callback: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "voip")]
+            audio_frame_callback: Arc::new(RwLock::new(None)),
             voip_event_callback: Arc::new(RwLock::new(None)),
             call_event_callback: Arc::new(RwLock::new(None)),
         }
@@ -84,6 +90,17 @@ impl VoIPIntegration {
         let mut cb = self.video_frame_callback.write().await;
         *cb = Some(callback);
         tracing::info!("📹 Video frame callback registered");
+    }
+
+    /// Register callback for receiving remote audio frames (decoded PCM)
+    #[cfg(feature = "voip")]
+    pub async fn register_audio_frame_callback(
+        &self,
+        callback: Box<dyn crate::FfiAudioFrameCallback>,
+    ) {
+        let mut cb = self.audio_frame_callback.write().await;
+        *cb = Some(callback);
+        tracing::info!("🔊 Audio frame callback registered");
     }
 
     /// Register callback for VoIP control events (mute/speaker/camera)
@@ -356,8 +373,19 @@ impl VoIPIntegration {
                 }
             }
 
-            CallEvent::AudioReceived { .. } => {
-                // Audio data handled separately by audio pipeline
+            CallEvent::AudioReceived {
+                call_id,
+                data,
+                sample_rate,
+                channels,
+            } => {
+                #[cfg(feature = "voip")]
+                {
+                    let cb = self.audio_frame_callback.read().await;
+                    if let Some(callback) = cb.as_ref() {
+                        callback.on_audio_frame(call_id, data, sample_rate, channels);
+                    }
+                }
             }
 
             CallEvent::VideoFrameReceived { call_id, frame_data, width, height } => {

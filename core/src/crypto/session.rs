@@ -12,7 +12,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use crate::crypto::signal::{encrypt_message, decrypt_message, EncryptedMessage};
+use crate::crypto::signal::EncryptedMessage;
+use crate::crypto::ratchet::RatchetState;
 use crate::utils::error::{Result, MePassaError};
 
 /// Session identifier (peer ID)
@@ -21,15 +22,17 @@ pub type SessionId = String;
 /// E2E Encryption Session
 ///
 /// Represents a secure communication channel with a peer.
-/// In this simplified implementation, we use a static shared secret from X3DH.
-/// A full Signal Protocol implementation would use Double Ratchet for forward secrecy.
+/// Uses a ratchet state derived from X3DH for forward secrecy.
 #[derive(Debug, Clone)]
 pub struct Session {
     /// Remote peer ID
     pub peer_id: String,
 
-    /// Shared secret from X3DH (32 bytes)
-    pub shared_secret: [u8; 32],
+    /// Ratchet state for forward secrecy
+    pub ratchet: RatchetState,
+
+    /// Whether this side initiated the session
+    pub is_initiator: bool,
 
     /// Send message counter (prevents replay attacks)
     pub send_counter: u64,
@@ -46,20 +49,22 @@ pub struct Session {
 
 impl Session {
     /// Create a new session from X3DH shared secret
-    pub fn new(peer_id: String, shared_secret: [u8; 32]) -> Self {
+    pub fn new(peer_id: String, shared_secret: [u8; 32], is_initiator: bool) -> Result<Self> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
+        let ratchet = RatchetState::new(shared_secret, is_initiator)?;
 
-        Self {
+        Ok(Self {
             peer_id,
-            shared_secret,
+            ratchet,
+            is_initiator,
             send_counter: 0,
             recv_counter: 0,
             created_at: now,
             last_used_at: now,
-        }
+        })
     }
 
     /// Encrypt a message using this session
@@ -70,8 +75,8 @@ impl Session {
             .unwrap()
             .as_secs();
 
-        // Encrypt using shared secret
-        let encrypted = encrypt_message(plaintext, &self.shared_secret)?;
+        // Encrypt using ratchet state
+        let encrypted = self.ratchet.encrypt(plaintext)?;
 
         // Increment send counter
         self.send_counter += 1;
@@ -87,8 +92,8 @@ impl Session {
             .unwrap()
             .as_secs();
 
-        // Decrypt using shared secret
-        let plaintext = decrypt_message(encrypted, &self.shared_secret)?;
+        // Decrypt using ratchet state
+        let plaintext = self.ratchet.decrypt(encrypted)?;
 
         // Increment receive counter
         self.recv_counter += 1;
@@ -134,7 +139,7 @@ impl SessionManager {
 
     /// Create a new session with a peer
     pub fn create_session(&self, peer_id: String, shared_secret: [u8; 32]) -> Result<()> {
-        let session = Session::new(peer_id.clone(), shared_secret);
+        let session = Session::new(peer_id.clone(), shared_secret, true)?;
 
         let mut sessions = self
             .sessions
@@ -143,6 +148,21 @@ impl SessionManager {
 
         sessions.insert(peer_id, session);
 
+        Ok(())
+    }
+
+    pub fn create_session_with_role(
+        &self,
+        peer_id: String,
+        shared_secret: [u8; 32],
+        is_initiator: bool,
+    ) -> Result<()> {
+        let session = Session::new(peer_id.clone(), shared_secret, is_initiator)?;
+        let mut sessions = self
+            .sessions
+            .write()
+            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+        sessions.insert(peer_id, session);
         Ok(())
     }
 
@@ -267,10 +287,10 @@ mod tests {
     #[test]
     fn test_session_creation() {
         let shared_secret = [42u8; 32];
-        let session = Session::new("peer_123".to_string(), shared_secret);
+        let session = Session::new("peer_123".to_string(), shared_secret, true).unwrap();
 
         assert_eq!(session.peer_id, "peer_123");
-        assert_eq!(session.shared_secret, shared_secret);
+        assert_eq!(session.ratchet.root_key, shared_secret);
         assert_eq!(session.send_counter, 0);
         assert_eq!(session.recv_counter, 0);
         assert!(session.age() < 2); // Less than 2 seconds old
@@ -280,7 +300,7 @@ mod tests {
     #[test]
     fn test_session_encrypt_decrypt() {
         let shared_secret = [42u8; 32];
-        let mut session = Session::new("peer_123".to_string(), shared_secret);
+        let mut session = Session::new("peer_123".to_string(), shared_secret, true).unwrap();
 
         let plaintext = b"Hello, MePassa!";
 
@@ -311,7 +331,7 @@ mod tests {
         // Get session
         let session = manager.get_session("peer_123").unwrap();
         assert_eq!(session.peer_id, "peer_123");
-        assert_eq!(session.shared_secret, shared_secret);
+        assert_eq!(session.ratchet.root_key, shared_secret);
     }
 
     #[test]
@@ -412,7 +432,7 @@ mod tests {
         // Alice creates session with Bob
         let alice_manager = SessionManager::new();
         alice_manager
-            .create_session(bob.peer_id().to_string(), alice_shared_secret)
+            .create_session_with_role(bob.peer_id().to_string(), alice_shared_secret, true)
             .unwrap();
 
         // Bob responds to X3DH (no one-time prekey)
@@ -422,7 +442,7 @@ mod tests {
         // Bob creates session with Alice
         let bob_manager = SessionManager::new();
         bob_manager
-            .create_session("alice".to_string(), bob_shared_secret)
+            .create_session_with_role("alice".to_string(), bob_shared_secret, false)
             .unwrap();
 
         // Alice sends encrypted message to Bob

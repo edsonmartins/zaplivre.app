@@ -275,6 +275,18 @@ class CallManager: NSObject, ObservableObject {
         cleanupCall()
     }
 
+    func handleAudioFrame(coreCallId: String, data: Data, sampleRate: UInt32, channels: UInt32) {
+        guard currentCall?.coreCallId == coreCallId else {
+            return
+        }
+        if sampleRate != 48_000 || channels != 1 {
+            print("⚠️ Unsupported audio format: \(sampleRate)Hz, channels=\(channels)")
+            return
+        }
+
+        audioManager.playAudio(data)
+    }
+
     // MARK: - WebRTC Integration (TODO)
     private func initiateWebRTCConnection(peerId: String) {
         print("📞 Initiating WebRTC connection to \(peerId)...")
@@ -389,8 +401,19 @@ extension CallManager: CXProviderDelegate {
 
             // Setup audio callback to send to WebRTC
             audioManager.onAudioCaptured = { [weak self] audioData in
-                // TODO: Send audio data to WebRTC via UniFFI
-                // self?.sendAudioToWebRTC(audioData)
+                guard let self = self else { return }
+                guard !self.isMuted else { return }
+                guard let coreCallId = self.currentCall?.coreCallId else { return }
+
+                let audioBytes = [UInt8](audioData)
+                Task {
+                    try? await MePassaCore.shared.sendAudioFrame(
+                        callId: coreCallId,
+                        audioData: audioBytes,
+                        sampleRate: 48_000,
+                        channels: 1
+                    )
+                }
             }
 
             print("✅ Audio I/O started")

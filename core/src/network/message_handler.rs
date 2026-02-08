@@ -13,8 +13,7 @@ use std::{path::PathBuf, sync::Arc};
 use crate::{
     crypto::{
         decrypt_for_storage, encrypt_for_storage,
-        session::SessionManager,
-        signal::{EncryptedMessage as CryptoEncryptedMessage, X3DH},
+        SignalEncryptedMessage, SignalSessionManager,
     },
     media::MediaEnvelope,
     reactions::ReactionEnvelope,
@@ -44,10 +43,11 @@ pub struct MessageHandler {
     data_dir: PathBuf,
 
     /// Identity (prekeys for X3DH)
+    #[allow(dead_code)]
     identity: Arc<RwLock<Identity>>,
 
     /// E2E session manager
-    session_manager: SessionManager,
+    session_manager: SignalSessionManager,
 
     /// Storage encryption key
     storage_key: [u8; 32],
@@ -63,7 +63,7 @@ impl MessageHandler {
         database: Arc<Database>,
         data_dir: PathBuf,
         identity: Arc<RwLock<Identity>>,
-        session_manager: SessionManager,
+        session_manager: SignalSessionManager,
         storage_key: [u8; 32],
         event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
     ) -> Self {
@@ -282,61 +282,21 @@ impl MessageHandler {
     ) -> Result<()> {
         let peer_id = message.sender_peer_id.clone();
 
-        if !self.session_manager.has_session(&peer_id)? {
-            if encrypted.ephemeral_public.is_empty() {
-                return Err(MePassaError::Crypto("No session and no ephemeral key".to_string()));
-            }
-
-            let (signed_prekey_secret, one_time_secret_opt) = {
-                let mut identity = self.identity.write().await;
-                identity.init_prekey_pool(100);
-                let pool = identity
-                    .prekey_pool_mut()
-                    .ok_or_else(|| MePassaError::Crypto("Prekey pool not initialized".to_string()))?;
-
-                let signed_prekey_secret = pool.signed_prekey().secret_bytes();
-                let one_time_secret_opt: Option<[u8; 32]> = if encrypted.one_time_prekey_id != 0 {
-                    pool.get_prekey(encrypted.one_time_prekey_id)
-                        .map(|pk| pk.secret_bytes())
-                } else {
-                    None
-                };
-                (signed_prekey_secret, one_time_secret_opt)
-            };
-
-            let ephemeral_public: [u8; 32] = encrypted
-                .ephemeral_public
-                .as_slice()
-                .try_into()
-                .map_err(|_| MePassaError::Crypto("Invalid ephemeral public key".to_string()))?;
-
-            let shared_secret = X3DH::respond(
-                &signed_prekey_secret,
-                one_time_secret_opt.as_ref(),
-                &ephemeral_public,
-            )?;
-
-            self.session_manager
-                .create_session(peer_id.clone(), shared_secret)?;
-
-            if encrypted.one_time_prekey_id != 0 {
-                let mut identity = self.identity.write().await;
-                if let Some(pool) = identity.prekey_pool_mut() {
-                    pool.remove_prekey(encrypted.one_time_prekey_id);
-                }
-            }
-        }
-
-        let crypto_msg = CryptoEncryptedMessage {
-            nonce: encrypted
-                .nonce
-                .as_slice()
-                .try_into()
-                .map_err(|_| MePassaError::Crypto("Invalid nonce".to_string()))?,
+        let device_id = if encrypted.sender_device_id != 0 {
+            encrypted.sender_device_id
+        } else {
+            1
+        };
+        let crypto_msg = SignalEncryptedMessage {
             ciphertext: encrypted.ciphertext.clone(),
+            ciphertext_type: encrypted.ciphertext_type,
+            sender_device_id: device_id,
         };
 
-        let plaintext = self.session_manager.decrypt_from(&peer_id, &crypto_msg)?;
+        let plaintext = self
+            .session_manager
+            .decrypt_from(&peer_id, device_id, &crypto_msg)
+            .await?;
         let text = String::from_utf8(plaintext)
             .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
 
@@ -436,13 +396,15 @@ impl MessageHandler {
 
     async fn handle_media_offer(&self, message: &Message, offer: &MediaOffer) -> Result<()> {
         let media_type = MediaType::from_str(&offer.media_type);
-        let placeholder = match media_type {
-            MediaType::Image => format!("[Image: {}]", offer.file_name),
-            MediaType::Video => format!("[Video: {}s]", offer.duration_seconds),
-            MediaType::VoiceMessage => format!("[Voice: {}s]", offer.duration_seconds),
-            MediaType::Audio => "[Audio]".to_string(),
-            MediaType::Document => format!("[File: {}]", offer.file_name),
-        };
+        let summary = crate::media::media_summary(
+            media_type.as_str(),
+            Some(&offer.file_name),
+            if offer.duration_seconds > 0 {
+                Some(offer.duration_seconds)
+            } else {
+                None
+            },
+        );
 
         let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
 
@@ -452,8 +414,8 @@ impl MessageHandler {
             sender_peer_id: message.sender_peer_id.clone(),
             recipient_peer_id: Some(message.recipient_peer_id.clone()),
             message_type: media_type.as_str().to_string(),
-            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
-            content_plaintext: None,
+            content_encrypted: None,
+            content_plaintext: Some(summary.clone()),
             status: MessageStatus::Delivered,
             parent_message_id: None,
         };
@@ -484,7 +446,7 @@ impl MessageHandler {
             message_id: message.id.clone(),
             from_peer_id: message.sender_peer_id.clone(),
             conversation_id,
-            content: placeholder,
+            content: summary,
             message: message.clone(),
         });
 
@@ -611,6 +573,7 @@ impl MessageHandler {
         encrypt_for_storage(&self.storage_key, plaintext)
     }
 
+    #[allow(dead_code)]
     fn decrypt_for_storage(&self, blob: &[u8]) -> Result<String> {
         let bytes = decrypt_for_storage(&self.storage_key, blob)?;
         let text = String::from_utf8(bytes)
@@ -639,39 +602,11 @@ impl MessageHandler {
 
         let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
 
-        let placeholder = match media_type {
-            MediaType::Image => format!(
-                "[Image{}]",
-                envelope
-                    .file_name
-                    .as_ref()
-                    .map(|name| format!(": {}", name))
-                    .unwrap_or_default()
-            ),
-            MediaType::Video => format!(
-                "[Video{}]",
-                envelope
-                    .duration_seconds
-                    .map(|d| format!(": {}s", d))
-                    .unwrap_or_default()
-            ),
-            MediaType::VoiceMessage => format!(
-                "[Voice{}]",
-                envelope
-                    .duration_seconds
-                    .map(|d| format!(": {}s", d))
-                    .unwrap_or_default()
-            ),
-            MediaType::Audio => "[Audio]".to_string(),
-            MediaType::Document => format!(
-                "[File{}]",
-                envelope
-                    .file_name
-                    .as_ref()
-                    .map(|name| format!(": {}", name))
-                    .unwrap_or_default()
-            ),
-        };
+        let summary = crate::media::media_summary(
+            media_type.as_str(),
+            envelope.file_name.as_deref(),
+            envelope.duration_seconds,
+        );
 
         let media_dir = self.data_dir.join("media");
         std::fs::create_dir_all(&media_dir)
@@ -709,8 +644,10 @@ impl MessageHandler {
             sender_peer_id: message.sender_peer_id.clone(),
             recipient_peer_id: Some(message.recipient_peer_id.clone()),
             message_type: message_type.clone(),
-            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
-            content_plaintext: None,
+            content_encrypted: self
+                .encrypt_for_storage(envelope.encode()?.as_bytes())
+                .ok(),
+            content_plaintext: Some(summary.clone()),
             status: MessageStatus::Delivered,
             parent_message_id: None,
         };
@@ -735,7 +672,7 @@ impl MessageHandler {
 
         let mut display_message = message.clone();
         display_message.payload = Some(Payload::Text(TextMessage {
-            content: placeholder.clone(),
+            content: summary.clone(),
             reply_to_id: String::new(),
             metadata: std::collections::HashMap::new(),
         }));
@@ -745,7 +682,7 @@ impl MessageHandler {
             message_id: message.id.clone(),
             from_peer_id: message.sender_peer_id.clone(),
             conversation_id,
-            content: placeholder,
+            content: summary,
             message: display_message,
         });
 
@@ -847,7 +784,7 @@ mod tests {
 
         let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
         let storage_key = identity.read().await.storage_key().unwrap();
-        let session_manager = SessionManager::new();
+        let session_manager = SignalSessionManager::new(Arc::clone(&identity));
         let handler = MessageHandler::new(
             local_peer_id.clone(),
             db_arc,
@@ -949,7 +886,7 @@ mod tests {
 
         let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
         let storage_key = identity.read().await.storage_key().unwrap();
-        let session_manager = SessionManager::new();
+        let session_manager = SignalSessionManager::new(Arc::clone(&identity));
         let handler = MessageHandler::new(
             local_peer_id,
             Arc::clone(&db_arc),

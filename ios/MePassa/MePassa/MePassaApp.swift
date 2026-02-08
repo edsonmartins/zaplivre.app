@@ -71,6 +71,10 @@ struct MePassaApp: App {
                 let callHandler = CallEventHandler(callManager: callManager)
                 appState.callEventHandler = callHandler
                 try await MePassaCore.shared.registerCallEventCallback(callHandler)
+
+                let audioHandler = AudioFrameHandler(callManager: callManager)
+                appState.audioFrameHandler = audioHandler
+                try await MePassaCore.shared.registerAudioFrameCallback(audioHandler)
             } catch {
                 print("❌ Failed to initialize MePassa Core: \(error)")
             }
@@ -93,6 +97,7 @@ class AppState: ObservableObject {
     private var refreshTimer: Timer?
     var voipEventHandler: VoipEventHandler?
     var callEventHandler: CallEventHandler?
+    var audioFrameHandler: AudioFrameHandler?
 
     func login(peerId: String) {
         self.isAuthenticated = true
@@ -132,6 +137,7 @@ class AppState: ObservableObject {
         Task {
             do {
                 let convs = try await MePassaCore.shared.listConversations()
+                await MePassaCore.shared.scanGroupSenderKeyMessages()
 
                 // Convert FFI conversations to local model
                 await MainActor.run {

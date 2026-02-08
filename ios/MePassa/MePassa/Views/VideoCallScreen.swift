@@ -19,7 +19,7 @@ struct VideoCallScreen: View {
     @State private var videoEnabled = true
     @State private var isMuted = false
     @State private var callDuration = 0
-    @State private var videoEncoder: VideoEncoder?
+    
     
     // Timer for call duration
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -181,32 +181,19 @@ struct VideoCallScreen: View {
     }
     
     private func startVideo() {
-        if videoEncoder == nil {
-            videoEncoder = VideoEncoder(width: 640, height: 480) { frame, _ in
-                Task {
-                    do {
-                        try await MePassaCore.shared.sendVideoFrame(
-                            callId: self.callId,
-                            frameData: frame,
-                            width: 640,
-                            height: 480
-                        )
-                    } catch {
-                        // Frame drop is acceptable
-                    }
+        cameraManager.startCaptureEncoded { frame, width, height in
+            Task {
+                do {
+                    try await MePassaCore.shared.sendVideoFrame(
+                        callId: self.callId,
+                        frameData: frame,
+                        width: width,
+                        height: height
+                    )
+                } catch {
+                    // Frame drop is acceptable
                 }
             }
-        }
-
-        videoEncoder?.start()
-
-        cameraManager.startCapture { sampleBuffer in
-            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                return
-            }
-
-            let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            videoEncoder?.encode(pixelBuffer: pixelBuffer, pts: pts)
         }
 
         // Enable video track on WebRTC
@@ -221,7 +208,6 @@ struct VideoCallScreen: View {
     
     private func stopVideo() {
         cameraManager.stopCapture()
-        videoEncoder?.stop()
     }
     
     // MARK: - Helpers

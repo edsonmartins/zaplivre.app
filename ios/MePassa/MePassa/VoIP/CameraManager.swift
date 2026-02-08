@@ -24,6 +24,10 @@ class CameraManager: NSObject, ObservableObject {
     
     private let videoQueue = DispatchQueue(label: "com.mepassa.videoQueue")
     private var onFrameCallback: ((CMSampleBuffer) -> Void)?
+    private var onEncodedFrame: (([UInt8], UInt32, UInt32) -> Void)?
+    private var videoEncoder: VideoEncoder?
+    private let captureWidth: UInt32 = 640
+    private let captureHeight: UInt32 = 480
     
     // MARK: - Initialization
     
@@ -47,12 +51,28 @@ class CameraManager: NSObject, ObservableObject {
             self?.setupCaptureSession()
         }
     }
+
+    /// Start camera capture with H.264 encoding
+    /// - Parameter onEncoded: Callback for each encoded frame (H.264 Annex B)
+    func startCaptureEncoded(onEncoded: @escaping ([UInt8], UInt32, UInt32) -> Void) {
+        onEncodedFrame = onEncoded
+        if videoEncoder == nil {
+            videoEncoder = VideoEncoder(width: Int(captureWidth), height: Int(captureHeight)) { [weak self] frame, _ in
+                guard let self = self else { return }
+                self.onEncodedFrame?(frame, self.captureWidth, self.captureHeight)
+            }
+        }
+        videoEncoder?.start()
+        startCapture { _ in }
+    }
     
     /// Stop camera capture
     func stopCapture() {
         if captureSession.isRunning {
             captureSession.stopRunning()
         }
+        videoEncoder?.stop()
+        videoEncoder = nil
         isCapturing = false
         print("🛑 Camera capture stopped")
     }
@@ -201,12 +221,11 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     ) {
         // Send frame to callback
         onFrameCallback?(sampleBuffer)
-        
-        // TODO: Convert CMSampleBuffer to byte array and send via FFI
-        // Example:
-        // guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        // let data = convertPixelBufferToByteArray(pixelBuffer)
-        // MePassaCore.shared.sendVideoFrame(callId: callId, data: data, width: width, height: height)
+
+        if let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            videoEncoder?.encode(pixelBuffer: pixelBuffer, pts: pts)
+        }
     }
     
     func captureOutput(

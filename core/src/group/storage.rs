@@ -257,6 +257,77 @@ pub fn update_group_metadata(
     Ok(())
 }
 
+pub fn save_sender_key_seed(
+    db: &Database,
+    group_id: &str,
+    sender_peer_id: &str,
+    sender_key_seed: &[u8; 32],
+) -> Result<()> {
+    db.conn().execute(
+        r#"
+        INSERT OR REPLACE INTO group_sender_keys (group_id, sender_peer_id, sender_key_seed)
+        VALUES (?1, ?2, ?3)
+        "#,
+        rusqlite::params![group_id, sender_peer_id, sender_key_seed.as_slice()],
+    )?;
+
+    Ok(())
+}
+
+pub fn load_group_sender_keys(
+    db: &Database,
+    group_id: &str,
+) -> Result<Vec<(String, [u8; 32])>> {
+    let conn = db.conn();
+    let mut stmt = conn.prepare(
+        r#"
+        SELECT sender_peer_id, sender_key_seed
+        FROM group_sender_keys
+        WHERE group_id = ?1
+        "#,
+    )?;
+
+    let rows = stmt.query_map([group_id], |row| {
+        let sender_peer_id: String = row.get(0)?;
+        let seed_blob: Vec<u8> = row.get(1)?;
+        Ok((sender_peer_id, seed_blob))
+    })?;
+
+    let mut result = Vec::new();
+    for row in rows {
+        let (sender_peer_id, seed_blob) = row?;
+        let seed = seed_from_blob(seed_blob)?;
+        result.push((sender_peer_id, seed));
+    }
+
+    Ok(result)
+}
+
+pub fn remove_sender_key(db: &Database, group_id: &str, sender_peer_id: &str) -> Result<()> {
+    db.conn().execute(
+        r#"
+        DELETE FROM group_sender_keys
+        WHERE group_id = ?1 AND sender_peer_id = ?2
+        "#,
+        rusqlite::params![group_id, sender_peer_id],
+    )?;
+
+    Ok(())
+}
+
+fn seed_from_blob(seed: Vec<u8>) -> Result<[u8; 32]> {
+    if seed.len() != 32 {
+        return Err(MePassaError::Storage(format!(
+            "Invalid sender key seed length: {}",
+            seed.len()
+        )));
+    }
+
+    let mut seed_array = [0u8; 32];
+    seed_array.copy_from_slice(&seed);
+    Ok(seed_array)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

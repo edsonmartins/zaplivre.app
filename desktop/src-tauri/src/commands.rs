@@ -662,6 +662,46 @@ pub async fn send_group_message(
 }
 
 #[tauri::command]
+pub async fn get_group_sender_key_seed(
+    state: State<'_, ClientState>,
+    group_id: String,
+) -> Result<Vec<u8>, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .get_group_sender_key_seed(group_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn add_group_sender_key(
+    state: State<'_, ClientState>,
+    group_id: String,
+    sender_peer_id: String,
+    sender_key_seed: Vec<u8>,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client
+        .add_group_sender_key(group_id, sender_peer_id, sender_key_seed)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn show_notification(
     app: tauri::AppHandle,
     title: String,

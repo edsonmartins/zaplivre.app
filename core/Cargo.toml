@@ -38,8 +38,9 @@ chrono = { workspace = true }
 base64 = { workspace = true }
 hex = { workspace = true }
 
-# Signal Protocol (E2E encryption) - TODO: implementar depois
-# libsignal-protocol = "0.1"
+# Signal Protocol (E2E encryption)
+libsignal-protocol-syft = "0.85.3-beta.5"
+rand_core06 = { package = "rand_core", version = "0.6" }
 
 # CRDTs for sync - TODO: implementar depois
 # automerge = "0.5"
@@ -76,6 +77,7 @@ integration-tests = []
 [build-dependencies]
 prost-build = "0.12"
 uniffi = { workspace = true, features = ["build"] }
+camino = "1.1"
 
 # Benchmarks (TODO: create benchmark files)
 # [[bench]]

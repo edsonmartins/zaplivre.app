@@ -22,6 +22,8 @@ class VideoFrameHandler(
     private var decoder: MediaCodec? = null
     private var surface: Surface? = null
     private var isDecoderConfigured = false
+    private var currentWidth: Int = 640
+    private var currentHeight: Int = 480
 
     companion object {
         private const val TAG = "VideoFrameHandler"
@@ -35,7 +37,7 @@ class VideoFrameHandler(
      */
     fun setSurface(surface: Surface) {
         this.surface = surface
-        configureDecoder(640, 480) // Default resolution, will be updated from first frame
+        configureDecoder(currentWidth, currentHeight)
     }
 
     /**
@@ -81,6 +83,16 @@ class VideoFrameHandler(
     override fun onVideoFrame(callId: String, frameData: List<UByte>, width: UInt, height: UInt) {
         // Ignore frames from other calls
         if (callId != this.callId) return
+
+        val targetWidth = width.toInt()
+        val targetHeight = height.toInt()
+        if (targetWidth > 0 && targetHeight > 0 &&
+            (targetWidth != currentWidth || targetHeight != currentHeight)
+        ) {
+            currentWidth = targetWidth
+            currentHeight = targetHeight
+            configureDecoder(currentWidth, currentHeight)
+        }
 
         // Check if decoder is ready
         if (!isDecoderConfigured || decoder == null) {

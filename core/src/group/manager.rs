@@ -4,6 +4,7 @@
 
 use super::storage;
 use super::types::{Group, GroupEvent, GroupMessage, GroupRole};
+use crate::crypto::group::{EncryptedMessage, GroupSessionManager};
 use crate::identity::PublicKey;
 use crate::storage::{Database, MessageStatus, NewMessage};
 use crate::utils::error::{MePassaError, Result};
@@ -33,6 +34,9 @@ pub struct GroupManager {
 
     /// GossipSub topics we're subscribed to
     subscribed_topics: Arc<RwLock<HashMap<String, TopicHash>>>,
+
+    /// Group sender-key sessions
+    group_sessions: GroupSessionManager,
 }
 
 impl GroupManager {
@@ -41,12 +45,13 @@ impl GroupManager {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         let manager = Self {
-            local_peer_id,
+            local_peer_id: local_peer_id.clone(),
             db,
             groups: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
             event_rx: Arc::new(RwLock::new(Some(event_rx))),
             subscribed_topics: Arc::new(RwLock::new(HashMap::new())),
+            group_sessions: GroupSessionManager::new(local_peer_id.clone()),
         };
 
         Ok(manager)
@@ -69,7 +74,9 @@ impl GroupManager {
                 .await
                 .insert(group.id.clone(), topic_hash);
 
-            groups_map.insert(group.id.clone(), group);
+            groups_map.insert(group.id.clone(), group.clone());
+
+            self.restore_group_session(&group)?;
         }
 
         Ok(topics)
@@ -100,6 +107,12 @@ impl GroupManager {
         // Save to database
         storage::save_group(&self.db, &group)?;
         self.ensure_group_conversation(&group)?;
+
+        let my_seed = self
+            .group_sessions
+            .create_group(group_id.clone())
+            .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+        storage::save_sender_key_seed(&self.db, &group_id, &self.local_peer_id, &my_seed)?;
 
         // Store in memory
         self.groups.write().await.insert(group_id.clone(), group.clone());
@@ -134,6 +147,12 @@ impl GroupManager {
         storage::save_group(&self.db, &group)?;
         self.ensure_group_conversation(&group)?;
 
+        let my_seed = self
+            .group_sessions
+            .create_group(group_id.clone())
+            .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+        storage::save_sender_key_seed(&self.db, &group_id, &self.local_peer_id, &my_seed)?;
+
         // Store in memory
         self.groups.write().await.insert(group_id.clone(), group.clone());
 
@@ -155,6 +174,8 @@ impl GroupManager {
     pub async fn leave_group(&self, group_id: &str) -> Result<()> {
         // Mark as left in database
         storage::mark_group_left(&self.db, group_id)?;
+
+        self.group_sessions.remove_group(group_id)?;
 
         // Remove from memory
         self.groups.write().await.remove(group_id);
@@ -222,6 +243,11 @@ impl GroupManager {
         // Remove from group
         group.members.remove(peer_id);
         group.admins.remove(peer_id);
+
+        let _ = self
+            .group_sessions
+            .remove_member_from_group(group_id, peer_id);
+        let _ = storage::remove_sender_key(&self.db, group_id, peer_id);
 
         // Save to database
         storage::remove_member(&self.db, group_id, peer_id)?;
@@ -346,7 +372,7 @@ impl GroupManager {
     /// Handle incoming GossipSub message
     pub async fn handle_gossipsub_message(
         &self,
-        topic: &TopicHash,
+        _topic: &TopicHash,
         message: gossipsub::Message,
     ) -> Result<()> {
         // Deserialize message
@@ -377,8 +403,22 @@ impl GroupManager {
                 ));
             }
 
+            if group_msg.sender_peer_id == self.local_peer_id {
+                return Ok(());
+            }
+
+            let encrypted_content = group_msg.content.clone();
+            let plaintext = self
+                .decrypt_group_message(
+                    &group_msg.group_id,
+                    &group_msg.sender_peer_id,
+                    &encrypted_content,
+                )
+                .ok()
+                .and_then(|bytes| String::from_utf8(bytes).ok());
+
             self.ensure_group_conversation(group)?;
-            self.store_group_message(group, &group_msg)?;
+            self.store_group_message(group, &group_msg, encrypted_content, plaintext)?;
 
             // Emit event
             self.emit_event(GroupEvent::MessageReceived {
@@ -387,6 +427,31 @@ impl GroupManager {
         }
 
         Ok(())
+    }
+
+    /// Encrypt a group message payload using sender keys
+    pub fn encrypt_group_message(&self, group_id: &str, plaintext: &[u8]) -> Result<Vec<u8>> {
+        let encrypted = self
+            .group_sessions
+            .encrypt_to_group(group_id, plaintext)?;
+
+        serde_json::to_vec(&encrypted.1)
+            .map_err(|e| MePassaError::Protocol(format!("Failed to encode group payload: {}", e)))
+    }
+
+    /// Decrypt a group message payload using sender keys
+    pub fn decrypt_group_message(
+        &self,
+        group_id: &str,
+        sender_peer_id: &str,
+        encrypted_payload: &[u8],
+    ) -> Result<Vec<u8>> {
+        let encrypted: EncryptedMessage = serde_json::from_slice(encrypted_payload).map_err(|e| {
+            MePassaError::Protocol(format!("Invalid group payload encoding: {}", e))
+        })?;
+
+        self.group_sessions
+            .decrypt_from_group(group_id, sender_peer_id, &encrypted)
     }
 
     /// Emit a group event
@@ -419,9 +484,14 @@ impl GroupManager {
         Ok(())
     }
 
-    fn store_group_message(&self, group: &Group, group_msg: &GroupMessage) -> Result<()> {
+    fn store_group_message(
+        &self,
+        group: &Group,
+        group_msg: &GroupMessage,
+        encrypted_content: Vec<u8>,
+        content_plaintext: Option<String>,
+    ) -> Result<()> {
         let conversation_id = format!("group:{}", group.id);
-        let content_plaintext = String::from_utf8(group_msg.content.clone()).ok();
 
         let new_msg = NewMessage {
             message_id: group_msg.message_id.clone(),
@@ -429,7 +499,7 @@ impl GroupManager {
             sender_peer_id: group_msg.sender_peer_id.clone(),
             recipient_peer_id: None,
             message_type: "group_text".to_string(),
-            content_encrypted: None,
+            content_encrypted: Some(encrypted_content),
             content_plaintext,
             status: MessageStatus::Delivered,
             parent_message_id: None,
@@ -437,6 +507,67 @@ impl GroupManager {
 
         self.db.insert_message(&new_msg)?;
         self.db.update_conversation_last_message(&conversation_id, &group_msg.message_id)?;
+
+        Ok(())
+    }
+
+    pub fn get_group_sender_key_seed(&self, group_id: &str) -> Result<Vec<u8>> {
+        let seed = self.group_sessions.my_sender_key_seed(group_id)?;
+        Ok(seed.to_vec())
+    }
+
+    pub fn add_group_sender_key(
+        &self,
+        group_id: &str,
+        sender_peer_id: &str,
+        sender_key_seed: &[u8],
+    ) -> Result<()> {
+        if sender_key_seed.len() != 32 {
+            return Err(MePassaError::Crypto(
+                "Invalid sender key seed length".to_string(),
+            ));
+        }
+
+        if sender_peer_id == self.local_peer_id {
+            return Ok(());
+        }
+
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(sender_key_seed);
+
+        self.group_sessions
+            .add_member_to_group(group_id, sender_peer_id.to_string(), seed)?;
+        storage::save_sender_key_seed(&self.db, group_id, sender_peer_id, &seed)?;
+
+        Ok(())
+    }
+
+    fn restore_group_session(&self, group: &Group) -> Result<()> {
+        let sender_keys = storage::load_group_sender_keys(&self.db, &group.id)?;
+        let mut my_seed: Option<[u8; 32]> = None;
+        let mut member_seeds = Vec::new();
+
+        for (sender_peer_id, seed) in sender_keys {
+            if sender_peer_id == self.local_peer_id {
+                my_seed = Some(seed);
+            } else {
+                member_seeds.push((sender_peer_id, seed));
+            }
+        }
+
+        let my_seed = if let Some(seed) = my_seed {
+            seed
+        } else {
+            let seed = self
+                .group_sessions
+                .create_group(group.id.clone())
+                .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+            storage::save_sender_key_seed(&self.db, &group.id, &self.local_peer_id, &seed)?;
+            seed
+        };
+
+        self.group_sessions
+            .init_group_with_seed(group.id.clone(), my_seed, member_seeds)?;
 
         Ok(())
     }

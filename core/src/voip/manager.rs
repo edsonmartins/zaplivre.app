@@ -8,10 +8,16 @@ use super::{
     webrtc::{build_turn_config, WebRTCPeer},
     Result, VoipError,
 };
+#[cfg(feature = "voip")]
+use super::codec::{OpusConfig, OpusEncoder};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
+#[cfg(feature = "voip")]
+use tokio::sync::Mutex;
 use webrtc::ice_transport::ice_server::RTCIceServer;
+#[cfg(feature = "voip")]
+use webrtc::track::track_local::TrackLocalWriter;
 
 /// TURN credentials from server
 #[derive(Debug, Clone)]
@@ -46,6 +52,8 @@ pub enum CallEvent {
     AudioReceived {
         call_id: String,
         data: Vec<u8>,
+        sample_rate: u32,
+        channels: u32,
     },
 
     /// Video enabled for call
@@ -119,6 +127,10 @@ pub struct CallManager {
     /// Video enabled state by call_id
     video_enabled: Arc<RwLock<HashMap<String, bool>>>,
 
+    /// Opus encoder per call (audio input from platform)
+    #[cfg(feature = "voip")]
+    audio_encoders: Arc<RwLock<HashMap<String, Arc<Mutex<OpusEncoder>>>>>,
+
     /// Event broadcaster
     event_tx: broadcast::Sender<CallEvent>,
 
@@ -137,6 +149,8 @@ impl CallManager {
             video_enabled: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
             turn_credentials: Arc::new(RwLock::new(None)),
+            #[cfg(feature = "voip")]
+            audio_encoders: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -185,7 +199,21 @@ impl CallManager {
                 width,
                 height,
             });
-        }).await?;
+        })
+        .await?;
+
+        // Register callback for remote audio frames
+        let audio_event_tx = self.event_tx.clone();
+        let call_id_for_audio = call_id.clone();
+        peer.on_remote_audio_frame(move |pcm_data, sample_rate, channels| {
+            let _ = audio_event_tx.send(CallEvent::AudioReceived {
+                call_id: call_id_for_audio.clone(),
+                data: pcm_data,
+                sample_rate,
+                channels,
+            });
+        })
+        .await?;
 
         // Register callback for local ICE candidates
         let ice_event_tx = self.event_tx.clone();
@@ -259,6 +287,19 @@ impl CallManager {
                 frame_data,
                 width,
                 height,
+            });
+        })
+        .await?;
+
+        // Register callback for remote audio frames
+        let audio_event_tx = self.event_tx.clone();
+        let call_id_for_audio = call_id.clone();
+        peer.on_remote_audio_frame(move |pcm_data, sample_rate, channels| {
+            let _ = audio_event_tx.send(CallEvent::AudioReceived {
+                call_id: call_id_for_audio.clone(),
+                data: pcm_data,
+                sample_rate,
+                channels,
             });
         })
         .await?;
@@ -527,6 +568,81 @@ impl CallManager {
 
         let peer = peer_lock.read().await;
         peer.send_video_frame(frame_data).await?;
+
+        Ok(())
+    }
+
+    /// Send raw PCM audio frame to remote peer (Opus encoded in core)
+    #[cfg(feature = "voip")]
+    pub async fn send_audio_frame(
+        &self,
+        call_id: &str,
+        pcm_data: &[u8],
+        sample_rate: u32,
+        channels: u32,
+    ) -> Result<()> {
+        if sample_rate != 48_000 {
+            return Err(VoipError::CodecError(
+                "Unsupported sample rate (expected 48000)".to_string(),
+            ));
+        }
+        if channels != 1 {
+            return Err(VoipError::CodecError(
+                "Unsupported channel count (expected mono)".to_string(),
+            ));
+        }
+        if pcm_data.len() % 2 != 0 {
+            return Err(VoipError::CodecError(
+                "PCM data must be 16-bit aligned".to_string(),
+            ));
+        }
+
+        let peers = self.peers.read().await;
+        let peer_lock = peers
+            .get(call_id)
+            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+        let peer = peer_lock.read().await;
+        let audio_track = peer
+            .audio_track()
+            .ok_or_else(|| VoipError::CallSetupFailed("No audio track available".to_string()))?;
+
+        let encoder = {
+            let mut encoders = self.audio_encoders.write().await;
+            encoders
+                .entry(call_id.to_string())
+                .or_insert_with(|| {
+                    let config = OpusConfig::default();
+                    let encoder = OpusEncoder::new(config)
+                        .expect("Failed to create Opus encoder");
+                    Arc::new(Mutex::new(encoder))
+                })
+                .clone()
+        };
+
+        let mut samples = Vec::with_capacity(pcm_data.len() / 2);
+        for chunk in pcm_data.chunks_exact(2) {
+            let value = i16::from_le_bytes([chunk[0], chunk[1]]);
+            samples.push(value as f32 / 32768.0);
+        }
+
+        let mut encoder = encoder.lock().await;
+        if let Some(packet) = encoder.encode(&samples)? {
+            audio_track
+                .write(&packet)
+                .await
+                .map_err(|e| VoipError::NetworkError(format!("Failed to write RTP: {}", e)))?;
+        }
+
+        while encoder.buffered_samples() >= encoder.frame_size() {
+            if let Some(packet) = encoder.encode(&[])? {
+                audio_track
+                    .write(&packet)
+                    .await
+                    .map_err(|e| VoipError::NetworkError(format!("Failed to write RTP: {}", e)))?;
+            } else {
+                break;
+            }
+        }
 
         Ok(())
     }

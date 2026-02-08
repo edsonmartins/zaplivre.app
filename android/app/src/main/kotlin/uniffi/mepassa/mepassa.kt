@@ -661,6 +661,9 @@ internal open class UniffiForeignFutureStructVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceFfiAudioFrameCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`data`: RustBuffer.ByValue,`sampleRate`: Int,`channels`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceFfiCallEventCallbackMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`fromPeerId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -681,6 +684,22 @@ internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod1 : com.sun.
 }
 internal interface UniffiCallbackInterfaceFfiVoipEventCallbackMethod2 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("onAudioFrame", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceFfiAudioFrameCallback(
+    @JvmField internal var `onAudioFrame`: UniffiCallbackInterfaceFfiAudioFrameCallbackMethod0? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `onAudioFrame`: UniffiCallbackInterfaceFfiAudioFrameCallbackMethod0? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceFfiAudioFrameCallback(`onAudioFrame`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceFfiAudioFrameCallback) {
+        `onAudioFrame` = other.`onAudioFrame`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
 }
 @Structure.FieldOrder("onIncomingCall", "onCallStateChanged", "onCallEnded", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceFfiCallEventCallback(
@@ -904,6 +923,16 @@ internal open class UniffiVTableCallbackInterfaceFfiVoipEventCallback(
 
 
 
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -914,6 +943,7 @@ internal interface UniffiLib : Library {
             .also { lib: UniffiLib ->
                 uniffiCheckContractApiVersion(lib)
                 uniffiCheckApiChecksums(lib)
+                uniffiCallbackInterfaceFfiAudioFrameCallback.register(lib)
                 uniffiCallbackInterfaceFfiCallEventCallback.register(lib)
                 uniffiCallbackInterfaceFfiVideoFrameCallback.register(lib)
                 uniffiCallbackInterfaceFfiVoipEventCallback.register(lib)
@@ -935,6 +965,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_fn_method_mepassaclient_accept_call(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`peerId`: RustBuffer.ByValue,
+    ): Long
+    fun uniffi_mepassa_core_fn_method_mepassaclient_add_group_sender_key(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`senderPeerId`: RustBuffer.ByValue,`senderKeySeed`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_add_reaction(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,`emoji`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -962,6 +994,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_group_messages(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_get_group_sender_key_seed(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,
+    ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_groups(`ptr`: Pointer,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_get_message_reactions(`ptr`: Pointer,`messageId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -984,6 +1018,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(`ptr`: Pointer,`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_mepassa_core_fn_method_mepassaclient_register_audio_frame_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(`ptr`: Pointer,`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -998,6 +1034,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_mepassa_core_fn_method_mepassaclient_search_messages(`ptr`: Pointer,`query`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mepassa_core_fn_method_mepassaclient_send_audio_frame(`ptr`: Pointer,`callId`: RustBuffer.ByValue,`audioData`: RustBuffer.ByValue,`sampleRate`: Int,`channels`: Int,
+    ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_send_document_message(`ptr`: Pointer,`toPeerId`: RustBuffer.ByValue,`fileData`: RustBuffer.ByValue,`fileName`: RustBuffer.ByValue,`mimeType`: RustBuffer.ByValue,
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_send_group_message(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,
@@ -1022,6 +1060,8 @@ internal interface UniffiLib : Library {
     ): Long
     fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(`ptr`: Pointer,`callId`: RustBuffer.ByValue,
     ): Long
+    fun uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiAudioFrameCallback,
+    ): Unit
     fun uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(`vtable`: UniffiVTableCallbackInterfaceFfiCallEventCallback,
     ): Unit
     fun uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiVideoFrameCallback,
@@ -1144,6 +1184,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_add_group_sender_key(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_add_reaction(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_bootstrap(
@@ -1170,6 +1212,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_get_group_sender_key_seed(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_groups(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_get_message_reactions(
@@ -1192,6 +1236,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read(
     ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_register_audio_frame_callback(
+    ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback(
@@ -1205,6 +1251,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_method_mepassaclient_remove_reaction(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_search_messages(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_mepassaclient_send_audio_frame(
     ): Short
     fun uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message(
     ): Short
@@ -1231,6 +1279,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone(
     ): Short
     fun uniffi_mepassa_core_checksum_constructor_mepassaclient_new(
+    ): Short
+    fun uniffi_mepassa_core_checksum_method_ffiaudioframecallback_on_audio_frame(
     ): Short
     fun uniffi_mepassa_core_checksum_method_fficalleventcallback_on_incoming_call(
     ): Short
@@ -1267,6 +1317,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member() != 27257.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_add_group_sender_key() != 2162.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_add_reaction() != 30358.toShort()) {
@@ -1308,6 +1361,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages() != 42981.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_group_sender_key_seed() != 52210.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_groups() != 26850.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1341,6 +1397,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_read() != 7782.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_audio_frame_callback() != 36527.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback() != 59736.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1360,6 +1419,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_search_messages() != 45022.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_audio_frame() != 51190.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_send_document_message() != 14185.toShort()) {
@@ -1399,6 +1461,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 5686.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_ffiaudioframecallback_on_audio_frame() != 50172.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_fficalleventcallback_on_incoming_call() != 21423.toShort()) {
@@ -1872,6 +1937,8 @@ public interface MePassaClientInterface {
     
     suspend fun `addGroupMember`(`groupId`: kotlin.String, `peerId`: kotlin.String)
     
+    suspend fun `addGroupSenderKey`(`groupId`: kotlin.String, `senderPeerId`: kotlin.String, `senderKeySeed`: List<kotlin.UByte>)
+    
     fun `addReaction`(`messageId`: kotlin.String, `emoji`: kotlin.String)
     
     suspend fun `bootstrap`()
@@ -1898,6 +1965,8 @@ public interface MePassaClientInterface {
     
     fun `getGroupMessages`(`groupId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
     
+    suspend fun `getGroupSenderKeySeed`(`groupId`: kotlin.String): List<kotlin.UByte>
+    
     suspend fun `getGroups`(): List<FfiGroup>
     
     fun `getMessageReactions`(`messageId`: kotlin.String): List<FfiReaction>
@@ -1920,6 +1989,8 @@ public interface MePassaClientInterface {
     
     fun `markConversationRead`(`peerId`: kotlin.String)
     
+    fun `registerAudioFrameCallback`(`callback`: FfiAudioFrameCallback)
+    
     fun `registerCallEventCallback`(`callback`: FfiCallEventCallback)
     
     fun `registerVideoFrameCallback`(`callback`: FfiVideoFrameCallback)
@@ -1933,6 +2004,8 @@ public interface MePassaClientInterface {
     fun `removeReaction`(`messageId`: kotlin.String, `emoji`: kotlin.String)
     
     fun `searchMessages`(`query`: kotlin.String, `limit`: kotlin.UInt?): List<FfiMessage>
+    
+    suspend fun `sendAudioFrame`(`callId`: kotlin.String, `audioData`: List<kotlin.UByte>, `sampleRate`: kotlin.UInt, `channels`: kotlin.UInt)
     
     suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: List<kotlin.UByte>, `fileName`: kotlin.String, `mimeType`: kotlin.String): kotlin.String
     
@@ -2080,6 +2153,28 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
             UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(
                 thisPtr,
                 FfiConverterString.lower(`groupId`),FfiConverterString.lower(`peerId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `addGroupSenderKey`(`groupId`: kotlin.String, `senderPeerId`: kotlin.String, `senderKeySeed`: List<kotlin.UByte>) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_add_group_sender_key(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),FfiConverterString.lower(`senderPeerId`),FfiConverterSequenceUByte.lower(`senderKeySeed`),
             )
         },
         { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
@@ -2331,6 +2426,27 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     
     @Throws(MePassaFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getGroupSenderKeySeed`(`groupId`: kotlin.String) : List<kotlin.UByte> {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_get_group_sender_key_seed(
+                thisPtr,
+                FfiConverterString.lower(`groupId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceUByte.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getGroups`() : List<FfiGroup> {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
@@ -2531,6 +2647,18 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     
 
     
+    @Throws(MePassaFfiException::class)override fun `registerAudioFrameCallback`(`callback`: FfiAudioFrameCallback)
+        = 
+    callWithPointer {
+    uniffiRustCallWithError(MePassaFfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_register_audio_frame_callback(
+        it, FfiConverterTypeFfiAudioFrameCallback.lower(`callback`),_status)
+}
+    }
+    
+    
+
+    
     @Throws(MePassaFfiException::class)override fun `registerCallEventCallback`(`callback`: FfiCallEventCallback)
         = 
     callWithPointer {
@@ -2634,6 +2762,28 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface {
     )
     }
     
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `sendAudioFrame`(`callId`: kotlin.String, `audioData`: List<kotlin.UByte>, `sampleRate`: kotlin.UInt, `channels`: kotlin.UInt) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_mepassa_core_fn_method_mepassaclient_send_audio_frame(
+                thisPtr,
+                FfiConverterString.lower(`callId`),FfiConverterSequenceUByte.lower(`audioData`),FfiConverterUInt.lower(`sampleRate`),FfiConverterUInt.lower(`channels`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
 
     
     @Throws(MePassaFfiException::class)
@@ -3842,13 +3992,9 @@ public object FfiConverterTypeMessageStatus: FfiConverterRustBuffer<MessageStatu
 
 
 
-public interface FfiCallEventCallback {
+public interface FfiAudioFrameCallback {
     
-    fun `onIncomingCall`(`callId`: kotlin.String, `fromPeerId`: kotlin.String)
-    
-    fun `onCallStateChanged`(`callId`: kotlin.String, `state`: FfiCallState)
-    
-    fun `onCallEnded`(`callId`: kotlin.String, `reason`: FfiCallEndReason)
+    fun `onAudioFrame`(`callId`: kotlin.String, `data`: List<kotlin.UByte>, `sampleRate`: kotlin.UInt, `channels`: kotlin.UInt)
     
     companion object
 }
@@ -3885,6 +4031,66 @@ public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: Ffi
         buf.putLong(lower(value))
     }
 }
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceFfiAudioFrameCallback {
+    internal object `onAudioFrame`: UniffiCallbackInterfaceFfiAudioFrameCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`callId`: RustBuffer.ByValue,`data`: RustBuffer.ByValue,`sampleRate`: Int,`channels`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeFfiAudioFrameCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onAudioFrame`(
+                    FfiConverterString.lift(`callId`),
+                    FfiConverterSequenceUByte.lift(`data`),
+                    FfiConverterUInt.lift(`sampleRate`),
+                    FfiConverterUInt.lift(`channels`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeFfiAudioFrameCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceFfiAudioFrameCallback.UniffiByValue(
+        `onAudioFrame`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeFfiAudioFrameCallback: FfiConverterCallbackInterface<FfiAudioFrameCallback>()
+
+
+
+
+
+public interface FfiCallEventCallback {
+    
+    fun `onIncomingCall`(`callId`: kotlin.String, `fromPeerId`: kotlin.String)
+    
+    fun `onCallStateChanged`(`callId`: kotlin.String, `state`: FfiCallState)
+    
+    fun `onCallEnded`(`callId`: kotlin.String, `reason`: FfiCallEndReason)
+    
+    companion object
+}
+
+
 
 // Put the implementation in an object so we don't pollute the top-level namespace
 internal object uniffiCallbackInterfaceFfiCallEventCallback {

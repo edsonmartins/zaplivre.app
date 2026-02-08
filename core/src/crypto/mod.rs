@@ -1,16 +1,12 @@
 //! Cryptography module
 //!
-//! Implements Signal Protocol E2E encryption (Double Ratchet, X3DH).
+//! Implements Signal Protocol E2E encryption.
 
 pub mod signal;
-pub mod session;
-pub mod ratchet;
 pub mod group;
 pub mod storage;
 
-pub use signal::{X3DH, EncryptedMessage, encrypt_message, decrypt_message};
-pub use session::{Session, SessionManager};
-pub use ratchet::RatchetState;
+pub use signal::{SignalEncryptedMessage, SignalSessionManager};
 pub use group::{SenderKey, GroupSession, GroupSessionManager};
 pub use storage::{decrypt_for_storage, encrypt_for_storage};
 

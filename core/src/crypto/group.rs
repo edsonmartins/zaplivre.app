@@ -17,12 +17,46 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use aes_gcm::{
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Nonce,
+};
 use hkdf::Hkdf;
 use rand::RngCore;
 use sha2::Sha256;
 
-use crate::crypto::signal::{encrypt_message, decrypt_message, EncryptedMessage};
-use crate::utils::error::{Result, MePassaError};
+use crate::utils::error::{MePassaError, Result};
+use serde::{Deserialize, Serialize};
+
+/// AES-GCM encrypted payload for sender-key messages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncryptedMessage {
+    pub nonce: [u8; 12],
+    pub ciphertext: Vec<u8>,
+}
+
+fn encrypt_message(plaintext: &[u8], key: &[u8; 32]) -> Result<EncryptedMessage> {
+    let cipher = Aes256Gcm::new(key.into());
+    let mut nonce_bytes = [0u8; 12];
+    let mut rng = rand::rng();
+    rng.fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext)
+        .map_err(|e| MePassaError::Crypto(format!("Group encryption failed: {}", e)))?;
+    Ok(EncryptedMessage {
+        nonce: nonce_bytes,
+        ciphertext,
+    })
+}
+
+fn decrypt_message(encrypted: &EncryptedMessage, key: &[u8; 32]) -> Result<Vec<u8>> {
+    let cipher = Aes256Gcm::new(key.into());
+    let nonce = Nonce::from_slice(&encrypted.nonce);
+    cipher
+        .decrypt(nonce, encrypted.ciphertext.as_ref())
+        .map_err(|e| MePassaError::Crypto(format!("Group decryption failed: {}", e)))
+}
 
 /// Group ID (unique identifier for a group)
 pub type GroupId = String;
@@ -53,7 +87,8 @@ impl SenderKey {
     /// Create a new sender key from a random seed
     pub fn generate(sender_id: SenderId) -> Result<Self> {
         let mut seed = [0u8; 32];
-        rand::rngs::OsRng.fill_bytes(&mut seed);
+        let mut rng = rand::rng();
+        rng.fill_bytes(&mut seed);
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -185,6 +220,23 @@ impl GroupSession {
         })
     }
 
+    /// Restore a group session from an existing sender key seed
+    pub fn from_seed(group_id: GroupId, my_sender_id: SenderId, seed: [u8; 32]) -> Self {
+        let my_sender_key = SenderKey::from_seed(my_sender_id, seed);
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        Self {
+            group_id,
+            my_sender_key,
+            member_sender_keys: HashMap::new(),
+            created_at: now,
+        }
+    }
+
     /// Add a member's sender key to the group
     pub fn add_member(&mut self, sender_id: SenderId, sender_key_seed: [u8; 32]) {
         let sender_key = SenderKey::from_seed(sender_id.clone(), sender_key_seed);
@@ -253,6 +305,35 @@ impl GroupSessionManager {
             my_sender_id,
             sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Initialize a group session from an existing sender key seed
+    pub fn init_group_with_seed(
+        &self,
+        group_id: GroupId,
+        my_seed: [u8; 32],
+        members: Vec<(SenderId, [u8; 32])>,
+    ) -> Result<()> {
+        let mut session = GroupSession::from_seed(
+            group_id.clone(),
+            self.my_sender_id.clone(),
+            my_seed,
+        );
+
+        for (sender_id, seed) in members {
+            if sender_id != self.my_sender_id {
+                session.add_member(sender_id, seed);
+            }
+        }
+
+        let mut sessions = self
+            .sessions
+            .write()
+            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+
+        sessions.insert(group_id, session);
+
+        Ok(())
     }
 
     /// Create a new group
@@ -329,6 +410,18 @@ impl GroupSessionManager {
             .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
 
         session.remove_member(sender_id);
+
+        Ok(())
+    }
+
+    /// Remove a group session entirely
+    pub fn remove_group(&self, group_id: &str) -> Result<()> {
+        let mut sessions = self
+            .sessions
+            .write()
+            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+
+        sessions.remove(group_id);
 
         Ok(())
     }

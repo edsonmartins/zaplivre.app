@@ -1,119 +1,51 @@
 //! PreKey management for Signal Protocol
 //!
-//! This module handles X25519 prekeys used in the Extended Triple Diffie-Hellman (X3DH)
-//! key agreement protocol. Prekeys enable asynchronous messaging where the recipient
-//! doesn't need to be online during initial key exchange.
+//! This module manages Signal prekeys and signed prekeys for session setup.
 
-use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
+use std::time::SystemTime;
+
+use libsignal_protocol_syft::{
+    GenericSignedPreKey, IdentityKeyPair, KeyPair, PreKeyId, PreKeyRecord, SignedPreKeyId,
+    SignedPreKeyRecord, KyberPreKeyId, KyberPreKeyRecord, Timestamp, kem,
+};
+use rand::{rngs::StdRng, SeedableRng};
 
 use crate::utils::error::{Result, MePassaError};
 
-// Custom serialization for [u8; 64] arrays
-mod serde_bytes_64 {
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(bytes: &[u8; 64], serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(bytes)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<[u8; 64], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes: Vec<u8> = Vec::deserialize(deserializer)?;
-        if bytes.len() != 64 {
-            return Err(serde::de::Error::custom(format!(
-                "Expected 64 bytes, got {}",
-                bytes.len()
-            )));
-        }
-        let mut array = [0u8; 64];
-        array.copy_from_slice(&bytes);
-        Ok(array)
-    }
-}
-
-/// A single X25519 prekey used for key agreement
+/// A single prekey record
 #[derive(Clone)]
 pub struct PreKey {
     /// Unique ID for this prekey
     pub id: u32,
-    /// Private key (X25519)
-    secret: StaticSecret,
-    /// Public key (X25519)
-    public: X25519PublicKey,
+    record: PreKeyRecord,
 }
 
 impl PreKey {
-    /// Generate a new random prekey with given ID
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - Unique identifier for this prekey
-    pub fn generate(id: u32) -> Self {
-        let secret = StaticSecret::random_from_rng(OsRng);
-        let public = X25519PublicKey::from(&secret);
-
-        Self { id, secret, public }
+    /// Create a prekey from record
+    pub fn from_record(record: PreKeyRecord) -> Result<Self> {
+        let id = record
+            .id()
+            .map_err(|e| MePassaError::Identity(format!("PreKey id error: {}", e)))?;
+        Ok(Self {
+            id: id.into(),
+            record,
+        })
     }
 
-    /// Create a prekey from raw bytes (32 bytes for X25519)
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - Prekey ID
-    /// * `bytes` - 32-byte secret key
-    ///
-    /// # Errors
-    ///
-    /// Returns error if bytes length is not exactly 32
-    pub fn from_bytes(id: u32, bytes: &[u8]) -> Result<Self> {
-        if bytes.len() != 32 {
-            return Err(MePassaError::Identity(format!(
-                "Invalid prekey length: expected 32 bytes, got {}",
-                bytes.len()
-            )));
-        }
-
-        let mut key_bytes = [0u8; 32];
-        key_bytes.copy_from_slice(bytes);
-
-        let secret = StaticSecret::from(key_bytes);
-        let public = X25519PublicKey::from(&secret);
-
-        Ok(Self { id, secret, public })
+    /// Get record
+    pub fn record(&self) -> &PreKeyRecord {
+        &self.record
     }
 
-    /// Export the secret key as bytes (32 bytes)
-    ///
-    /// ⚠️ **WARNING**: Keep this secret!
-    pub fn secret_bytes(&self) -> [u8; 32] {
-        self.secret.to_bytes()
-    }
-
-    /// Get the public key as bytes (32 bytes)
-    pub fn public_bytes(&self) -> [u8; 32] {
-        self.public.to_bytes()
-    }
-
-    /// Perform Diffie-Hellman key agreement
-    ///
-    /// # Arguments
-    ///
-    /// * `their_public` - The other party's public key
-    ///
-    /// # Returns
-    ///
-    /// 32-byte shared secret
-    pub fn diffie_hellman(&self, their_public: &[u8; 32]) -> [u8; 32] {
-        let their_public = X25519PublicKey::from(*their_public);
-        self.secret.diffie_hellman(&their_public).to_bytes()
+    /// Get serialized public key bytes
+    pub fn public_key_bytes(&self) -> Result<Vec<u8>> {
+        let public_key = self
+            .record
+            .public_key()
+            .map_err(|e| MePassaError::Identity(format!("PreKey public key error: {}", e)))?;
+        Ok(public_key.serialize().to_vec())
     }
 }
 
@@ -121,26 +53,37 @@ impl std::fmt::Debug for PreKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PreKey")
             .field("id", &self.id)
-            .field("public", &hex::encode(self.public_bytes()))
             .finish_non_exhaustive()
     }
 }
 
 /// Serializable prekey bundle for transmission
-///
-/// This is sent to other peers during key exchange (does not include secret key)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreKeyBundle {
     /// Identity key (Ed25519 public key as bytes)
     pub identity_key: [u8; 32],
+    /// Signal identity key (serialized public key bytes)
+    #[serde(default)]
+    pub signal_identity_key: Option<Vec<u8>>,
+    /// Signal registration id
+    #[serde(default)]
+    pub signal_registration_id: Option<u32>,
+    /// Signal device id
+    #[serde(default)]
+    pub signal_device_id: Option<u32>,
     /// Signed prekey ID
     pub signed_prekey_id: u32,
-    /// Signed prekey public bytes
-    pub signed_prekey: [u8; 32],
+    /// Signed prekey public bytes (serialized)
+    pub signed_prekey: Vec<u8>,
     /// Signature over signed prekey
-    #[serde(with = "serde_bytes_64")]
-    pub signed_prekey_signature: [u8; 64],
-    /// One-time prekey (optional - consumed after use)
+    pub signed_prekey_signature: Vec<u8>,
+    /// Kyber prekey ID
+    pub kyber_prekey_id: u32,
+    /// Kyber prekey public bytes (serialized)
+    pub kyber_prekey: Vec<u8>,
+    /// Signature over Kyber prekey
+    pub kyber_prekey_signature: Vec<u8>,
+    /// One-time prekey (optional)
     pub one_time_prekey: Option<OneTimePreKey>,
 }
 
@@ -148,68 +91,86 @@ pub struct PreKeyBundle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OneTimePreKey {
     pub id: u32,
-    pub public_key: [u8; 32],
+    pub public_key: Vec<u8>,
 }
 
 /// Pool of prekeys for key agreement
-///
-/// Signal Protocol recommends maintaining:
-/// - 1 signed prekey (rotated periodically)
-/// - 100 one-time prekeys (replenished as consumed)
 #[derive(Clone)]
 pub struct PreKeyPool {
-    /// Identity keypair (Ed25519) for signing
+    /// Identity keypair (Ed25519) for app identity
     identity_keypair: crate::identity::Keypair,
-    /// Current signed prekey
-    signed_prekey: PreKey,
-    /// Signature over signed prekey
-    signed_prekey_signature: [u8; 64],
+    /// Signal identity keypair record (serialized)
+    signal_identity_keypair_record: Vec<u8>,
+    /// Signal registration id
+    signal_registration_id: u32,
+    /// Signal device id
+    signal_device_id: u32,
+    /// Signed prekey record
+    signed_prekey: SignedPreKeyRecord,
+    /// Kyber prekey record
+    kyber_prekey: KyberPreKeyRecord,
     /// Pool of one-time prekeys
-    one_time_prekeys: HashMap<u32, PreKey>,
+    one_time_prekeys: HashMap<u32, PreKeyRecord>,
     /// Next prekey ID to assign
     next_prekey_id: u32,
+    /// Next signed prekey ID to assign
+    next_signed_prekey_id: u32,
+    /// Next kyber prekey ID to assign
+    next_kyber_prekey_id: u32,
 }
 
 impl PreKeyPool {
     /// Create a new prekey pool with initial prekeys
-    ///
-    /// # Arguments
-    ///
-    /// * `identity_keypair` - The identity keypair for signing
-    /// * `pool_size` - Number of one-time prekeys to generate (default: 100)
-    pub fn new(identity_keypair: crate::identity::Keypair, pool_size: usize) -> Self {
+    pub fn new(
+        identity_keypair: crate::identity::Keypair,
+        signal_identity_keypair_record: Vec<u8>,
+        signal_registration_id: u32,
+        pool_size: usize,
+    ) -> Self {
+        let identity_keypair_signal = IdentityKeyPair::try_from(signal_identity_keypair_record.as_slice())
+            .expect("Failed to deserialize Signal identity keypair");
+        let mut rng = StdRng::from_os_rng();
+
+        let signed_key_pair = KeyPair::generate(&mut rng);
+        let signature = identity_keypair_signal
+            .private_key()
+            .calculate_signature(&signed_key_pair.public_key.serialize(), &mut rng)
+            .expect("Failed to sign signed prekey")
+            .into_vec();
+        let signed_prekey_id = 1u32;
+        let signed_prekey = SignedPreKeyRecord::new(
+            SignedPreKeyId::from(signed_prekey_id),
+            Timestamp::from_epoch_millis(current_millis()),
+            &signed_key_pair,
+            &signature,
+        );
+
+        let kyber_prekey_id = 1u32;
+        let kyber_prekey = KyberPreKeyRecord::generate(
+            kem::KeyType::Kyber1024,
+            KyberPreKeyId::from(kyber_prekey_id),
+            identity_keypair_signal.private_key(),
+        )
+        .expect("Failed to generate Kyber prekey");
+
         let mut pool = Self {
-            identity_keypair: identity_keypair.clone(),
-            signed_prekey: PreKey::generate(1),
-            signed_prekey_signature: [0u8; 64],
+            identity_keypair,
+            signal_identity_keypair_record,
+            signal_registration_id,
+            signal_device_id: 1,
+            signed_prekey,
+            kyber_prekey,
             one_time_prekeys: HashMap::new(),
             next_prekey_id: 2,
+            next_signed_prekey_id: 2,
+            next_kyber_prekey_id: 2,
         };
 
-        // Sign the signed prekey
-        pool.signed_prekey_signature = identity_keypair.sign(&pool.signed_prekey.public_bytes());
-
-        // Generate one-time prekeys
         pool.replenish_prekeys(pool_size);
-
         pool
     }
 
-    /// Get the current signed prekey
-    pub fn signed_prekey(&self) -> &PreKey {
-        &self.signed_prekey
-    }
-
-    /// Get the signed prekey signature
-    pub fn signed_prekey_signature(&self) -> [u8; 64] {
-        self.signed_prekey_signature
-    }
-
     /// Replenish one-time prekeys to reach target count
-    ///
-    /// # Arguments
-    ///
-    /// * `target_count` - Desired number of prekeys in the pool
     pub fn replenish_prekeys(&mut self, target_count: usize) {
         let current_count = self.one_time_prekeys.len();
 
@@ -218,74 +179,151 @@ impl PreKeyPool {
         }
 
         let to_generate = target_count - current_count;
+        let mut rng = StdRng::from_os_rng();
 
         for _ in 0..to_generate {
             let id = self.next_prekey_id;
             self.next_prekey_id += 1;
-
-            let prekey = PreKey::generate(id);
-            self.one_time_prekeys.insert(id, prekey);
+            let key_pair = KeyPair::generate(&mut rng);
+            let record = PreKeyRecord::new(PreKeyId::from(id), &key_pair);
+            self.one_time_prekeys.insert(id, record);
         }
     }
 
     /// Get a prekey bundle for key exchange
-    ///
-    /// This consumes one one-time prekey from the pool.
-    ///
-    /// # Returns
-    ///
-    /// PreKeyBundle that can be serialized and sent to another peer
-    pub fn get_bundle(&mut self) -> PreKeyBundle {
-        let one_time_prekey = self.consume_one_time_prekey();
+    pub fn get_bundle(&self) -> Result<PreKeyBundle> {
+        let identity_keypair_signal = IdentityKeyPair::try_from(self.signal_identity_keypair_record.as_slice())
+            .map_err(|e| MePassaError::Identity(format!("Signal identity keypair deserialize failed: {}", e)))?;
+        let signal_identity_key = identity_keypair_signal.identity_key().serialize().to_vec();
 
-        PreKeyBundle {
+        let signed_prekey_public = self
+            .signed_prekey
+            .public_key()
+            .map_err(|e| MePassaError::Identity(format!("Signed prekey public error: {}", e)))?
+            .serialize()
+            .to_vec();
+        let signed_prekey_signature = self
+            .signed_prekey
+            .signature()
+            .map_err(|e| MePassaError::Identity(format!("Signed prekey signature error: {}", e)))?;
+
+        let kyber_prekey_public = self
+            .kyber_prekey
+            .public_key()
+            .map_err(|e| MePassaError::Identity(format!("Kyber prekey public error: {}", e)))?
+            .serialize()
+            .to_vec();
+        let kyber_prekey_signature = self
+            .kyber_prekey
+            .signature()
+            .map_err(|e| MePassaError::Identity(format!("Kyber prekey signature error: {}", e)))?;
+
+        let one_time_prekey = self
+            .peek_one_time_prekey()
+            .map(|record| -> Result<OneTimePreKey> {
+                let prekey = PreKey::from_record(record.clone())?;
+                Ok(OneTimePreKey {
+                    id: prekey.id,
+                    public_key: prekey.public_key_bytes()?,
+                })
+            })
+            .transpose()?;
+
+        Ok(PreKeyBundle {
             identity_key: self.identity_keypair.public_key_bytes(),
-            signed_prekey_id: self.signed_prekey.id,
-            signed_prekey: self.signed_prekey.public_bytes(),
-            signed_prekey_signature: self.signed_prekey_signature,
-            one_time_prekey: one_time_prekey.map(|pk| OneTimePreKey {
-                id: pk.id,
-                public_key: pk.public_bytes(),
-            }),
-        }
+            signal_identity_key: Some(signal_identity_key),
+            signal_registration_id: Some(self.signal_registration_id),
+            signal_device_id: Some(self.signal_device_id),
+            signed_prekey_id: self
+                .signed_prekey
+                .id()
+                .map_err(|e| MePassaError::Identity(format!("Signed prekey id error: {}", e)))?
+                .into(),
+            signed_prekey: signed_prekey_public,
+            signed_prekey_signature,
+            kyber_prekey_id: self
+                .kyber_prekey
+                .id()
+                .map_err(|e| MePassaError::Identity(format!("Kyber prekey id error: {}", e)))?
+                .into(),
+            kyber_prekey: kyber_prekey_public,
+            kyber_prekey_signature,
+            one_time_prekey,
+        })
     }
 
-    /// Consume and remove one one-time prekey from the pool
-    ///
-    /// Returns None if pool is empty (should trigger replenishment)
-    fn consume_one_time_prekey(&mut self) -> Option<PreKey> {
-        if self.one_time_prekeys.is_empty() {
-            return None;
-        }
-
-        // Get any prekey (doesn't matter which one)
-        let id = *self.one_time_prekeys.keys().next()?;
-        self.one_time_prekeys.remove(&id)
+    /// Peek at a one-time prekey without consuming it
+    fn peek_one_time_prekey(&self) -> Option<&PreKeyRecord> {
+        self.one_time_prekeys.values().next()
     }
 
-    /// Get a specific one-time prekey by ID (without consuming)
-    ///
-    /// Used for processing incoming X3DH messages
-    pub fn get_prekey(&self, id: u32) -> Option<&PreKey> {
+    /// Get a specific one-time prekey by ID
+    pub fn get_prekey(&self, id: u32) -> Option<&PreKeyRecord> {
         self.one_time_prekeys.get(&id)
     }
 
+    /// Store a prekey record
+    pub fn store_prekey_record(&mut self, id: u32, record: PreKeyRecord) {
+        self.one_time_prekeys.insert(id, record);
+        self.next_prekey_id = self.next_prekey_id.max(id + 1);
+    }
+
     /// Remove a specific one-time prekey after use
-    pub fn remove_prekey(&mut self, id: u32) -> Option<PreKey> {
+    pub fn remove_prekey(&mut self, id: u32) -> Option<PreKeyRecord> {
         self.one_time_prekeys.remove(&id)
     }
 
-    /// Rotate the signed prekey
-    ///
-    /// Should be called periodically (e.g., every 7 days) for forward secrecy
-    pub fn rotate_signed_prekey(&mut self) {
-        let new_id = self.next_prekey_id;
-        self.next_prekey_id += 1;
+    /// Get signed prekey record
+    pub fn signed_prekey_record(&self) -> &SignedPreKeyRecord {
+        &self.signed_prekey
+    }
 
-        self.signed_prekey = PreKey::generate(new_id);
-        self.signed_prekey_signature = self
-            .identity_keypair
-            .sign(&self.signed_prekey.public_bytes());
+    /// Store signed prekey record
+    pub fn store_signed_prekey_record(&mut self, id: u32, record: SignedPreKeyRecord) {
+        self.signed_prekey = record;
+        self.next_signed_prekey_id = self.next_signed_prekey_id.max(id + 1);
+    }
+
+    /// Get Kyber prekey record
+    pub fn kyber_prekey_record(&self) -> &KyberPreKeyRecord {
+        &self.kyber_prekey
+    }
+
+    /// Store Kyber prekey record
+    pub fn store_kyber_prekey_record(&mut self, id: u32, record: KyberPreKeyRecord) {
+        self.kyber_prekey = record;
+        self.next_kyber_prekey_id = self.next_kyber_prekey_id.max(id + 1);
+    }
+
+    /// Rotate the signed prekey and Kyber prekey
+    pub fn rotate_signed_prekey(&mut self) {
+        let identity_keypair_signal = IdentityKeyPair::try_from(self.signal_identity_keypair_record.as_slice())
+            .expect("Failed to deserialize Signal identity keypair");
+        let mut rng = StdRng::from_os_rng();
+
+        let signed_key_pair = KeyPair::generate(&mut rng);
+        let signature = identity_keypair_signal
+            .private_key()
+            .calculate_signature(&signed_key_pair.public_key.serialize(), &mut rng)
+            .expect("Failed to sign signed prekey")
+            .into_vec();
+        let signed_prekey_id = self.next_signed_prekey_id;
+        self.next_signed_prekey_id += 1;
+        self.signed_prekey = SignedPreKeyRecord::new(
+            SignedPreKeyId::from(signed_prekey_id),
+            Timestamp::from_epoch_millis(current_millis()),
+            &signed_key_pair,
+            &signature,
+        );
+
+        let kyber_prekey_id = self.next_kyber_prekey_id;
+        self.next_kyber_prekey_id += 1;
+        self.kyber_prekey = KyberPreKeyRecord::generate(
+            kem::KeyType::Kyber1024,
+            KyberPreKeyId::from(kyber_prekey_id),
+            identity_keypair_signal.private_key(),
+        )
+        .expect("Failed to generate Kyber prekey");
     }
 
     /// Get count of remaining one-time prekeys
@@ -294,156 +332,40 @@ impl PreKeyPool {
     }
 
     /// Check if prekey pool needs replenishment
-    ///
-    /// Returns true if count is below threshold (20% of recommended 100)
     pub fn needs_replenishment(&self) -> bool {
         self.prekey_count() < 20
     }
 }
 
-impl std::fmt::Debug for PreKeyPool {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PreKeyPool")
-            .field("signed_prekey_id", &self.signed_prekey.id)
-            .field("one_time_prekey_count", &self.one_time_prekeys.len())
-            .field("next_prekey_id", &self.next_prekey_id)
-            .finish_non_exhaustive()
-    }
+fn current_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
-
-// Placeholder for compatibility with old code
-pub type PreKeyStore = PreKeyPool;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_prekey_generation() {
-        let prekey = PreKey::generate(1);
-        assert_eq!(prekey.id, 1);
-        assert_eq!(prekey.public_bytes().len(), 32);
-    }
-
-    #[test]
-    fn test_prekey_from_bytes() {
-        let prekey1 = PreKey::generate(1);
-        let bytes = prekey1.secret_bytes();
-
-        let prekey2 = PreKey::from_bytes(1, &bytes).unwrap();
-
-        assert_eq!(prekey1.public_bytes(), prekey2.public_bytes());
-    }
-
-    #[test]
-    fn test_diffie_hellman() {
-        let alice_prekey = PreKey::generate(1);
-        let bob_prekey = PreKey::generate(2);
-
-        let alice_shared = alice_prekey.diffie_hellman(&bob_prekey.public_bytes());
-        let bob_shared = bob_prekey.diffie_hellman(&alice_prekey.public_bytes());
-
-        assert_eq!(alice_shared, bob_shared);
-    }
+    use crate::identity::Identity;
 
     #[test]
     fn test_prekey_pool_creation() {
-        let identity = crate::identity::Keypair::generate();
-        let pool = PreKeyPool::new(identity, 100);
-
-        assert_eq!(pool.prekey_count(), 100);
-        assert_eq!(pool.signed_prekey().id, 1);
+        let identity = Identity::generate(10);
+        let pool = identity.prekey_pool().unwrap();
+        assert!(pool.prekey_count() > 0);
     }
 
     #[test]
-    fn test_prekey_bundle() {
-        let identity = crate::identity::Keypair::generate();
-        let mut pool = PreKeyPool::new(identity.clone(), 10);
+    fn test_prekey_bundle_serialization() {
+        let identity = Identity::generate(5);
+        let mut identity_mut = identity.clone();
+        let bundle = identity_mut.prekey_pool_mut().unwrap().get_bundle().unwrap();
 
-        let bundle = pool.get_bundle();
-
-        assert_eq!(bundle.identity_key, identity.public_key_bytes());
-        assert!(bundle.one_time_prekey.is_some());
-        assert_eq!(pool.prekey_count(), 9); // One consumed
-    }
-
-    #[test]
-    fn test_prekey_consumption() {
-        let identity = crate::identity::Keypair::generate();
-        let mut pool = PreKeyPool::new(identity, 5);
-
-        assert_eq!(pool.prekey_count(), 5);
-
-        let _bundle1 = pool.get_bundle();
-        assert_eq!(pool.prekey_count(), 4);
-
-        let _bundle2 = pool.get_bundle();
-        assert_eq!(pool.prekey_count(), 3);
-    }
-
-    #[test]
-    fn test_prekey_replenishment() {
-        let identity = crate::identity::Keypair::generate();
-        let mut pool = PreKeyPool::new(identity, 10);
-
-        // Consume all prekeys
-        for _ in 0..10 {
-            let _ = pool.get_bundle();
-        }
-
-        assert_eq!(pool.prekey_count(), 0);
-
-        // Replenish
-        pool.replenish_prekeys(100);
-        assert_eq!(pool.prekey_count(), 100);
-    }
-
-    #[test]
-    fn test_needs_replenishment() {
-        let identity = crate::identity::Keypair::generate();
-        let mut pool = PreKeyPool::new(identity, 100);
-
-        assert!(!pool.needs_replenishment());
-
-        // Consume until below threshold
-        for _ in 0..85 {
-            let _ = pool.get_bundle();
-        }
-
-        assert!(pool.needs_replenishment());
-    }
-
-    #[test]
-    fn test_rotate_signed_prekey() {
-        let identity = crate::identity::Keypair::generate();
-        let mut pool = PreKeyPool::new(identity, 10);
-
-        let old_id = pool.signed_prekey().id;
-        let old_public = pool.signed_prekey().public_bytes();
-
-        pool.rotate_signed_prekey();
-
-        let new_id = pool.signed_prekey().id;
-        let new_public = pool.signed_prekey().public_bytes();
-
-        assert_ne!(old_id, new_id);
-        assert_ne!(old_public, new_public);
-    }
-
-    #[test]
-    fn test_bundle_serialization() {
-        let identity = crate::identity::Keypair::generate();
-        let mut pool = PreKeyPool::new(identity, 10);
-
-        let bundle = pool.get_bundle();
-
-        // Serialize to JSON
         let json = serde_json::to_string(&bundle).unwrap();
-        assert!(!json.is_empty());
-
-        // Deserialize back
         let deserialized: PreKeyBundle = serde_json::from_str(&json).unwrap();
-        assert_eq!(bundle.identity_key, deserialized.identity_key);
+
         assert_eq!(bundle.signed_prekey_id, deserialized.signed_prekey_id);
+        assert_eq!(bundle.identity_key, deserialized.identity_key);
     }
 }

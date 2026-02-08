@@ -64,6 +64,7 @@
 		D5B2EF6E56076E490778F7BB /* ConversationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 953C087ADAE72A6F84B50781 /* ConversationsView.swift */; };
 		D9CDA99C4A9F8FE73BB08202 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20494A7A7558254B1272DFB9 /* LoginView.swift */; };
 		EDF06F2AA0605EF6467B3372 /* VideoFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7F5F0DCBEC9C3248D4B86D /* VideoFrameHandler.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* AudioFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* AudioFrameHandler.swift */; };
 		EE0AB538F534A36F91C869E1 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 46B13DF8FCC573E97967BBF5 /* Security.framework */; };
 		EF32FE2F2EA7042C83D1CBD8 /* mepassa.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1884CD1B7ED61FDA1BFB385 /* mepassa.swift */; };
 		EFAAFD60E4980D068BE0C66D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F48331DA30F6E63A5D30BBF /* AppDelegate.swift */; };
@@ -112,6 +113,7 @@
 		89234A94FEF6D06064B81B94 /* VoiceRecorderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecorderViewModel.swift; sourceTree = "<group>"; };
 		8BA172F8C0F395FC76B2E201 /* MePassa.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MePassa.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D7F5F0DCBEC9C3248D4B86D /* VideoFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrameHandler.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* AudioFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFrameHandler.swift; sourceTree = "<group>"; };
 		8EB6F74C6CF0E30C836AC23A /* SelectedImagesPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedImagesPreview.swift; sourceTree = "<group>"; };
 		912E630669EFFC44FCC70C45 /* VoiceRecordButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordButton.swift; sourceTree = "<group>"; };
 		941F0062B04D18348F877833 /* mepassaFFI.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = mepassaFFI.modulemap; sourceTree = "<group>"; };
@@ -245,6 +247,7 @@
 		5BB3FD99E4AAE80BE631906F /* VoIP */ = {
 			isa = PBXGroup;
 			children = (
+				B2C3D4E5F60718293A4B5C6D /* AudioFrameHandler.swift */,
 				F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */,
 				19B7B4E72CE4755EB2D4DB78 /* CallEventHandler.swift */,
 				5B50CC90605463C028220F6E /* CallManager.swift */,
@@ -433,6 +436,7 @@
 				10960C1BB73B8F46FF2FD9CB /* VideoCallScreen.swift in Sources */,
 				B1C2D3E4F5061728394A5B6C /* VideoEncoder.swift in Sources */,
 				EDF06F2AA0605EF6467B3372 /* VideoFrameHandler.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* AudioFrameHandler.swift in Sources */,
 				53302E33F98F895B2D451BA5 /* VideoPicker.swift in Sources */,
 				4985E2A1D02B6AAECCA3C433 /* VideoPlayerView.swift in Sources */,
 				1D2B8E833A34878163918AFC /* VoiceMessageBubble.swift in Sources */,

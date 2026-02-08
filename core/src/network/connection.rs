@@ -2,7 +2,7 @@
 //!
 //! Manages connection attempts with automatic fallback from direct → hole punch → relay.
 
-use libp2p::{Multiaddr, PeerId};
+use libp2p::PeerId;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 

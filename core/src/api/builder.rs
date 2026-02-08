@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use super::client::Client;
 use crate::{
-    crypto::session::SessionManager,
+    crypto::SignalSessionManager,
     identity::Identity,
     network::{MessageEvent, NetworkManager},
     storage::{Database, migrate, needs_migration},
@@ -137,7 +137,7 @@ impl ClientBuilder {
         // Create message handler for processing incoming messages
         // IMPORTANT: database.clone() shares the same SQLite connection (via internal Arc<Mutex>)
         // This ensures messages stored by MessageHandler are visible to Client
-        let session_manager = SessionManager::new();
+        let session_manager = SignalSessionManager::new(Arc::clone(&identity));
         let message_handler = Arc::new(crate::network::MessageHandler::new(
             peer_id.to_string(),
             Arc::new(database.clone()), // Shares the same SQLite connection!

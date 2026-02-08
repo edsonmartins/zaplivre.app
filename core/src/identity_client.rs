@@ -14,9 +14,18 @@ use crate::identity::{Identity, PreKeyBundle as CorePreKeyBundle};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreKeyBundle {
     pub identity_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_identity_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_registration_id: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_device_id: Option<u32>,
     pub signed_prekey_id: i32,
     pub signed_prekey: String,
     pub signed_prekey_signature: String,
+    pub kyber_prekey_id: i32,
+    pub kyber_prekey: String,
+    pub kyber_prekey_signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub one_time_prekey: Option<OneTimePreKey>,
 }
@@ -33,12 +42,21 @@ impl PreKeyBundle {
     pub fn from_core(bundle: &CorePreKeyBundle) -> Self {
         Self {
             identity_key: general_purpose::STANDARD.encode(bundle.identity_key),
+            signal_identity_key: bundle
+                .signal_identity_key
+                .as_ref()
+                .map(|value| general_purpose::STANDARD.encode(value)),
+            signal_registration_id: bundle.signal_registration_id,
+            signal_device_id: bundle.signal_device_id,
             signed_prekey_id: bundle.signed_prekey_id as i32,
-            signed_prekey: general_purpose::STANDARD.encode(bundle.signed_prekey),
-            signed_prekey_signature: general_purpose::STANDARD.encode(bundle.signed_prekey_signature),
+            signed_prekey: general_purpose::STANDARD.encode(bundle.signed_prekey.clone()),
+            signed_prekey_signature: general_purpose::STANDARD.encode(&bundle.signed_prekey_signature),
+            kyber_prekey_id: bundle.kyber_prekey_id as i32,
+            kyber_prekey: general_purpose::STANDARD.encode(&bundle.kyber_prekey),
+            kyber_prekey_signature: general_purpose::STANDARD.encode(&bundle.kyber_prekey_signature),
             one_time_prekey: bundle.one_time_prekey.as_ref().map(|opk| OneTimePreKey {
                 id: opk.id as i32,
-                public_key: general_purpose::STANDARD.encode(opk.public_key),
+                public_key: general_purpose::STANDARD.encode(&opk.public_key),
             }),
         }
     }
@@ -46,25 +64,23 @@ impl PreKeyBundle {
     /// Convert to core PreKeyBundle format
     pub fn to_core(&self) -> Result<CorePreKeyBundle> {
         let identity_key_bytes = general_purpose::STANDARD.decode(&self.identity_key)?;
+        let signal_identity_key_bytes = match &self.signal_identity_key {
+            Some(value) => Some(general_purpose::STANDARD.decode(value)?),
+            None => None,
+        };
         let signed_prekey_bytes = general_purpose::STANDARD.decode(&self.signed_prekey)?;
         let signed_prekey_signature_bytes = general_purpose::STANDARD.decode(&self.signed_prekey_signature)?;
+        let kyber_prekey_bytes = general_purpose::STANDARD.decode(&self.kyber_prekey)?;
+        let kyber_prekey_signature_bytes = general_purpose::STANDARD.decode(&self.kyber_prekey_signature)?;
 
         let mut identity_key = [0u8; 32];
-        let mut signed_prekey = [0u8; 32];
-        let mut signed_prekey_signature = [0u8; 64];
-
         identity_key.copy_from_slice(&identity_key_bytes);
-        signed_prekey.copy_from_slice(&signed_prekey_bytes);
-        signed_prekey_signature.copy_from_slice(&signed_prekey_signature_bytes);
 
         let one_time_prekey = if let Some(opk) = &self.one_time_prekey {
             let public_key_bytes = general_purpose::STANDARD.decode(&opk.public_key)?;
-            let mut public_key = [0u8; 32];
-            public_key.copy_from_slice(&public_key_bytes);
-
             Some(crate::identity::prekeys::OneTimePreKey {
                 id: opk.id as u32,
-                public_key,
+                public_key: public_key_bytes,
             })
         } else {
             None
@@ -72,9 +88,15 @@ impl PreKeyBundle {
 
         Ok(CorePreKeyBundle {
             identity_key,
+            signal_identity_key: signal_identity_key_bytes,
+            signal_registration_id: self.signal_registration_id,
+            signal_device_id: self.signal_device_id,
             signed_prekey_id: self.signed_prekey_id as u32,
-            signed_prekey,
-            signed_prekey_signature,
+            signed_prekey: signed_prekey_bytes,
+            signed_prekey_signature: signed_prekey_signature_bytes,
+            kyber_prekey_id: self.kyber_prekey_id as u32,
+            kyber_prekey: kyber_prekey_bytes,
+            kyber_prekey_signature: kyber_prekey_signature_bytes,
             one_time_prekey,
         })
     }
@@ -179,7 +201,8 @@ impl IdentityClient {
         let prekey_bundle = identity_mut
             .prekey_pool_mut()
             .ok_or_else(|| anyhow!("No prekey pool"))?
-            .get_bundle();
+            .get_bundle()
+            .map_err(|e| anyhow!(e.to_string()))?;
 
         // Create signature
         let timestamp = Utc::now().timestamp();
@@ -255,7 +278,8 @@ impl IdentityClient {
         let prekey_bundle = identity_mut
             .prekey_pool_mut()
             .ok_or_else(|| anyhow!("No prekey pool"))?
-            .get_bundle();
+            .get_bundle()
+            .map_err(|e| anyhow!(e.to_string()))?;
 
         // Create signature
         let timestamp = Utc::now().timestamp();
@@ -306,7 +330,11 @@ mod tests {
         // Generate identity with prekeys
         let identity = Identity::generate(1);
         let mut identity_mut = identity.clone();
-        let core_bundle = identity_mut.prekey_pool_mut().unwrap().get_bundle();
+        let core_bundle = identity_mut
+            .prekey_pool_mut()
+            .unwrap()
+            .get_bundle()
+            .map_err(|e| anyhow!(e.to_string()))?;
 
         // Convert to API format and back
         let api_bundle = PreKeyBundle::from_core(&core_bundle);

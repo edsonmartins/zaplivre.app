@@ -4,9 +4,10 @@
 //! used for identity and authentication in the MePassa network.
 
 use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
-use rand::rngs::OsRng;
+use rand_core06::OsRng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
 use crate::utils::error::{Result, MePassaError};
 
@@ -267,6 +268,48 @@ impl PublicKey {
             .map_err(|e| MePassaError::Identity(format!("Invalid base58 encoding: {}", e)))?;
 
         Self::from_bytes(&bytes)
+    }
+}
+
+/// Signal identity keypair (X25519) for Signal Protocol
+#[derive(Clone)]
+pub struct SignalKeypair {
+    secret: StaticSecret,
+    public: X25519PublicKey,
+}
+
+impl SignalKeypair {
+    /// Generate a new Signal identity keypair
+    pub fn generate() -> Self {
+        let secret = StaticSecret::random_from_rng(OsRng);
+        let public = X25519PublicKey::from(&secret);
+        Self { secret, public }
+    }
+
+    /// Create from raw secret bytes (32 bytes)
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() != 32 {
+            return Err(MePassaError::Identity(format!(
+                "Invalid Signal key length: expected 32 bytes, got {}",
+                bytes.len()
+            )));
+        }
+
+        let mut key_bytes = [0u8; 32];
+        key_bytes.copy_from_slice(bytes);
+        let secret = StaticSecret::from(key_bytes);
+        let public = X25519PublicKey::from(&secret);
+        Ok(Self { secret, public })
+    }
+
+    /// Export secret bytes (32 bytes)
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.secret.to_bytes()
+    }
+
+    /// Export public bytes (32 bytes)
+    pub fn public_bytes(&self) -> [u8; 32] {
+        self.public.to_bytes()
     }
 }
 

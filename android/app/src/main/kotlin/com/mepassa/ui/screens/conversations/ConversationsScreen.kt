@@ -42,6 +42,7 @@ fun ConversationsScreen(
     LaunchedEffect(Unit) {
         scope.launch {
             conversations = MePassaClientWrapper.listConversations()
+            MePassaClientWrapper.scanGroupSenderKeyMessages(conversations)
             isLoading = false
         }
     }
@@ -52,6 +53,7 @@ fun ConversationsScreen(
             kotlinx.coroutines.delay(5000) // A cada 5 segundos
             scope.launch {
                 conversations = MePassaClientWrapper.listConversations()
+                MePassaClientWrapper.scanGroupSenderKeyMessages(conversations)
             }
         }
     }

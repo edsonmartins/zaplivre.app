@@ -2,8 +2,7 @@
 //!
 //! Compression, resizing, and thumbnail generation for images.
 
-use image::{codecs::jpeg::JpegEncoder, DynamicImage, GenericImageView, ImageFormat};
-use std::io::Cursor;
+use image::{codecs::jpeg::JpegEncoder, DynamicImage, GenericImageView};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

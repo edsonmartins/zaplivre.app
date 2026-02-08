@@ -18,7 +18,7 @@ use aes_gcm::{
 };
 use ed25519_dalek::SigningKey;
 use hkdf::Hkdf;
-use rand::rngs::OsRng;
+use rand_core06::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 

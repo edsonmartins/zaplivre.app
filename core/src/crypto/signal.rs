@@ -1,283 +1,450 @@
-//! Simplified Signal Protocol Implementation
-//!
-//! This module implements a simplified version of the Signal Protocol for end-to-end encryption:
-//! - Simplified X3DH for initial key agreement (using only X25519 prekeys)
-//! - AES-GCM for message encryption
-//!
-//! Note: This is a simplified implementation for MVP. Production should use libsignal-protocol.
+//! Signal Protocol integration (libsignal-protocol-syft).
 
-use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng as AeadOsRng},
-    Aes256Gcm, Nonce,
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::SystemTime;
+
+use async_trait::async_trait;
+use rand::{rngs::StdRng, SeedableRng};
+
+use libsignal_protocol_syft::{
+    CiphertextMessage, CiphertextMessageType, GenericSignedPreKey, IdentityChange, IdentityKey,
+    IdentityKeyPair, PreKeyBundle, PreKeyBundleContent, PreKeyId, PreKeyRecord, ProtocolAddress,
+    PublicKey, SignedPreKeyId, SignedPreKeyRecord, SignalMessage, PreKeySignalMessage,
+    KyberPreKeyId, KyberPreKeyRecord, kem, DeviceId, SessionRecord, SignalProtocolError,
+    message_encrypt, message_decrypt, process_prekey_bundle,
+    Direction, IdentityKeyStore, PreKeyStore, SignedPreKeyStore, KyberPreKeyStore, SessionStore,
 };
-use hkdf::Hkdf;
-use rand::RngCore;
-use sha2::Sha256;
+use tokio::sync::RwLock;
 
-use crate::identity::prekeys::PreKeyBundle;
-use crate::utils::error::{Result, MePassaError};
+use crate::identity::{Identity, PreKeyBundle as CorePreKeyBundle};
+use crate::utils::error::{MePassaError, Result};
 
-/// Simplified X3DH (Extended Triple Diffie-Hellman) for initial key agreement
-///
-/// This simplified version only uses X25519 prekeys, not identity keys.
-/// Performs 2 Diffie-Hellman operations:
-/// - DH1: alice_ephemeral × bob_signed_prekey
-/// - DH2: alice_ephemeral × bob_one_time_prekey (if available)
-pub struct X3DH;
-
-impl X3DH {
-    /// Initiate X3DH as Alice (sender)
-    ///
-    /// # Arguments
-    ///
-    /// * `bob_bundle` - Bob's prekey bundle
-    ///
-    /// # Returns
-    ///
-    /// Tuple of (shared_secret, ephemeral_public_key)
-    pub fn initiate(bob_bundle: &PreKeyBundle) -> Result<([u8; 32], [u8; 32])> {
-        // Generate ephemeral key for this session
-        let ephemeral_secret = x25519_dalek::StaticSecret::random_from_rng(AeadOsRng);
-        let ephemeral_public = x25519_dalek::PublicKey::from(&ephemeral_secret);
-
-        let bob_signed_prekey_public = x25519_dalek::PublicKey::from(bob_bundle.signed_prekey);
-
-        // DH1: alice_ephemeral × bob_signed_prekey
-        let dh1 = ephemeral_secret.diffie_hellman(&bob_signed_prekey_public);
-
-        // Concatenate DH outputs
-        let mut dh_output = Vec::new();
-        dh_output.extend_from_slice(dh1.as_bytes());
-
-        // DH2: alice_ephemeral × bob_one_time_prekey (if available)
-        if let Some(ref otpk) = bob_bundle.one_time_prekey {
-            let bob_otpk_public = x25519_dalek::PublicKey::from(otpk.public_key);
-            let dh2 = ephemeral_secret.diffie_hellman(&bob_otpk_public);
-            dh_output.extend_from_slice(dh2.as_bytes());
-        }
-
-        // Derive shared secret using HKDF
-        let shared_secret = Self::derive_shared_secret(&dh_output)?;
-
-        Ok((shared_secret, ephemeral_public.to_bytes()))
-    }
-
-    /// Respond to X3DH as Bob (receiver)
-    ///
-    /// # Arguments
-    ///
-    /// * `bob_signed_prekey_secret` - Bob's signed prekey secret
-    /// * `bob_one_time_prekey_secret` - Bob's one-time prekey secret (optional)
-    /// * `alice_ephemeral_public` - Alice's ephemeral public key
-    ///
-    /// # Returns
-    ///
-    /// Shared secret (32 bytes)
-    pub fn respond(
-        bob_signed_prekey_secret: &[u8; 32],
-        bob_one_time_prekey_secret: Option<&[u8; 32]>,
-        alice_ephemeral_public: &[u8; 32],
-    ) -> Result<[u8; 32]> {
-        let bob_signed_prekey = x25519_dalek::StaticSecret::from(*bob_signed_prekey_secret);
-        let alice_ephemeral_public = x25519_dalek::PublicKey::from(*alice_ephemeral_public);
-
-        // DH1: bob_signed_prekey × alice_ephemeral
-        let dh1 = bob_signed_prekey.diffie_hellman(&alice_ephemeral_public);
-
-        let mut dh_output = Vec::new();
-        dh_output.extend_from_slice(dh1.as_bytes());
-
-        // DH2: bob_one_time_prekey × alice_ephemeral (if available)
-        if let Some(otpk_secret) = bob_one_time_prekey_secret {
-            let bob_otpk = x25519_dalek::StaticSecret::from(*otpk_secret);
-            let dh2 = bob_otpk.diffie_hellman(&alice_ephemeral_public);
-            dh_output.extend_from_slice(dh2.as_bytes());
-        }
-
-        Self::derive_shared_secret(&dh_output)
-    }
-
-    /// Derive shared secret from concatenated DH outputs using HKDF
-    fn derive_shared_secret(dh_output: &[u8]) -> Result<[u8; 32]> {
-        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-x3dh-v1"), dh_output);
-        let mut shared_secret = [0u8; 32];
-        hkdf.expand(b"shared-secret", &mut shared_secret)
-            .map_err(|e| MePassaError::Crypto(format!("HKDF expand failed: {}", e)))?;
-
-        Ok(shared_secret)
-    }
-}
-
-/// Encrypted message envelope
+/// Encrypted message payload produced by Signal
 #[derive(Debug, Clone)]
-pub struct EncryptedMessage {
-    /// Nonce for AES-GCM (12 bytes)
-    pub nonce: [u8; 12],
-    /// Ciphertext (variable length)
+pub struct SignalEncryptedMessage {
     pub ciphertext: Vec<u8>,
+    pub ciphertext_type: u32,
+    pub sender_device_id: u32,
 }
 
-/// Encrypt a message using AES-256-GCM
-///
-/// # Arguments
-///
-/// * `plaintext` - Message to encrypt
-/// * `key` - 32-byte encryption key
-///
-/// # Returns
-///
-/// EncryptedMessage with nonce and ciphertext
-pub fn encrypt_message(plaintext: &[u8], key: &[u8; 32]) -> Result<EncryptedMessage> {
-    let cipher = Aes256Gcm::new(key.into());
-
-    // Generate random nonce (12 bytes for AES-GCM)
-    let mut nonce_bytes = [0u8; 12];
-    rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    let ciphertext = cipher
-        .encrypt(nonce, plaintext)
-        .map_err(|e| MePassaError::Crypto(format!("Encryption failed: {}", e)))?;
-
-    Ok(EncryptedMessage {
-        nonce: nonce_bytes,
-        ciphertext,
-    })
+#[derive(Clone)]
+pub struct SignalSessionManager {
+    store: SignalStore,
 }
 
-/// Decrypt a message using AES-256-GCM
-///
-/// # Arguments
-///
-/// * `encrypted` - Encrypted message envelope
-/// * `key` - 32-byte encryption key
-///
-/// # Returns
-///
-/// Decrypted plaintext
-pub fn decrypt_message(encrypted: &EncryptedMessage, key: &[u8; 32]) -> Result<Vec<u8>> {
-    let cipher = Aes256Gcm::new(key.into());
-    let nonce = Nonce::from_slice(&encrypted.nonce);
+impl SignalSessionManager {
+    pub fn new(identity: Arc<RwLock<Identity>>) -> Self {
+        Self {
+            store: SignalStore::new(identity),
+        }
+    }
 
-    let plaintext = cipher
-        .decrypt(nonce, encrypted.ciphertext.as_ref())
-        .map_err(|e| MePassaError::Crypto(format!("Decryption failed: {}", e)))?;
+    pub async fn has_session(&self, peer_id: &str, device_id: u32) -> Result<bool> {
+        let address = protocol_address(peer_id, device_id)?;
+        let key = address_key(&address);
+        let sessions = self.store.inner.sessions.read().await;
+        Ok(sessions.contains_key(&key))
+    }
 
-    Ok(plaintext)
-}
+    pub async fn encrypt_for(
+        &self,
+        peer_id: &str,
+        device_id: u32,
+        bundle: Option<&CorePreKeyBundle>,
+        plaintext: &[u8],
+    ) -> Result<SignalEncryptedMessage> {
+        let address = protocol_address(peer_id, device_id)?;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::identity::Identity;
+        if !self.has_session(peer_id, device_id).await? {
+            let Some(bundle) = bundle else {
+                return Err(MePassaError::Crypto(
+                    "Missing prekey bundle for Signal session".to_string(),
+                ));
+            };
+            let signal_bundle = to_signal_bundle(bundle)?;
+            let mut session_store = self.store.handle();
+            let mut identity_store = self.store.handle();
+            let mut rng = StdRng::from_os_rng();
+            process_prekey_bundle(
+                &address,
+                &mut session_store,
+                &mut identity_store,
+                &signal_bundle,
+                SystemTime::now(),
+                &mut rng,
+            )
+            .await
+            .map_err(signal_error)?;
+        }
 
-    #[test]
-    fn test_x3dh_key_agreement() {
-        // Bob generates identity WITHOUT one-time prekeys (to avoid bundle consumption issues in tests)
-        let bob = Identity::generate(0);
-        let mut bob_mut = bob.clone();
-
-        // Bob saves his signed prekey secret before publishing bundle
-        let bob_signed_prekey_secret = bob_mut
-            .prekey_pool()
-            .unwrap()
-            .signed_prekey()
-            .secret_bytes();
-
-        // Get Bob's bundle (no one-time prekey)
-        let bob_bundle = bob_mut.prekey_pool_mut().unwrap().get_bundle();
-
-        // Alice initiates X3DH
-        let (alice_shared_secret, alice_ephemeral_pub) = X3DH::initiate(&bob_bundle).unwrap();
-
-        // Bob responds to X3DH (no one-time prekey)
-        let bob_shared_secret = X3DH::respond(
-            &bob_signed_prekey_secret,
-            None, // No one-time prekey
-            &alice_ephemeral_pub,
+        let mut session_store = self.store.handle();
+        let mut identity_store = self.store.handle();
+        let mut rng = StdRng::from_os_rng();
+        let message = message_encrypt(
+            plaintext,
+            &address,
+            &mut session_store,
+            &mut identity_store,
+            SystemTime::now(),
+            &mut rng,
         )
-        .unwrap();
+        .await
+        .map_err(signal_error)?;
 
-        // Both should derive the same shared secret
-        assert_eq!(alice_shared_secret, bob_shared_secret);
+        Ok(SignalEncryptedMessage {
+            ciphertext: message.serialize().to_vec(),
+            ciphertext_type: message.message_type() as u32,
+            sender_device_id: device_id,
+        })
     }
 
-    #[test]
-    fn test_encrypt_decrypt() {
-        let key = [42u8; 32];
-        let plaintext = b"Hello, MePassa!";
+    pub async fn decrypt_from(
+        &self,
+        peer_id: &str,
+        device_id: u32,
+        encrypted: &SignalEncryptedMessage,
+    ) -> Result<Vec<u8>> {
+        let address = protocol_address(peer_id, device_id)?;
+        let ciphertext_type =
+            CiphertextMessageType::try_from(encrypted.ciphertext_type as u8)
+                .map_err(|_| {
+                    MePassaError::Crypto(format!(
+                        "Unsupported ciphertext type: {}",
+                        encrypted.ciphertext_type
+                    ))
+                })?;
 
-        let encrypted = encrypt_message(plaintext, &key).unwrap();
-        let decrypted = decrypt_message(&encrypted, &key).unwrap();
+        let ciphertext = match ciphertext_type {
+            CiphertextMessageType::Whisper => {
+                let msg = SignalMessage::try_from(encrypted.ciphertext.as_slice())
+                    .map_err(signal_error)?;
+                CiphertextMessage::SignalMessage(msg)
+            }
+            CiphertextMessageType::PreKey => {
+                let msg = PreKeySignalMessage::try_from(encrypted.ciphertext.as_slice())
+                    .map_err(signal_error)?;
+                CiphertextMessage::PreKeySignalMessage(msg)
+            }
+            _ => {
+                return Err(MePassaError::Crypto(format!(
+                    "Unsupported ciphertext type: {:?}",
+                    ciphertext_type
+                )));
+            }
+        };
 
-        assert_eq!(plaintext, decrypted.as_slice());
-    }
+        let mut session_store = self.store.handle();
+        let mut identity_store = self.store.handle();
+        let mut pre_key_store = self.store.handle();
+        let signed_pre_key_store = self.store.handle();
+        let mut kyber_pre_key_store = self.store.handle();
+        let mut rng = StdRng::from_os_rng();
 
-    #[test]
-    fn test_encrypt_decrypt_different_key_fails() {
-        let key1 = [42u8; 32];
-        let key2 = [99u8; 32];
-        let plaintext = b"Secret message";
-
-        let encrypted = encrypt_message(plaintext, &key1).unwrap();
-        let result = decrypt_message(&encrypted, &key2);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_nonce_randomness() {
-        let key = [42u8; 32];
-        let plaintext = b"Test message";
-
-        let encrypted1 = encrypt_message(plaintext, &key).unwrap();
-        let encrypted2 = encrypt_message(plaintext, &key).unwrap();
-
-        // Nonces should be different (randomized)
-        assert_ne!(encrypted1.nonce, encrypted2.nonce);
-        // But both should decrypt correctly
-        assert_eq!(decrypt_message(&encrypted1, &key).unwrap(), plaintext);
-        assert_eq!(decrypt_message(&encrypted2, &key).unwrap(), plaintext);
-    }
-
-    #[test]
-    fn test_e2e_alice_to_bob() {
-        // Setup: Bob generates identity and publishes prekey bundle
-        let bob = Identity::generate(0); // No one-time prekeys for simplicity
-        let mut bob_mut = bob.clone();
-
-        // Bob saves his signed prekey secret before publishing bundle
-        let bob_signed_prekey_secret = bob_mut
-            .prekey_pool()
-            .unwrap()
-            .signed_prekey()
-            .secret_bytes();
-
-        // Publish the bundle (without one-time prekey)
-        let bob_bundle = bob_mut.prekey_pool_mut().unwrap().get_bundle();
-
-        // Alice wants to send encrypted message to Bob
-        let alice_message = b"Secret message from Alice to Bob!";
-
-        // Step 1: Alice performs X3DH to establish shared secret
-        let (shared_secret, alice_ephemeral_pub) = X3DH::initiate(&bob_bundle).unwrap();
-
-        // Step 2: Alice encrypts message with shared secret
-        let encrypted = encrypt_message(alice_message, &shared_secret).unwrap();
-
-        // Step 3: Bob receives Alice's ephemeral public key and encrypted message
-        // Bob performs X3DH on his side to derive same shared secret
-        let bob_shared_secret = X3DH::respond(
-            &bob_signed_prekey_secret,
-            None, // No one-time prekey
-            &alice_ephemeral_pub,
+        message_decrypt(
+            &ciphertext,
+            &address,
+            &mut session_store,
+            &mut identity_store,
+            &mut pre_key_store,
+            &signed_pre_key_store,
+            &mut kyber_pre_key_store,
+            &mut rng,
         )
-        .unwrap();
-
-        // Step 4: Bob decrypts message
-        let decrypted = decrypt_message(&encrypted, &bob_shared_secret).unwrap();
-
-        // Verify: Bob received Alice's original message
-        assert_eq!(alice_message, decrypted.as_slice());
+        .await
+        .map_err(signal_error)
     }
+}
+
+#[derive(Clone)]
+struct SignalStore {
+    inner: Arc<SignalStoreInner>,
+}
+
+impl SignalStore {
+    fn new(identity: Arc<RwLock<Identity>>) -> Self {
+        Self {
+            inner: Arc::new(SignalStoreInner {
+                identity,
+                sessions: RwLock::new(HashMap::new()),
+                trusted_identities: RwLock::new(HashMap::new()),
+            }),
+        }
+    }
+
+    fn handle(&self) -> SignalStoreHandle {
+        SignalStoreHandle {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
+struct SignalStoreInner {
+    identity: Arc<RwLock<Identity>>,
+    sessions: RwLock<HashMap<String, SessionRecord>>,
+    trusted_identities: RwLock<HashMap<String, IdentityKey>>,
+}
+
+#[derive(Clone)]
+struct SignalStoreHandle {
+    inner: Arc<SignalStoreInner>,
+}
+
+#[async_trait(?Send)]
+impl IdentityKeyStore for SignalStoreHandle {
+    async fn get_identity_key_pair(&self) -> libsignal_protocol_syft::error::Result<IdentityKeyPair> {
+        let identity = self.inner.identity.read().await;
+        IdentityKeyPair::try_from(identity.signal_identity_keypair_record())
+            .map_err(|e| e.into())
+    }
+
+    async fn get_local_registration_id(&self) -> libsignal_protocol_syft::error::Result<u32> {
+        let identity = self.inner.identity.read().await;
+        Ok(identity.signal_registration_id())
+    }
+
+    async fn save_identity(
+        &mut self,
+        address: &ProtocolAddress,
+        identity: &IdentityKey,
+    ) -> libsignal_protocol_syft::error::Result<IdentityChange> {
+        let key = address_key(address);
+        let mut map = self.inner.trusted_identities.write().await;
+        let changed = map.insert(key, *identity).is_some();
+        Ok(IdentityChange::from_changed(changed))
+    }
+
+    async fn is_trusted_identity(
+        &self,
+        address: &ProtocolAddress,
+        identity: &IdentityKey,
+        _direction: Direction,
+    ) -> libsignal_protocol_syft::error::Result<bool> {
+        let key = address_key(address);
+        let map = self.inner.trusted_identities.read().await;
+        Ok(match map.get(&key) {
+            Some(existing) => existing == identity,
+            None => true,
+        })
+    }
+
+    async fn get_identity(
+        &self,
+        address: &ProtocolAddress,
+    ) -> libsignal_protocol_syft::error::Result<Option<IdentityKey>> {
+        let key = address_key(address);
+        let map = self.inner.trusted_identities.read().await;
+        Ok(map.get(&key).copied())
+    }
+}
+
+#[async_trait(?Send)]
+impl PreKeyStore for SignalStoreHandle {
+    async fn get_pre_key(
+        &self,
+        prekey_id: PreKeyId,
+    ) -> libsignal_protocol_syft::error::Result<PreKeyRecord> {
+        let identity = self.inner.identity.read().await;
+        let Some(pool) = identity.prekey_pool() else {
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+        };
+        let id: u32 = prekey_id.into();
+        pool.get_prekey(id)
+            .cloned()
+            .ok_or_else(|| SignalProtocolError::InvalidArgument("Missing prekey".to_string()).into())
+    }
+
+    async fn save_pre_key(
+        &mut self,
+        prekey_id: PreKeyId,
+        record: &PreKeyRecord,
+    ) -> libsignal_protocol_syft::error::Result<()> {
+        let mut identity = self.inner.identity.write().await;
+        identity.init_prekey_pool(100);
+        let Some(pool) = identity.prekey_pool_mut() else {
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+        };
+        let id: u32 = prekey_id.into();
+        pool.store_prekey_record(id, record.clone());
+        Ok(())
+    }
+
+    async fn remove_pre_key(
+        &mut self,
+        prekey_id: PreKeyId,
+    ) -> libsignal_protocol_syft::error::Result<()> {
+        let mut identity = self.inner.identity.write().await;
+        let Some(pool) = identity.prekey_pool_mut() else {
+            return Ok(());
+        };
+        let id: u32 = prekey_id.into();
+        pool.remove_prekey(id);
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl SignedPreKeyStore for SignalStoreHandle {
+    async fn get_signed_pre_key(
+        &self,
+        signed_prekey_id: SignedPreKeyId,
+    ) -> libsignal_protocol_syft::error::Result<SignedPreKeyRecord> {
+        let identity = self.inner.identity.read().await;
+        let Some(pool) = identity.prekey_pool() else {
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+        };
+        let id: u32 = signed_prekey_id.into();
+        let record = pool.signed_prekey_record().clone();
+        let record_id: u32 = record.id()?.into();
+        if record_id != id {
+            return Err(SignalProtocolError::InvalidArgument("Signed prekey id mismatch".to_string()).into());
+        }
+        Ok(record)
+    }
+
+    async fn save_signed_pre_key(
+        &mut self,
+        signed_prekey_id: SignedPreKeyId,
+        record: &SignedPreKeyRecord,
+    ) -> libsignal_protocol_syft::error::Result<()> {
+        let mut identity = self.inner.identity.write().await;
+        identity.init_prekey_pool(100);
+        let Some(pool) = identity.prekey_pool_mut() else {
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+        };
+        let id: u32 = signed_prekey_id.into();
+        pool.store_signed_prekey_record(id, record.clone());
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl KyberPreKeyStore for SignalStoreHandle {
+    async fn get_kyber_pre_key(
+        &self,
+        kyber_prekey_id: KyberPreKeyId,
+    ) -> libsignal_protocol_syft::error::Result<KyberPreKeyRecord> {
+        let identity = self.inner.identity.read().await;
+        let Some(pool) = identity.prekey_pool() else {
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+        };
+        let id: u32 = kyber_prekey_id.into();
+        let record = pool.kyber_prekey_record().clone();
+        let record_id: u32 = record.id()?.into();
+        if record_id != id {
+            return Err(SignalProtocolError::InvalidArgument("Kyber prekey id mismatch".to_string()).into());
+        }
+        Ok(record)
+    }
+
+    async fn save_kyber_pre_key(
+        &mut self,
+        kyber_prekey_id: KyberPreKeyId,
+        record: &KyberPreKeyRecord,
+    ) -> libsignal_protocol_syft::error::Result<()> {
+        let mut identity = self.inner.identity.write().await;
+        identity.init_prekey_pool(100);
+        let Some(pool) = identity.prekey_pool_mut() else {
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+        };
+        let id: u32 = kyber_prekey_id.into();
+        pool.store_kyber_prekey_record(id, record.clone());
+        Ok(())
+    }
+
+    async fn mark_kyber_pre_key_used(
+        &mut self,
+        _kyber_prekey_id: KyberPreKeyId,
+        _ec_prekey_id: SignedPreKeyId,
+        _base_key: &PublicKey,
+    ) -> libsignal_protocol_syft::error::Result<()> {
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl SessionStore for SignalStoreHandle {
+    async fn load_session(
+        &self,
+        address: &ProtocolAddress,
+    ) -> libsignal_protocol_syft::error::Result<Option<SessionRecord>> {
+        let key = address_key(address);
+        let map = self.inner.sessions.read().await;
+        Ok(map.get(&key).cloned())
+    }
+
+    async fn store_session(
+        &mut self,
+        address: &ProtocolAddress,
+        record: &SessionRecord,
+    ) -> libsignal_protocol_syft::error::Result<()> {
+        let key = address_key(address);
+        let mut map = self.inner.sessions.write().await;
+        map.insert(key, record.clone());
+        Ok(())
+    }
+}
+
+fn protocol_address(peer_id: &str, device_id: u32) -> Result<ProtocolAddress> {
+    let device = to_device_id(device_id)?;
+    Ok(ProtocolAddress::new(peer_id.to_string(), device))
+}
+
+fn address_key(address: &ProtocolAddress) -> String {
+    format!("{}:{}", address.name(), address.device_id())
+}
+
+fn to_signal_bundle(bundle: &CorePreKeyBundle) -> Result<PreKeyBundle> {
+    let signal_identity_key = bundle
+        .signal_identity_key
+        .as_ref()
+        .ok_or_else(|| MePassaError::Crypto("Missing Signal identity key".to_string()))?;
+    let identity_key = IdentityKey::try_from(signal_identity_key.as_slice())
+        .map_err(signal_error)?;
+
+    let signed_prekey_public = PublicKey::deserialize(&bundle.signed_prekey)
+        .map_err(signal_error)?;
+    let kyber_prekey_public = kem::PublicKey::deserialize(&bundle.kyber_prekey)
+        .map_err(signal_error)?;
+
+    let pre_key = if let Some(opk) = &bundle.one_time_prekey {
+        let public = PublicKey::deserialize(&opk.public_key)
+            .map_err(signal_error)?;
+        Some((PreKeyId::from(opk.id), public))
+    } else {
+        None
+    };
+
+    let device_id = match bundle.signal_device_id {
+        Some(id) => Some(to_device_id(id)?),
+        None => None,
+    };
+
+    let content = PreKeyBundleContent {
+        registration_id: bundle.signal_registration_id,
+        device_id,
+        pre_key_id: pre_key.as_ref().map(|(id, _)| *id),
+        pre_key_public: pre_key.map(|(_, public)| public),
+        signed_pre_key_id: Some(SignedPreKeyId::from(bundle.signed_prekey_id)),
+        signed_pre_key_public: Some(signed_prekey_public),
+        signed_pre_key_signature: Some(bundle.signed_prekey_signature.clone()),
+        identity_key: Some(identity_key),
+        kyber_pre_key_id: Some(KyberPreKeyId::from(bundle.kyber_prekey_id)),
+        kyber_pre_key_public: Some(kyber_prekey_public),
+        kyber_pre_key_signature: Some(bundle.kyber_prekey_signature.clone()),
+    };
+
+    PreKeyBundle::try_from(content).map_err(signal_error)
+}
+
+fn to_device_id(device_id: u32) -> Result<DeviceId> {
+    let id: u8 = device_id
+        .try_into()
+        .map_err(|_| MePassaError::Crypto("Invalid device id".to_string()))?;
+    DeviceId::new(id)
+        .map_err(|_| MePassaError::Crypto("Invalid device id".to_string()))
+}
+
+fn signal_error<E: std::fmt::Display>(err: E) -> MePassaError {
+    MePassaError::Crypto(format!("Signal error: {}", err))
 }

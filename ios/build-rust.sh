@@ -27,6 +27,12 @@ echo ""
 # Work around older CMake minimums in bundled deps (e.g., audiopus)
 export CMAKE_POLICY_VERSION_MINIMUM=3.5
 
+# Align Rust link flags with iOS deployment target to avoid ld warnings/symbols
+export IPHONEOS_DEPLOYMENT_TARGET=13.0
+export CARGO_TARGET_AARCH64_APPLE_IOS_RUSTFLAGS="-C link-arg=-miphoneos-version-min=13.0"
+export CARGO_TARGET_AARCH64_APPLE_IOS_SIM_RUSTFLAGS="-C link-arg=-mios-simulator-version-min=13.0"
+export CARGO_TARGET_X86_64_APPLE_IOS_RUSTFLAGS="-C link-arg=-mios-simulator-version-min=13.0"
+
 # Create Libraries directory
 mkdir -p "$LIBRARIES_DIR"
 

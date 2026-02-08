@@ -1,6 +1,6 @@
 # Build DMG (macOS)
 
-This helper wraps the Tauri DMG bundler script and works around common macOS `hdiutil` issues.
+This helper wraps the Tauri DMG bundler script, skips Finder AppleScript, and works around common macOS `hdiutil` issues.
 
 ## Prerequisites
 

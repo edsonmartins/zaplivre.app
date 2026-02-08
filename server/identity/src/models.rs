@@ -8,9 +8,18 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreKeyBundle {
     pub identity_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_identity_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_registration_id: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_device_id: Option<u32>,
     pub signed_prekey_id: i32,
     pub signed_prekey: String,
     pub signed_prekey_signature: String,
+    pub kyber_prekey_id: i32,
+    pub kyber_prekey: String,
+    pub kyber_prekey_signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub one_time_prekey: Option<OneTimePreKey>,
 }

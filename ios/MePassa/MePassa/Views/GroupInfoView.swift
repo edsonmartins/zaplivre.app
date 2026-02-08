@@ -241,16 +241,12 @@ struct AddMemberView: View {
         errorMessage = nil
 
         do {
-            // TODO: Add member via MePassaCore
-            /*
             try await MePassaCore.shared.addGroupMember(
                 groupId: groupId,
                 peerId: peerIdInput.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-            */
-
-            // Mock
-            try await Task.sleep(nanoseconds: 500_000_000)
+            let peerId = peerIdInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await MePassaCore.shared.sendGroupSenderKey(groupId: groupId, toPeerId: peerId)
 
             dismiss()
         } catch {

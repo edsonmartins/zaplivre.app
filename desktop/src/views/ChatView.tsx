@@ -43,6 +43,8 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const previousMessageCount = useRef<number>(0)
+  const processedGroupKeyMessageIds = useRef<Set<string>>(new Set())
+  const groupSenderKeyPrefix = 'mepassa-group-key:v1:'
 
   useEffect(() => {
     if (!peerId) return
@@ -68,6 +70,28 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     }
   }, [messages])
 
+  const parseGroupSenderKeyPayload = (payload: string): { groupId: string; seed: number[] } | null => {
+    if (!payload.startsWith(groupSenderKeyPrefix)) {
+      return null
+    }
+
+    const trimmed = payload.slice(groupSenderKeyPrefix.length)
+    const parts = trimmed.split(':', 2)
+    if (parts.length !== 2) {
+      return null
+    }
+
+    const [groupId, seedBase64] = parts
+    try {
+      const decoded = atob(seedBase64)
+      const seed = Array.from(decoded, (char) => char.charCodeAt(0))
+      return { groupId, seed }
+    } catch (error) {
+      console.error('Failed to decode group sender key payload:', error)
+      return null
+    }
+  }
+
   const loadMessages = async () => {
     if (!peerId) return
 
@@ -78,9 +102,35 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
         offset: 0,
       })
 
+      const filtered: Message[] = []
+      for (const msg of msgs) {
+        if (processedGroupKeyMessageIds.current.has(msg.id)) {
+          continue
+        }
+
+        if (msg.content && msg.content.startsWith(groupSenderKeyPrefix)) {
+          const parsed = parseGroupSenderKeyPayload(msg.content)
+          if (parsed) {
+            try {
+              await invoke('add_group_sender_key', {
+                groupId: parsed.groupId,
+                senderPeerId: msg.sender_peer_id,
+                senderKeySeed: parsed.seed,
+              })
+              processedGroupKeyMessageIds.current.add(msg.id)
+              continue
+            } catch (error) {
+              console.error('Failed to store group sender key:', error)
+            }
+          }
+        }
+
+        filtered.push(msg)
+      }
+
       // Detect new received messages
-      if (previousMessageCount.current > 0 && msgs.length > previousMessageCount.current) {
-        const newMessages = msgs.slice(previousMessageCount.current)
+      if (previousMessageCount.current > 0 && filtered.length > previousMessageCount.current) {
+        const newMessages = filtered.slice(previousMessageCount.current)
         for (const msg of newMessages) {
           // Only notify for received messages (not sent by me)
           if (msg.sender_peer_id !== localPeerId) {
@@ -96,7 +146,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
         }
       }
 
-      const ordered = [...msgs].sort((a, b) => a.created_at - b.created_at)
+      const ordered = [...filtered].sort((a, b) => a.created_at - b.created_at)
       previousMessageCount.current = ordered.length
       setMessages(ordered)
     } catch (error) {

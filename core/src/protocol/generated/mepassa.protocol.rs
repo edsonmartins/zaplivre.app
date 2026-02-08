@@ -115,6 +115,15 @@ pub struct EncryptedMessage {
     /// One-time prekey id used for X3DH (0 if not used)
     #[prost(uint32, tag = "5")]
     pub one_time_prekey_id: u32,
+    /// Signal ciphertext type (Signal/PreKey/etc)
+    #[prost(uint32, tag = "6")]
+    pub ciphertext_type: u32,
+    /// Sender device id (Signal Protocol)
+    #[prost(uint32, tag = "7")]
+    pub sender_device_id: u32,
+    /// Recipient device id (Signal Protocol)
+    #[prost(uint32, tag = "8")]
+    pub recipient_device_id: u32,
 }
 /// Media offer (metadata only, no bytes)
 #[allow(clippy::derive_partial_eq_without_eq)]

@@ -494,6 +494,7 @@ fun AddMemberDialog(
                         errorMessage = null
                         try {
                             MePassaClientWrapper.addGroupMember(groupId, peerIdInput.trim())
+                            MePassaClientWrapper.sendGroupSenderKey(groupId, peerIdInput.trim())
                             onSuccess()
                         } catch (e: Exception) {
                             errorMessage = "Erro ao adicionar: ${e.message}"

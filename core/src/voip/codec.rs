@@ -120,6 +120,11 @@ impl OpusEncoder {
         self.frame_buffer.len()
     }
 
+    /// Get frame size in samples
+    pub fn frame_size(&self) -> usize {
+        self.config.frame_size()
+    }
+
     /// Flush any remaining samples (padding with silence if needed)
     pub fn flush(&mut self) -> Result<Option<Vec<u8>>> {
         let frame_size = self.config.frame_size();

@@ -397,11 +397,18 @@ struct ChatView: View {
                 )
 
                 let localPeerId = MePassaCore.shared.localPeerId ?? ""
+                let ordered = ffiMessages.sorted { $0.createdAt < $1.createdAt }
+                var displayMessages: [FfiMessageWrapper] = []
+                for message in ordered {
+                    let consumed = await MePassaCore.shared.consumeGroupSenderKeyMessage(message)
+                    if !consumed {
+                        displayMessages.append(message)
+                    }
+                }
 
                 await MainActor.run {
-                    let ordered = ffiMessages.sorted { $0.createdAt < $1.createdAt }
                     self.mediaIndex = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.messageId, $0) })
-                    messages = ordered.map { ffiMsg in
+                    messages = displayMessages.map { ffiMsg in
                         Message(
                             id: ffiMsg.id,
                             content: ffiMsg.content ?? "",

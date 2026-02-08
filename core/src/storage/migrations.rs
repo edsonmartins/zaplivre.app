@@ -29,6 +29,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "Add message_reactions table for emoji reactions",
         up: migrate_to_v3,
     },
+    Migration {
+        version: 4,
+        description: "Add group_sender_keys table for group encryption",
+        up: migrate_to_v4,
+    },
 ];
 
 /// Migrate database to latest version
@@ -141,6 +146,28 @@ fn migrate_to_v3(db: &Database) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
         CREATE INDEX IF NOT EXISTS idx_reactions_peer ON message_reactions(peer_id);
+        "#,
+    )?;
+
+    Ok(())
+}
+
+/// Migration to version 4: Add group_sender_keys table
+fn migrate_to_v4(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS group_sender_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id TEXT NOT NULL,
+            sender_peer_id TEXT NOT NULL,
+            sender_key_seed BLOB NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            UNIQUE(group_id, sender_peer_id),
+            FOREIGN KEY (group_id) REFERENCES groups(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_group_sender_keys_group ON group_sender_keys(group_id);
+        CREATE INDEX IF NOT EXISTS idx_group_sender_keys_sender ON group_sender_keys(sender_peer_id);
         "#,
     )?;
 

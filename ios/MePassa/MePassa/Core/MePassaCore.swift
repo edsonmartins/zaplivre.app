@@ -22,6 +22,9 @@ class MePassaCore: ObservableObject {
     }()
 
     private var client: MePassaClient?
+    private var processedGroupKeyMessageIds = Set<String>()
+    private let groupSenderKeyPrefix = "mepassa-group-key:v1:"
+    private var lastGroupKeyScanAt: Date?
 
     private let dataDir: String
     @Published var isInitialized = false
@@ -367,6 +370,16 @@ class MePassaCore: ObservableObject {
         print("🔊 Toggled speaker for call: \(callId)")
     }
 
+    /// Send raw PCM audio frame to active call
+    func sendAudioFrame(callId: String, audioData: [UInt8], sampleRate: UInt32, channels: UInt32) async throws {
+        try await client?.sendAudioFrame(
+            callId: callId,
+            audioData: audioData,
+            sampleRate: sampleRate,
+            channels: channels
+        )
+    }
+
     // MARK: - Groups (FASE 15)
 
     /// Create a new group
@@ -419,6 +432,97 @@ class MePassaCore: ObservableObject {
     /// Send message to group
     func sendGroupMessage(groupId: String, content: String) async throws -> String {
         return try await client?.sendGroupMessage(groupId: groupId, content: content) ?? ""
+    }
+
+    /// Get my sender key seed for a group
+    func getGroupSenderKeySeed(groupId: String) async throws -> [UInt8] {
+        return try await client?.getGroupSenderKeySeed(groupId: groupId) ?? []
+    }
+
+    /// Store a sender key seed for a group member
+    func addGroupSenderKey(groupId: String, senderPeerId: String, senderKeySeed: [UInt8]) async throws {
+        try await client?.addGroupSenderKey(
+            groupId: groupId,
+            senderPeerId: senderPeerId,
+            senderKeySeed: senderKeySeed
+        )
+    }
+
+    /// Send my group sender key to a peer via direct message
+    func sendGroupSenderKey(groupId: String, toPeerId: String) async throws {
+        let seed = try await getGroupSenderKeySeed(groupId: groupId)
+        let payload = buildGroupSenderKeyPayload(groupId: groupId, seed: seed)
+        _ = try await sendMessage(to: toPeerId, content: payload)
+        print("🔐 Sent group sender key for \(groupId) to \(toPeerId)")
+    }
+
+    /// Consume a group sender key message, if present
+    func consumeGroupSenderKeyMessage(_ message: FfiMessageWrapper) async -> Bool {
+        if processedGroupKeyMessageIds.contains(message.id) {
+            return true
+        }
+
+        guard let content = message.content,
+              content.hasPrefix(groupSenderKeyPrefix),
+              let parsed = parseGroupSenderKeyPayload(content) else {
+            return false
+        }
+
+        do {
+            try await addGroupSenderKey(
+                groupId: parsed.groupId,
+                senderPeerId: message.senderPeerId,
+                senderKeySeed: parsed.seed
+            )
+            processedGroupKeyMessageIds.insert(message.id)
+            print("✅ Stored group sender key from \(message.senderPeerId) for \(parsed.groupId)")
+            return true
+        } catch {
+            print("❌ Failed to store group sender key: \(error)")
+            return false
+        }
+    }
+
+    func scanGroupSenderKeyMessages(limitPerConversation: Int = 50, minInterval: TimeInterval = 30) async {
+        let now = Date()
+        if let last = lastGroupKeyScanAt, now.timeIntervalSince(last) < minInterval {
+            return
+        }
+        lastGroupKeyScanAt = now
+
+        do {
+            let conversations = try await listConversations()
+            for conversation in conversations {
+                guard let peerId = conversation.peerId else { continue }
+                let messages = try await getConversationMessages(
+                    peerId: peerId,
+                    limit: UInt32(limitPerConversation),
+                    offset: 0
+                )
+                for message in messages {
+                    _ = await consumeGroupSenderKeyMessage(message)
+                }
+            }
+        } catch {
+            print("❌ Failed to scan group sender key messages: \(error)")
+        }
+    }
+
+    private func buildGroupSenderKeyPayload(groupId: String, seed: [UInt8]) -> String {
+        let seedData = Data(seed)
+        let seedBase64 = seedData.base64EncodedString()
+        return "\(groupSenderKeyPrefix)\(groupId):\(seedBase64)"
+    }
+
+    private func parseGroupSenderKeyPayload(_ payload: String) -> (groupId: String, seed: [UInt8])? {
+        let trimmed = String(payload.dropFirst(groupSenderKeyPrefix.count))
+        let parts = trimmed.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return nil }
+
+        let groupId = parts[0]
+        let seedBase64 = parts[1]
+        guard let seedData = Data(base64Encoded: seedBase64) else { return nil }
+        return (groupId: groupId, seed: [UInt8](seedData))
     }
 
     // MARK: - Video Methods (FASE 14)
@@ -486,6 +590,16 @@ class MePassaCore: ObservableObject {
 
         try await client.registerVideoFrameCallback(callback: callback)
         print("✅ Video frame callback registered")
+    }
+
+    /// Register callback for receiving remote audio frames (decoded PCM)
+    func registerAudioFrameCallback(_ callback: FfiAudioFrameCallback) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try await client.registerAudioFrameCallback(callback: callback)
+        print("✅ Audio frame callback registered")
     }
 
     /// Register callback for VoIP control events (mute/speaker/camera)

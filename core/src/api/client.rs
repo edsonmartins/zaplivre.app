@@ -12,7 +12,7 @@ use tokio::time::{timeout, Duration};
 use base64::{engine::general_purpose, Engine as _};
 use super::events::{ClientEvent, EventCallback};
 use crate::{
-    crypto::{decrypt_for_storage, encrypt_for_storage, session::SessionManager},
+    crypto::{decrypt_for_storage, encrypt_for_storage, SignalSessionManager},
     identity::Identity,
     media::MediaEnvelope,
     network::NetworkManager,
@@ -53,7 +53,7 @@ pub struct Client {
     /// Group manager (FASE 15)
     group_manager: Arc<crate::group::GroupManager>,
     /// E2E session manager
-    session_manager: SessionManager,
+    session_manager: SignalSessionManager,
     /// Storage encryption key
     storage_key: [u8; 32],
     /// Optional message store URL for offline delivery
@@ -73,7 +73,7 @@ impl Client {
         database: Database,
         data_dir: PathBuf,
         callbacks: Arc<RwLock<Vec<Box<dyn EventCallback>>>>,
-        session_manager: SessionManager,
+        session_manager: SignalSessionManager,
         storage_key: [u8; 32],
         message_store_url: Option<String>,
         #[cfg(any(feature = "voip", feature = "video"))]
@@ -120,7 +120,7 @@ impl Client {
         let pool = identity
             .prekey_pool_mut()
             .ok_or_else(|| MePassaError::Identity("Prekey pool not initialized".to_string()))?;
-        let bundle = pool.get_bundle();
+        let bundle = pool.get_bundle()?;
         serde_json::to_string(&bundle)
             .map_err(|e| MePassaError::Identity(format!("Failed to serialize prekey bundle: {}", e)))
     }
@@ -211,36 +211,6 @@ impl Client {
         Ok(path.to_string_lossy().to_string())
     }
 
-    fn media_placeholder(media_type: &MediaType, file_name: Option<&str>, duration_seconds: Option<i32>) -> String {
-        match media_type {
-            MediaType::Image => format!(
-                "[Image{}]",
-                file_name
-                    .map(|name| format!(": {}", name))
-                    .unwrap_or_default()
-            ),
-            MediaType::Video => format!(
-                "[Video{}]",
-                duration_seconds
-                    .map(|d| format!(": {}s", d))
-                    .unwrap_or_default()
-            ),
-            MediaType::VoiceMessage => format!(
-                "[Voice{}]",
-                duration_seconds
-                    .map(|d| format!(": {}s", d))
-                    .unwrap_or_default()
-            ),
-            MediaType::Audio => "[Audio]".to_string(),
-            MediaType::Document => format!(
-                "[File{}]",
-                file_name
-                    .map(|name| format!(": {}", name))
-                    .unwrap_or_default()
-            ),
-        }
-    }
-
     fn compute_media_hash(data: &[u8], salt: Option<&str>) -> String {
         let mut hasher = Sha256::new();
         hasher.update(data);
@@ -290,7 +260,10 @@ impl Client {
         label: &str,
     ) -> Result<DeliveryOutcome> {
         let timestamp = chrono::Utc::now().timestamp_millis();
-        let (message_type, payload) = match self.encrypt_message_for_peer(&to, content.as_bytes()) {
+        let (message_type, payload) = match self
+            .encrypt_message_for_peer(&to, content.as_bytes())
+            .await
+        {
             Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
             Ok(None) => (
                 MessageType::Text,
@@ -347,7 +320,10 @@ impl Client {
         let message_id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp_millis();
 
-        let (message_type, payload) = match self.encrypt_message_for_peer(&to, content.as_bytes()) {
+        let (message_type, payload) = match self
+            .encrypt_message_for_peer(&to, content.as_bytes())
+            .await
+        {
             Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
             Ok(None) => (
                 MessageType::Text,
@@ -418,7 +394,7 @@ impl Client {
         Ok(message_id)
     }
 
-    fn encrypt_message_for_peer(
+    async fn encrypt_message_for_peer(
         &self,
         to: &PeerId,
         plaintext: &[u8],
@@ -437,25 +413,26 @@ impl Client {
             .map_err(|e| MePassaError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
 
         let peer_id = to.to_string();
-        let has_session = self.session_manager.has_session(&peer_id)?;
-
-        let (encrypted, ephemeral_public, signed_prekey_id, one_time_prekey_id) = if has_session {
-            let encrypted = self.session_manager.encrypt_for(&peer_id, plaintext)?;
-            (encrypted, Vec::new(), 0, 0)
-        } else {
-            let (shared_secret, ephemeral_public) = crate::crypto::signal::X3DH::initiate(&bundle)?;
-            self.session_manager.create_session(peer_id.clone(), shared_secret)?;
-            let encrypted = self.session_manager.encrypt_for(&peer_id, plaintext)?;
-            let one_time_prekey_id = bundle.one_time_prekey.as_ref().map(|pk| pk.id).unwrap_or(0);
-            (encrypted, ephemeral_public.to_vec(), bundle.signed_prekey_id, one_time_prekey_id)
-        };
+        let device_id = bundle.signal_device_id.unwrap_or(1);
+        let has_session = self
+            .session_manager
+            .has_session(&peer_id, device_id)
+            .await?;
+        let bundle_ref = if has_session { None } else { Some(&bundle) };
+        let encrypted = self
+            .session_manager
+            .encrypt_for(&peer_id, device_id, bundle_ref, plaintext)
+            .await?;
 
         Ok(Some(ProtoEncryptedMessage {
             ciphertext: encrypted.ciphertext,
-            nonce: encrypted.nonce.to_vec(),
-            ephemeral_public,
-            signed_prekey_id,
-            one_time_prekey_id,
+            nonce: Vec::new(),
+            ephemeral_public: Vec::new(),
+            signed_prekey_id: 0,
+            one_time_prekey_id: 0,
+            ciphertext_type: encrypted.ciphertext_type,
+            sender_device_id: encrypted.sender_device_id,
+            recipient_device_id: device_id,
         }))
     }
 
@@ -586,7 +563,7 @@ impl Client {
         let request = StoreMessageRequest {
             recipient_peer_id: proto_message.recipient_peer_id.clone(),
             sender_peer_id: proto_message.sender_peer_id.clone(),
-            encrypted_payload: base64::encode(payload),
+            encrypted_payload: general_purpose::STANDARD.encode(payload),
             message_type: Some(message_type.to_string()),
             message_id: proto_message.id.clone(),
         };
@@ -625,7 +602,7 @@ impl Client {
         let request = StoreMessageRequest {
             recipient_peer_id: proto_message.recipient_peer_id.clone(),
             sender_peer_id: proto_message.sender_peer_id.clone(),
-            encrypted_payload: base64::encode(payload),
+            encrypted_payload: general_purpose::STANDARD.encode(payload),
             message_type: Some(message_type.to_string()),
             message_id: proto_message.id.clone(),
         };
@@ -679,7 +656,7 @@ impl Client {
 
         let mut processed_ids = Vec::new();
         for msg in body.messages {
-            let payload = match base64::decode(&msg.encrypted_payload) {
+            let payload = match general_purpose::STANDARD.decode(&msg.encrypted_payload) {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     tracing::warn!("Invalid offline payload base64: {}", e);
@@ -761,7 +738,7 @@ impl Client {
 
         let local_path = self.write_media_file(&media_hash, Some(&file_name), &compressed_data)?;
         let media_type = MediaType::Image;
-        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), None);
+        let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(compressed_data.len());
         let outcome = if inline {
             let content = Self::build_media_envelope(
@@ -818,8 +795,23 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "image".to_string(),
-            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
-            content_plaintext: None,
+            content_encrypted: if inline {
+                let content = Self::build_media_envelope(
+                    media_type.clone(),
+                    media_hash.clone(),
+                    Some(file_name.clone()),
+                    Some("image/jpeg".to_string()),
+                    None,
+                    None,
+                    None,
+                    &compressed_data,
+                    None,
+                )?;
+                self.encrypt_for_storage(content.as_bytes()).ok()
+            } else {
+                None
+            },
+            content_plaintext: Some(summary.clone()),
             status,
             parent_message_id: None,
         };
@@ -876,7 +868,11 @@ impl Client {
 
         let local_path = self.write_media_file(&media_hash, Some(&file_name), audio_data)?;
         let media_type = MediaType::VoiceMessage;
-        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), Some(duration_seconds));
+        let summary = crate::media::media_summary(
+            media_type.as_str(),
+            Some(&file_name),
+            Some(duration_seconds),
+        );
         let inline = Self::should_inline_media(audio_data.len());
         let outcome = if inline {
             let content = Self::build_media_envelope(
@@ -933,8 +929,23 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "voice".to_string(),
-            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
-            content_plaintext: None,
+            content_encrypted: if inline {
+                let content = Self::build_media_envelope(
+                    media_type.clone(),
+                    media_hash.clone(),
+                    Some(file_name.clone()),
+                    Some("audio/aac".to_string()),
+                    None,
+                    None,
+                    Some(duration_seconds),
+                    audio_data,
+                    None,
+                )?;
+                self.encrypt_for_storage(content.as_bytes()).ok()
+            } else {
+                None
+            },
+            content_plaintext: Some(summary.clone()),
             status,
             parent_message_id: None,
         };
@@ -991,7 +1002,7 @@ impl Client {
 
         let local_path = self.write_media_file(&media_hash, Some(&file_name), file_data)?;
         let media_type = MediaType::Document;
-        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), None);
+        let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(file_data.len());
         let outcome = if inline {
             let content = Self::build_media_envelope(
@@ -1048,8 +1059,23 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "document".to_string(),
-            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
-            content_plaintext: None,
+            content_encrypted: if inline {
+                let content = Self::build_media_envelope(
+                    media_type.clone(),
+                    media_hash.clone(),
+                    Some(file_name.clone()),
+                    Some(mime_type.clone()),
+                    None,
+                    None,
+                    None,
+                    file_data,
+                    None,
+                )?;
+                self.encrypt_for_storage(content.as_bytes()).ok()
+            } else {
+                None
+            },
+            content_plaintext: Some(summary.clone()),
             status,
             parent_message_id: None,
         };
@@ -1111,7 +1137,11 @@ impl Client {
 
         let local_path = self.write_media_file(&media_hash, Some(&file_name), video_data)?;
         let media_type = MediaType::Video;
-        let placeholder = Self::media_placeholder(&media_type, Some(&file_name), Some(duration_seconds));
+        let summary = crate::media::media_summary(
+            media_type.as_str(),
+            Some(&file_name),
+            Some(duration_seconds),
+        );
 
         let mut thumbnail_path = None;
         if let Some(thumb_data) = thumbnail_data {
@@ -1174,8 +1204,23 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: Some(to.to_string()),
             message_type: "video".to_string(),
-            content_encrypted: self.encrypt_for_storage(placeholder.as_bytes()).ok(),
-            content_plaintext: None,
+            content_encrypted: if inline {
+                let content = Self::build_media_envelope(
+                    media_type.clone(),
+                    media_hash.clone(),
+                    Some(file_name.clone()),
+                    Some("video/mp4".to_string()),
+                    width,
+                    height,
+                    Some(duration_seconds),
+                    video_data,
+                    thumbnail_data,
+                )?;
+                self.encrypt_for_storage(content.as_bytes()).ok()
+            } else {
+                None
+            },
+            content_plaintext: Some(summary.clone()),
             status,
             parent_message_id: None,
         };
@@ -1391,7 +1436,10 @@ impl Client {
         );
 
         let (message_type, payload) =
-            match self.encrypt_message_for_peer(&to_peer_id, forwarded_content.as_bytes()) {
+            match self
+                .encrypt_message_for_peer(&to_peer_id, forwarded_content.as_bytes())
+                .await
+            {
                 Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
                 Ok(None) => (
                     MessageType::Text,
@@ -1532,29 +1580,39 @@ impl Client {
         };
         let content = envelope.encode()?;
 
-        let (message_type, payload) =
-            match self.encrypt_message_for_peer(&to_peer_id, content.as_bytes()) {
-                Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
-                Ok(None) => (
+        let encryption_result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            tokio::task::block_in_place(|| {
+                handle.block_on(self.encrypt_message_for_peer(&to_peer_id, content.as_bytes()))
+            })
+        } else {
+            futures::executor::block_on(self.encrypt_message_for_peer(
+                &to_peer_id,
+                content.as_bytes(),
+            ))
+        };
+
+        let (message_type, payload) = match encryption_result {
+            Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
+            Ok(None) => (
+                MessageType::Text,
+                Payload::Text(TextMessage {
+                    content: content.clone(),
+                    reply_to_id: String::new(),
+                    metadata: std::collections::HashMap::new(),
+                }),
+            ),
+            Err(e) => {
+                tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
+                (
                     MessageType::Text,
                     Payload::Text(TextMessage {
                         content: content.clone(),
                         reply_to_id: String::new(),
                         metadata: std::collections::HashMap::new(),
                     }),
-                ),
-                Err(e) => {
-                    tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
-                    (
-                        MessageType::Text,
-                        Payload::Text(TextMessage {
-                            content: content.clone(),
-                            reply_to_id: String::new(),
-                            metadata: std::collections::HashMap::new(),
-                        }),
-                    )
-                }
-            };
+                )
+            }
+        };
 
         let proto_message = Message {
             id: uuid::Uuid::new_v4().to_string(),
@@ -1730,6 +1788,21 @@ impl Client {
             .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
     }
 
+    #[cfg(feature = "voip")]
+    /// Send raw PCM audio frame to remote peer (Opus encoded in core)
+    pub async fn send_audio_frame(
+        &self,
+        call_id: String,
+        audio_data: &[u8],
+        sample_rate: u32,
+        channels: u32,
+    ) -> Result<()> {
+        self.call_manager
+            .send_audio_frame(&call_id, audio_data, sample_rate, channels)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to send audio frame: {}", e)))
+    }
+
     // ========== Video Methods (FASE 14) ==========
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1798,6 +1871,19 @@ impl Client {
         self.voip_integration.register_video_frame_callback(callback).await;
     }
 
+    #[cfg(feature = "voip")]
+    /// Register callback for receiving remote audio frames (decoded PCM)
+    ///
+    /// The callback will be invoked on a background thread whenever remote
+    /// audio is received during an active call.
+    pub async fn register_audio_frame_callback(
+        &self,
+        callback: Box<dyn crate::FfiAudioFrameCallback>,
+    ) {
+        self.voip_integration.register_audio_frame_callback(callback).await;
+    }
+
+    #[cfg(any(feature = "voip", feature = "video"))]
     /// Register callback for VoIP control events (mute/speaker/camera)
     pub async fn register_voip_event_callback(
         &self,
@@ -1928,12 +2014,16 @@ impl Client {
         let message_id = uuid::Uuid::new_v4().to_string();
         let conversation_id = format!("group:{}", group_id);
 
+        let encrypted_payload = self
+            .group_manager
+            .encrypt_group_message(&group_id, content.as_bytes())?;
+
         let mut group_message = crate::group::GroupMessage {
             message_id: message_id.clone(),
             group_id: group_id.clone(),
             sender_peer_id: self.local_peer_id().to_string(),
             message_type: crate::group::types::GroupMessageType::Text,
-            content: content.as_bytes().to_vec(),
+            content: encrypted_payload.clone(),
             timestamp: chrono::Utc::now().timestamp(),
             signature: Vec::new(),
         };
@@ -1957,7 +2047,7 @@ impl Client {
             sender_peer_id: self.local_peer_id().to_string(),
             recipient_peer_id: None,
             message_type: "group_text".to_string(),
-            content_encrypted: None,
+            content_encrypted: Some(encrypted_payload),
             content_plaintext: Some(content),
             status: MessageStatus::Sent,
             parent_message_id: None,
@@ -1970,6 +2060,25 @@ impl Client {
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
         Ok(message_id)
+    }
+
+    /// Get my sender-key seed for a group
+    pub async fn get_group_sender_key_seed(&self, group_id: String) -> Result<Vec<u8>> {
+        self.group_manager
+            .get_group_sender_key_seed(&group_id)
+            .map_err(|e| MePassaError::Crypto(format!("Failed to read sender key: {}", e)))
+    }
+
+    /// Store a sender-key seed for a group member
+    pub async fn add_group_sender_key(
+        &self,
+        group_id: String,
+        sender_peer_id: String,
+        sender_key_seed: Vec<u8>,
+    ) -> Result<()> {
+        self.group_manager
+            .add_group_sender_key(&group_id, &sender_peer_id, &sender_key_seed)
+            .map_err(|e| MePassaError::Crypto(format!("Failed to store sender key: {}", e)))
     }
 
     /// Run network event loop (blocking)
@@ -2011,12 +2120,14 @@ struct StoreMessageRequest {
     message_id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct RetrieveMessagesResponse {
     messages: Vec<OfflineMessageDto>,
     total: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct OfflineMessageDto {
     sender_peer_id: String,

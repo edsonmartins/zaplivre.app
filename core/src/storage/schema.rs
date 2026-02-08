@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 3;
+pub const SCHEMA_VERSION: i32 = 4;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -102,6 +102,20 @@ pub fn init_schema(db: &Database) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
         CREATE INDEX IF NOT EXISTS idx_group_members_peer ON group_members(peer_id);
+
+        -- Group sender keys: per-sender key seeds for group encryption
+        CREATE TABLE IF NOT EXISTS group_sender_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id TEXT NOT NULL,
+            sender_peer_id TEXT NOT NULL,
+            sender_key_seed BLOB NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            UNIQUE(group_id, sender_peer_id),
+            FOREIGN KEY (group_id) REFERENCES groups(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_group_sender_keys_group ON group_sender_keys(group_id);
+        CREATE INDEX IF NOT EXISTS idx_group_sender_keys_sender ON group_sender_keys(sender_peer_id);
 
         -- Media table: attachments (images, videos, files)
         CREATE TABLE IF NOT EXISTS media (

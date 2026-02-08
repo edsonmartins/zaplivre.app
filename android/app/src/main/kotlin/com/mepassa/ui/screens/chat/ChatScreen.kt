@@ -44,7 +44,7 @@ import java.util.*
  * Exibe mensagens trocadas com um peer específico.
  * Permite enviar novas mensagens de texto.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalUnsignedTypes::class)
 @Composable
 fun ChatScreen(
     peerId: String,
@@ -82,7 +82,15 @@ fun ChatScreen(
     // Carregar mensagens
     LaunchedEffect(peerId) {
         scope.launch {
-            messages = MePassaClientWrapper.getConversationMessages(peerId)
+            val fetched = MePassaClientWrapper.getConversationMessages(peerId)
+            val filtered = mutableListOf<FfiMessage>()
+            for (message in fetched) {
+                val consumed = MePassaClientWrapper.consumeGroupSenderKeyMessage(message)
+                if (!consumed) {
+                    filtered.add(message)
+                }
+            }
+            messages = filtered
             // Scroll para última mensagem
             if (messages.isNotEmpty()) {
                 listState.animateScrollToItem(messages.lastIndex)
@@ -95,9 +103,16 @@ fun ChatScreen(
         while (true) {
             kotlinx.coroutines.delay(2000) // A cada 2 segundos
             scope.launch {
-                val newMessages = MePassaClientWrapper.getConversationMessages(peerId)
-                if (newMessages.size > messages.size) {
-                    messages = newMessages
+                val fetched = MePassaClientWrapper.getConversationMessages(peerId)
+                val filtered = mutableListOf<FfiMessage>()
+                for (message in fetched) {
+                    val consumed = MePassaClientWrapper.consumeGroupSenderKeyMessage(message)
+                    if (!consumed) {
+                        filtered.add(message)
+                    }
+                }
+                if (filtered.size > messages.size) {
+                    messages = filtered
                     // Auto-scroll se nova mensagem
                     listState.animateScrollToItem(messages.lastIndex)
                 }
@@ -380,7 +395,7 @@ fun ChatScreen(
                             }
                         }
                     },
-                    onVideoPicked = { uri ->
+                    onVideoPicked = { _ ->
                         // TODO: Implement video sending
                     },
                     voiceRecorderViewModel = voiceRecorderViewModel,
@@ -535,7 +550,7 @@ fun MessageInputBar(
     onSelectImages: (List<Uri>) -> Unit,
     onVoiceMessageRecorded: (java.io.File) -> Unit,
     onFilePicked: (Uri) -> Unit,
-    onVideoPicked: (Uri) -> Unit,
+    @Suppress("UNUSED_PARAMETER") onVideoPicked: (Uri) -> Unit,
     voiceRecorderViewModel: VoiceRecorderViewModel,
     isSending: Boolean
 ) {

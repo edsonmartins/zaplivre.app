@@ -9,16 +9,22 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use hkdf::Hkdf;
+use rand::{rngs::StdRng, SeedableRng};
 use sha2::Sha256;
 
 use crate::identity::{Keypair, PreKeyPool};
 use crate::utils::error::{Result, MePassaError};
+use libsignal_protocol_syft::IdentityKeyPair;
 
 /// Identity with keypair and prekey pool
 #[derive(Clone)]
 pub struct Identity {
     /// Main signing keypair (Ed25519)
     keypair: Keypair,
+    /// Signal identity keypair record (serialized)
+    signal_identity_keypair_record: Vec<u8>,
+    /// Signal registration id
+    signal_registration_id: u32,
     /// Peer ID derived from keypair
     peer_id: String,
     /// PreKey pool for Signal Protocol
@@ -42,11 +48,20 @@ impl Identity {
     /// ```
     pub fn generate(prekey_count: usize) -> Self {
         let keypair = Keypair::generate();
+        let (signal_identity_keypair_record, signal_registration_id) =
+            generate_signal_identity();
         let peer_id = keypair.peer_id();
-        let prekey_pool = Some(PreKeyPool::new(keypair.clone(), prekey_count));
+        let prekey_pool = Some(PreKeyPool::new(
+            keypair.clone(),
+            signal_identity_keypair_record.clone(),
+            signal_registration_id,
+            prekey_count,
+        ));
 
         Self {
             keypair,
+            signal_identity_keypair_record,
+            signal_registration_id,
             peer_id,
             prekey_pool,
         }
@@ -55,9 +70,13 @@ impl Identity {
     /// Create identity from existing keypair
     pub fn from_keypair(keypair: Keypair) -> Self {
         let peer_id = keypair.peer_id();
+        let (signal_identity_keypair_record, signal_registration_id) =
+            generate_signal_identity();
 
         Self {
             keypair,
+            signal_identity_keypair_record,
+            signal_registration_id,
             peer_id,
             prekey_pool: None,
         }
@@ -73,6 +92,16 @@ impl Identity {
         &self.keypair
     }
 
+    /// Get Signal identity keypair record (serialized)
+    pub fn signal_identity_keypair_record(&self) -> &[u8] {
+        &self.signal_identity_keypair_record
+    }
+
+    /// Get Signal registration id
+    pub fn signal_registration_id(&self) -> u32 {
+        self.signal_registration_id
+    }
+
     /// Get mutable prekey pool reference
     pub fn prekey_pool_mut(&mut self) -> Option<&mut PreKeyPool> {
         self.prekey_pool.as_mut()
@@ -86,7 +115,12 @@ impl Identity {
     /// Initialize prekey pool if not already initialized
     pub fn init_prekey_pool(&mut self, prekey_count: usize) {
         if self.prekey_pool.is_none() {
-            self.prekey_pool = Some(PreKeyPool::new(self.keypair.clone(), prekey_count));
+            self.prekey_pool = Some(PreKeyPool::new(
+                self.keypair.clone(),
+                self.signal_identity_keypair_record.clone(),
+                self.signal_registration_id,
+                prekey_count,
+            ));
         }
     }
 
@@ -124,6 +158,8 @@ impl std::fmt::Debug for Identity {
 #[derive(Serialize, Deserialize)]
 struct IdentityData {
     keypair_bytes: Vec<u8>,
+    signal_identity_keypair_record: Option<Vec<u8>>,
+    signal_registration_id: Option<u32>,
     peer_id: String,
     // Prekey pool is persisted separately due to size
 }
@@ -183,6 +219,8 @@ impl IdentityStorage for FileIdentityStorage {
 
         let data = IdentityData {
             keypair_bytes: identity.keypair.to_bytes().to_vec(),
+            signal_identity_keypair_record: Some(identity.signal_identity_keypair_record.clone()),
+            signal_registration_id: Some(identity.signal_registration_id),
             peer_id: identity.peer_id.clone(),
         };
 
@@ -209,7 +247,13 @@ impl IdentityStorage for FileIdentityStorage {
             .map_err(|e| MePassaError::Storage(format!("Failed to deserialize identity: {}", e)))?;
 
         let keypair = Keypair::from_bytes(&data.keypair_bytes)?;
-        let identity = Identity::from_keypair(keypair);
+        let mut identity = Identity::from_keypair(keypair);
+        if let Some(record) = data.signal_identity_keypair_record {
+            identity.signal_identity_keypair_record = record;
+        }
+        if let Some(reg_id) = data.signal_registration_id {
+            identity.signal_registration_id = reg_id;
+        }
 
         Ok(Some(identity))
     }
@@ -228,6 +272,14 @@ impl IdentityStorage for FileIdentityStorage {
     fn has_identity(&self) -> Result<bool> {
         Ok(self.identity_path().exists())
     }
+}
+
+fn generate_signal_identity() -> (Vec<u8>, u32) {
+    let mut rng = StdRng::from_os_rng();
+    let identity_keypair = IdentityKeyPair::generate(&mut rng);
+    let record = identity_keypair.serialize().to_vec();
+    let registration_id = (rand::random::<u16>() & 0x3fff) as u32;
+    (record, registration_id)
 }
 
 /// In-memory identity storage (for testing)

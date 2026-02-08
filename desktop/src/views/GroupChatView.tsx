@@ -31,6 +31,7 @@ export default function GroupChatView() {
   const [localPeerId, setLocalPeerId] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const groupSenderKeyPrefix = 'mepassa-group-key:v1:'
 
   useEffect(() => {
     if (!groupId) return
@@ -116,6 +117,34 @@ export default function GroupChatView() {
       setErrorMessage('Failed to send message: ' + String(error))
     } finally {
       setIsSending(false)
+    }
+  }
+
+  const buildGroupSenderKeyPayload = (groupId: string, seed: number[]): string => {
+    const seedBase64 = btoa(String.fromCharCode(...seed))
+    return `${groupSenderKeyPrefix}${groupId}:${seedBase64}`
+  }
+
+  const handleAddMember = async () => {
+    if (!groupId) return
+
+    const peerId = window.prompt('Peer ID do novo membro')
+    if (!peerId || !peerId.trim()) {
+      return
+    }
+
+    try {
+      await invoke('add_group_member', { groupId, peerId: peerId.trim() })
+      const seed = await invoke<number[]>('get_group_sender_key_seed', { groupId })
+      const payload = buildGroupSenderKeyPayload(groupId, seed)
+      await invoke('send_text_message', {
+        toPeerId: peerId.trim(),
+        content: payload,
+      })
+      setErrorMessage(null)
+    } catch (error) {
+      console.error('Failed to add member:', error)
+      setErrorMessage('Failed to add member: ' + String(error))
     }
   }
 
@@ -318,7 +347,7 @@ export default function GroupChatView() {
               {/* Actions */}
               <div className="space-y-2">
                 {group.is_admin && (
-                  <button className="w-full btn-secondary text-sm">
+                  <button className="w-full btn-secondary text-sm" onClick={handleAddMember}>
                     Add Member
                   </button>
                 )}

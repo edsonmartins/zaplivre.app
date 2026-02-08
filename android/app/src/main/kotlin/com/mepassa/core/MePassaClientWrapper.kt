@@ -22,10 +22,14 @@ import com.mepassa.voip.VoipEventHandler
  * - Estado observável (Flows)
  * - Gerenciamento de ciclo de vida
  */
+@OptIn(ExperimentalUnsignedTypes::class)
 object MePassaClientWrapper {
     private const val TAG = "MePassaClientWrapper"
+    private const val GROUP_SENDER_KEY_PREFIX = "mepassa-group-key:v1:"
 
     private var client: MePassaClient? = null
+    private val processedGroupKeyMessageIds = mutableSetOf<String>()
+    private var lastGroupKeyScanAtMs: Long = 0
     private val _isInitialized = MutableStateFlow(false)
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
@@ -558,6 +562,106 @@ object MePassaClientWrapper {
             }
         }
 
+    suspend fun getGroupSenderKeySeed(groupId: String): List<UByte>? =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().getGroupSenderKeySeed(groupId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get group sender key seed", e)
+                null
+            }
+        }
+
+    suspend fun addGroupSenderKey(
+        groupId: String,
+        senderPeerId: String,
+        senderKeySeed: List<UByte>
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().addGroupSenderKey(groupId, senderPeerId, senderKeySeed)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to add group sender key", e)
+            false
+        }
+    }
+
+    suspend fun sendGroupSenderKey(groupId: String, toPeerId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val seed = getClient().getGroupSenderKeySeed(groupId)
+                val payload = buildGroupSenderKeyPayload(groupId, seed)
+                val result = sendTextMessage(toPeerId, payload)
+                result.isSuccess
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send group sender key", e)
+                false
+            }
+        }
+
+    suspend fun consumeGroupSenderKeyMessage(message: FfiMessage): Boolean =
+        withContext(Dispatchers.IO) {
+            if (processedGroupKeyMessageIds.contains(message.messageId)) {
+                return@withContext true
+            }
+
+            val content = message.contentPlaintext ?: return@withContext false
+            if (!content.startsWith(GROUP_SENDER_KEY_PREFIX)) {
+                return@withContext false
+            }
+
+            val parsed = parseGroupSenderKeyPayload(content) ?: return@withContext false
+            val ok = addGroupSenderKey(parsed.groupId, message.senderPeerId, parsed.seed)
+            if (ok) {
+                processedGroupKeyMessageIds.add(message.messageId)
+            }
+            ok
+        }
+
+    suspend fun scanGroupSenderKeyMessages(
+        conversations: List<FfiConversation>,
+        limit: UInt = 50u,
+        minIntervalMs: Long = 30_000
+    ) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (now - lastGroupKeyScanAtMs < minIntervalMs) {
+            return@withContext
+        }
+        lastGroupKeyScanAtMs = now
+
+        for (conversation in conversations) {
+            val peerId = conversation.peerId ?: continue
+            val messages = getConversationMessages(peerId, limit, 0u)
+            for (message in messages) {
+                consumeGroupSenderKeyMessage(message)
+            }
+        }
+    }
+
+    private fun buildGroupSenderKeyPayload(groupId: String, seed: List<UByte>): String {
+        val seedBytes = seed.map { it.toByte() }.toByteArray()
+        val seedBase64 = Base64.encodeToString(seedBytes, Base64.NO_WRAP)
+        return "$GROUP_SENDER_KEY_PREFIX$groupId:$seedBase64"
+    }
+
+    private fun parseGroupSenderKeyPayload(payload: String): GroupSenderKeyPayload? {
+        val trimmed = payload.removePrefix(GROUP_SENDER_KEY_PREFIX)
+        val parts = trimmed.split(":", limit = 2)
+        if (parts.size != 2) {
+            return null
+        }
+
+        val groupId = parts[0]
+        val seedBase64 = parts[1]
+        val seed = try {
+            Base64.decode(seedBase64, Base64.NO_WRAP)
+        } catch (e: IllegalArgumentException) {
+            return null
+        }
+
+        return GroupSenderKeyPayload(groupId, seed.map { it.toUByte() })
+    }
+
     // ========== Video Methods (FASE 14) ==========
 
     /**
@@ -844,3 +948,8 @@ object MePassaClientWrapper {
         }
     }
 }
+
+private data class GroupSenderKeyPayload(
+    val groupId: String,
+    val seed: List<UByte>
+)

@@ -243,6 +243,13 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureRes
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_AUDIO_FRAME_CALLBACK_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_AUDIO_FRAME_CALLBACK_METHOD0
+typedef void (*UniffiCallbackInterfaceFfiAudioFrameCallbackMethod0)(uint64_t, RustBuffer, RustBuffer, uint32_t, uint32_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK_METHOD0
 typedef void (*UniffiCallbackInterfaceFfiCallEventCallbackMethod0)(uint64_t, RustBuffer, RustBuffer, void* _Nonnull, 
@@ -290,6 +297,15 @@ typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod1)(uint64_t, Rus
 typedef void (*UniffiCallbackInterfaceFfiVoipEventCallbackMethod2)(uint64_t, RustBuffer, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_AUDIO_FRAME_CALLBACK
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_AUDIO_FRAME_CALLBACK
+typedef struct UniffiVTableCallbackInterfaceFfiAudioFrameCallback {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceFfiAudioFrameCallbackMethod0 _Nonnull onAudioFrame;
+} UniffiVTableCallbackInterfaceFfiAudioFrameCallback;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_CALL_EVENT_CALLBACK
@@ -346,6 +362,11 @@ uint64_t uniffi_mepassa_core_fn_method_mepassaclient_accept_call(uint64_t ptr, R
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_GROUP_MEMBER
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_GROUP_MEMBER
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_add_group_member(uint64_t ptr, RustBuffer group_id, RustBuffer peer_id
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_GROUP_SENDER_KEY
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_GROUP_SENDER_KEY
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_add_group_sender_key(uint64_t ptr, RustBuffer group_id, RustBuffer sender_peer_id, RustBuffer sender_key_seed
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_ADD_REACTION
@@ -413,6 +434,11 @@ RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages
 RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_get_group_messages(uint64_t ptr, RustBuffer group_id, RustBuffer limit, RustBuffer offset, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUP_SENDER_KEY_SEED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUP_SENDER_KEY_SEED
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_get_group_sender_key_seed(uint64_t ptr, RustBuffer group_id
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUPS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_GET_GROUPS
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_get_groups(uint64_t ptr
@@ -468,6 +494,11 @@ RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_local_peer_id(uint64_t pt
 void uniffi_mepassa_core_fn_method_mepassaclient_mark_conversation_read(uint64_t ptr, RustBuffer peer_id, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_AUDIO_FRAME_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_AUDIO_FRAME_CALLBACK
+void uniffi_mepassa_core_fn_method_mepassaclient_register_audio_frame_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
 void uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
@@ -501,6 +532,11 @@ void uniffi_mepassa_core_fn_method_mepassaclient_remove_reaction(uint64_t ptr, R
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEARCH_MESSAGES
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEARCH_MESSAGES
 RustBuffer uniffi_mepassa_core_fn_method_mepassaclient_search_messages(uint64_t ptr, RustBuffer query, RustBuffer limit, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_AUDIO_FRAME
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_AUDIO_FRAME
+uint64_t uniffi_mepassa_core_fn_method_mepassaclient_send_audio_frame(uint64_t ptr, RustBuffer call_id, RustBuffer audio_data, uint32_t sample_rate, uint32_t channels
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_SEND_DOCUMENT_MESSAGE
@@ -561,6 +597,11 @@ uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(uint64_t ptr, R
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_SPEAKERPHONE
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_TOGGLE_SPEAKERPHONE
 uint64_t uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(uint64_t ptr, RustBuffer call_id
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIAUDIOFRAMECALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIAUDIOFRAMECALLBACK
+void uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(const UniffiVTableCallbackInterfaceFfiAudioFrameCallback* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFICALLEVENTCALLBACK
@@ -850,6 +891,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_add_group_member(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_ADD_GROUP_SENDER_KEY
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_ADD_GROUP_SENDER_KEY
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_add_group_sender_key(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_ADD_REACTION
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_ADD_REACTION
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_add_reaction(void
@@ -928,6 +975,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages(vo
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUP_SENDER_KEY_SEED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUP_SENDER_KEY_SEED
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_get_group_sender_key_seed(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUPS
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_GET_GROUPS
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_get_groups(void
@@ -994,6 +1047,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_mark_conversation_rea
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_AUDIO_FRAME_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_AUDIO_FRAME_CALLBACK
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_audio_frame_callback(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_CALL_EVENT_CALLBACK
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback(void
@@ -1033,6 +1092,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_remove_reaction(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEARCH_MESSAGES
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEARCH_MESSAGES
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_search_messages(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEND_AUDIO_FRAME
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_SEND_AUDIO_FRAME
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_send_audio_frame(void
     
 );
 #endif
@@ -1111,6 +1176,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone(v
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_CONSTRUCTOR_MEPASSACLIENT_NEW
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_CONSTRUCTOR_MEPASSACLIENT_NEW
 uint16_t uniffi_mepassa_core_checksum_constructor_mepassaclient_new(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIAUDIOFRAMECALLBACK_ON_AUDIO_FRAME
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIAUDIOFRAMECALLBACK_ON_AUDIO_FRAME
+uint16_t uniffi_mepassa_core_checksum_method_ffiaudioframecallback_on_audio_frame(void
     
 );
 #endif

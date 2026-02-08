@@ -113,6 +113,15 @@ message EncryptedMessage {
 
   // One-time prekey id used for X3DH (0 if not used)
   uint32 one_time_prekey_id = 5;
+
+  // Signal ciphertext type (Signal/PreKey/etc)
+  uint32 ciphertext_type = 6;
+
+  // Sender device id (Signal Protocol)
+  uint32 sender_device_id = 7;
+
+  // Recipient device id (Signal Protocol)
+  uint32 recipient_device_id = 8;
 }
 
 // Media offer (metadata only, no bytes)
