@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { invoke } from '@tauri-apps/api/core'
+import { homeDir } from '@tauri-apps/api/path'
 
 interface OnboardingViewProps {
   localPeerId: string | null
@@ -6,9 +9,33 @@ interface OnboardingViewProps {
 
 export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
   const navigate = useNavigate()
+  const [showRestore, setShowRestore] = useState(false)
+  const [restoreText, setRestoreText] = useState('')
+  const [restoreError, setRestoreError] = useState<string | null>(null)
+  const [isRestoring, setIsRestoring] = useState(false)
 
   const handleGetStarted = () => {
     navigate('/conversations')
+  }
+
+  // DSK-09: restaurar backup - salva no keychain e o app REINICIA sozinho
+  // com a identidade importada
+  const handleRestore = async () => {
+    const backup = restoreText.trim()
+    if (!backup) return
+    setIsRestoring(true)
+    setRestoreError(null)
+    try {
+      const home = await homeDir()
+      await invoke('import_identity_backup', {
+        backup,
+        dataDir: `${home}/.mepassa`,
+      })
+      // import_identity_backup reinicia o app; nada mais a fazer aqui
+    } catch (error) {
+      setRestoreError(String(error))
+      setIsRestoring(false)
+    }
   }
 
   return (
@@ -113,6 +140,42 @@ export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
           >
             {localPeerId ? 'Get Started' : 'Initializing...'}
           </button>
+
+          {/* Restaurar backup (DSK-09) */}
+          {!showRestore ? (
+            <button
+              onClick={() => setShowRestore(true)}
+              className="btn-secondary w-full mt-3"
+            >
+              Restaurar backup de identidade
+            </button>
+          ) : (
+            <div className="mt-4 text-left">
+              <p className="text-sm text-gray-600 mb-2">
+                Cole o backup Base64 exportado em outro dispositivo. O app será reiniciado com a
+                identidade restaurada (a identidade atual desta máquina será substituída).
+              </p>
+              <textarea
+                value={restoreText}
+                onChange={(e) => setRestoreText(e.target.value)}
+                placeholder="Backup Base64..."
+                className="w-full h-24 text-xs font-mono border border-gray-300 rounded-lg p-3 resize-none"
+              />
+              {restoreError && <p className="text-sm text-red-600 mt-2">{restoreError}</p>}
+              <div className="flex gap-3 mt-3">
+                <button onClick={() => setShowRestore(false)} className="btn-secondary flex-1">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRestore}
+                  disabled={!restoreText.trim() || isRestoring}
+                  className="btn-primary flex-1 disabled:opacity-50"
+                >
+                  {isRestoring ? 'Restaurando...' : 'Restaurar e reiniciar'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

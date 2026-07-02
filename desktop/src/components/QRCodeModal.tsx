@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react'
-import { X, Copy, Share2, Check, RefreshCw } from 'lucide-react'
+import { X, Copy, Check, RefreshCw } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 
@@ -95,21 +95,6 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
       console.error('Failed to refresh listening addresses:', error)
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleShare = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Meu MePassa Peer ID',
-          text: `Meu MePassa Peer ID: ${localPeerId}`
-        })
-      } else {
-        await handleCopyPeerId()
-      }
-    } catch (error) {
-      console.error('Failed to share:', error)
     }
   }
 
@@ -212,13 +197,6 @@ export default function QRCodeModal({ localPeerId, onClose }: QRCodeModalProps) 
             >
               <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar endereço
-            </button>
-            <button
-              onClick={handleShare}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-500 text-white font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm"
-            >
-              <Share2 className="w-5 h-5" />
-              Compartilhar
             </button>
 
             <button

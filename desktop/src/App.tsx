@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
@@ -37,8 +37,12 @@ function App() {
 
   const { setVoipState } = useVoipState()
 
+  // DSK-10: StrictMode monta o efeito 2x em dev - garantir init único
+  const initStartedRef = useRef(false)
+
   useEffect(() => {
-    console.log('🔵 useEffect running - about to call initializeApp')
+    if (initStartedRef.current) return
+    initStartedRef.current = true
 
     const initializeApp = async () => {
       try {
@@ -182,8 +186,15 @@ function App() {
           setIncomingCall((prev) =>
             prev?.callId === event.payload.call_id ? null : prev
           )
+          // DSK-10: limpar o estado persistido da chamada encerrada
+          // (senão o localStorage acumula uma entrada por chamada, para sempre)
+          setVoipState((prev) => {
+            const { [event.payload.call_id]: _gone, ...rest } = prev
+            return rest
+          })
           // Se estamos na tela da chamada encerrada, voltar para conversas
-          if (window.location.pathname.includes(event.payload.call_id)) {
+          // (HashRouter: a rota vive no hash, não no pathname)
+          if (window.location.hash.includes(event.payload.call_id)) {
             navigate('/conversations')
           }
         }

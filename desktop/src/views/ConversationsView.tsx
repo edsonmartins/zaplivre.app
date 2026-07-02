@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import QRCodeModal from '../components/QRCodeModal'
+import SearchModal from '../components/SearchModal'
+import BackupModal from '../components/BackupModal'
 
 interface Conversation {
   id: string
@@ -11,6 +13,7 @@ interface Conversation {
   last_message_id: string | null
   last_message_at: number | null
   unread_count: number
+  last_message_preview: string | null
 }
 
 interface ConversationsViewProps {
@@ -23,6 +26,9 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   const [showNewChatDialog, setShowNewChatDialog] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
   const [newPeerId, setNewPeerId] = useState('')
+  const [newMultiaddr, setNewMultiaddr] = useState('')
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [showBackupModal, setShowBackupModal] = useState(false)
   const [peerCount, setPeerCount] = useState(0)
   const navigate = useNavigate()
   const previousConversations = useRef<Conversation[]>([])
@@ -98,13 +104,24 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   }
 
   const handleNewChat = async () => {
-    if (!newPeerId.trim()) return
+    const peerId = newPeerId.trim()
+    if (!peerId) return
 
     try {
-      // Navigate to chat view
-      navigate(`/chat/${newPeerId}`)
+      // UX-03: com multiaddr informado, conectar direto (LAN/QR/fora da DHT)
+      const multiaddr = newMultiaddr.trim()
+      if (multiaddr) {
+        try {
+          await invoke('connect_to_peer', { peerId, multiaddr })
+        } catch (error) {
+          console.error('Failed to connect to peer:', error)
+        }
+      }
+
+      navigate(`/chat/${peerId}`)
       setShowNewChatDialog(false)
       setNewPeerId('')
+      setNewMultiaddr('')
     } catch (error) {
       console.error('Failed to start new chat:', error)
     }
@@ -156,10 +173,24 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
               QR Code
             </button>
             <button
+              onClick={() => setShowSearchModal(true)}
+              className="btn-secondary text-sm"
+              title="Buscar mensagens"
+            >
+              Buscar
+            </button>
+            <button
+              onClick={() => setShowBackupModal(true)}
+              className="btn-secondary text-sm"
+              title="Backup da identidade"
+            >
+              Backup
+            </button>
+            <button
               onClick={() => navigate('/groups')}
               className="btn-secondary text-sm"
             >
-              Groups
+              Grupos
             </button>
             <button
               onClick={() => setShowNewChatDialog(true)}
@@ -222,7 +253,8 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
                       </p>
                     </div>
                     <p className="text-sm text-gray-600 truncate">
-                      {conv.last_message_id ? 'Última mensagem disponível' : 'No messages yet'}
+                      {conv.last_message_preview ??
+                        (conv.last_message_id ? 'Mídia ou mensagem cifrada' : 'Sem mensagens ainda')}
                     </p>
                   </div>
                   {conv.unread_count > 0 && (
@@ -248,9 +280,17 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
               type="text"
               value={newPeerId}
               onChange={(e) => setNewPeerId(e.target.value)}
-              placeholder="Enter peer ID..."
-              className="input-base mb-4"
+              placeholder="Peer ID..."
+              className="input-base mb-3"
               autoFocus
+              onKeyPress={(e) => e.key === 'Enter' && handleNewChat()}
+            />
+            <input
+              type="text"
+              value={newMultiaddr}
+              onChange={(e) => setNewMultiaddr(e.target.value)}
+              placeholder="Multiaddr (opcional, ex.: /ip4/192.168.0.10/tcp/4001)"
+              className="input-base mb-4 font-mono text-xs"
               onKeyPress={(e) => e.key === 'Enter' && handleNewChat()}
             />
             <div className="flex space-x-3">
@@ -279,6 +319,21 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
           onClose={() => setShowQRModal(false)}
         />
       )}
+
+      {/* Busca global (UX-03) */}
+      {showSearchModal && (
+        <SearchModal
+          localPeerId={localPeerId}
+          onClose={() => setShowSearchModal(false)}
+          onOpenChat={(peerId) => {
+            setShowSearchModal(false)
+            navigate(`/chat/${peerId}`)
+          }}
+        />
+      )}
+
+      {/* Backup da identidade (DSK-09) */}
+      {showBackupModal && <BackupModal onClose={() => setShowBackupModal(false)} />}
     </div>
   )
 }

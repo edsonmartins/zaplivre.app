@@ -433,10 +433,21 @@ pub async fn list_conversations(
     // list_conversations() is synchronous
     let conversations = client.list_conversations().map_err(|e| e.to_string())?;
 
-    // Convert conversations to JSON
+    // Convert conversations to JSON (UX-11: com preview da última mensagem)
     let json_conversations: Vec<serde_json::Value> = conversations
         .iter()
         .map(|c| {
+            let last_message_preview = c
+                .peer_id
+                .as_ref()
+                .filter(|_| c.last_message_id.is_some())
+                .and_then(|peer| {
+                    client
+                        .get_conversation_messages(peer.clone(), Some(1), None)
+                        .ok()
+                        .and_then(|msgs| msgs.into_iter().next())
+                        .and_then(|m| m.content_plaintext)
+                });
             serde_json::json!({
                 "id": c.id,
                 "peer_id": c.peer_id,
@@ -444,6 +455,7 @@ pub async fn list_conversations(
                 "last_message_id": c.last_message_id,
                 "last_message_at": c.last_message_at,
                 "unread_count": c.unread_count,
+                "last_message_preview": last_message_preview,
             })
         })
         .collect();
@@ -783,6 +795,45 @@ pub async fn add_group_sender_key(
         .add_group_sender_key(group_id, sender_peer_id, sender_key_seed)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// DSK-09: exporta o backup Base64 da identidade guardada no keychain
+#[tauri::command]
+pub fn export_identity_backup() -> Result<String, String> {
+    identity_store::load_identity_b64()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Nenhuma identidade encontrada no keychain".to_string())
+}
+
+/// DSK-09: restaura um backup de identidade. Salva no keychain, descarta o
+/// banco local (pertence a identidade anterior) e REINICIA o app - o
+/// init_client do proximo boot usa a identidade importada.
+#[tauri::command]
+pub fn import_identity_backup(
+    app: tauri::AppHandle,
+    backup: String,
+    data_dir: String,
+) -> Result<(), String> {
+    use base64::Engine as _;
+
+    let trimmed = backup.trim();
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(trimmed)
+        .map_err(|_| "Backup invalido: nao e Base64".to_string())?;
+    if decoded.len() < 32 {
+        return Err("Backup invalido: conteudo curto demais".to_string());
+    }
+
+    identity_store::save_identity_b64(trimmed).map_err(|e| e.to_string())?;
+
+    let db_path = std::path::Path::new(&data_dir).join("mepassa.db");
+    if db_path.exists() {
+        std::fs::remove_file(&db_path)
+            .map_err(|e| format!("Falha ao limpar banco local: {}", e))?;
+    }
+
+    tracing::info!("🔑 Identity backup imported - restarting app");
+    app.restart();
 }
 
 /// UX-02: envia um arquivo do disco - imagens vão pelo pipeline de imagem

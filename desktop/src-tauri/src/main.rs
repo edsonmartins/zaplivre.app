@@ -61,6 +61,8 @@ fn main() {
             commands::get_group_members,
             commands::update_group,
             commands::send_file_message,
+            commands::export_identity_backup,
+            commands::import_identity_backup,
             // VoIP commands (FASE 12)
             commands::start_call,
             commands::accept_call,
