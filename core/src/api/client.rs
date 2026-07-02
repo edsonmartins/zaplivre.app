@@ -2303,10 +2303,15 @@ impl Client {
     /// NetworkManager para sempre (a versão anterior deadlockava qualquer
     /// outra operação de rede se fosse chamada).
     pub async fn run_network(&self) -> Result<()> {
+        // NET-03: backoff adaptativo (ver loop do FFI)
+        let mut idle_sleep_ms: u64 = 1;
         loop {
             let processed = self.poll_network_once().await?;
-            if !processed {
-                tokio::time::sleep(Duration::from_millis(10)).await;
+            if processed {
+                idle_sleep_ms = 1;
+            } else {
+                tokio::time::sleep(Duration::from_millis(idle_sleep_ms)).await;
+                idle_sleep_ms = (idle_sleep_ms * 2).min(64);
             }
         }
     }

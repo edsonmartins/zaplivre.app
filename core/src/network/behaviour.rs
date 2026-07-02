@@ -9,6 +9,7 @@
 //! - VoIP Signaling (WebRTC signaling over P2P)
 
 use libp2p::{
+    autonat,
     dcutr, gossipsub, identify, kad, mdns, ping, relay, request_response, PeerId, StreamProtocol,
 };
 use libp2p::swarm::NetworkBehaviour;
@@ -41,6 +42,9 @@ pub struct MePassaBehaviour {
     pub voip_signaling: request_response::Behaviour<SignalingCodec>,
     /// DCUtR for hole punching (requires relay transport)
     pub dcutr: dcutr::Behaviour,
+    /// NET-01: AutoNAT - detecção real de alcançabilidade (substitui a
+    /// heurística por endereços observados no identify)
+    pub autonat: autonat::Behaviour,
 }
 
 impl MePassaBehaviour {
@@ -121,6 +125,17 @@ impl MePassaBehaviour {
         // Note: Relay functionality is integrated at transport level in libp2p 0.53
         let dcutr = dcutr::Behaviour::new(local_peer_id);
 
+        // NET-01: AutoNAT client - sonda a alcançabilidade via outros peers
+        let autonat = autonat::Behaviour::new(
+            local_peer_id,
+            autonat::Config {
+                boot_delay: Duration::from_secs(15),
+                refresh_interval: Duration::from_secs(300),
+                retry_interval: Duration::from_secs(60),
+                ..Default::default()
+            },
+        );
+
         Ok(Self {
             kademlia,
             mdns,
@@ -132,6 +147,7 @@ impl MePassaBehaviour {
             #[cfg(any(feature = "voip", feature = "video"))]
             voip_signaling,
             dcutr,
+            autonat,
         })
     }
 }

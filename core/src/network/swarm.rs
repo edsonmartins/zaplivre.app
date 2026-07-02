@@ -846,6 +846,27 @@ impl NetworkManager {
                     }
                 }
             }
+            MePassaBehaviourEvent::Autonat(autonat_event) => {
+                // NET-01: alcançabilidade REAL medida por outros peers -
+                // decide a estratégia relay-first no lugar da heurística
+                if let libp2p::autonat::Event::StatusChanged { old, new } = autonat_event {
+                    tracing::info!("🌐 AutoNAT status: {:?} -> {:?}", old, new);
+                    match new {
+                        libp2p::autonat::NatStatus::Private => {
+                            if !self.prefer_relay {
+                                tracing::info!("🌐 AutoNAT: private - switching to relay-first");
+                                self.prefer_relay = true;
+                                let _ = self.reserve_relay_slot();
+                            }
+                        }
+                        libp2p::autonat::NatStatus::Public(addr) => {
+                            tracing::info!("🌐 AutoNAT: publicly reachable at {}", addr);
+                            self.prefer_relay = false;
+                        }
+                        libp2p::autonat::NatStatus::Unknown => {}
+                    }
+                }
+            }
             MePassaBehaviourEvent::Dcutr(dcutr_event) => {
                 match dcutr_event.result {
                     Ok(_) => {

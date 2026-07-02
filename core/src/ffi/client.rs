@@ -1022,20 +1022,25 @@ impl MePassaClient {
                     let network_handle = tokio::task::spawn_local(async move {
                         tracing::info!("🌐 Starting network event loop (non-blocking)...");
                         let mut poll_count: u64 = 0;
+                        // NET-03: backoff adaptativo - re-poll imediato após
+                        // evento (rajadas fluem sem latência artificial) e
+                        // sono crescente 1..64ms quando ocioso (menos wakeups
+                        // que o fixo de 10ms; importa em mobile)
+                        let mut idle_sleep_ms: u64 = 1;
                         loop {
                             poll_count += 1;
-                            // Log every 1000 polls (~10 seconds) to confirm loop is running
                             if poll_count.is_multiple_of(1000) {
                                 tracing::debug!("🔄 Network poll #{}", poll_count);
                             }
                             // Poll for one event at a time, releasing lock between polls
                             match client_for_network.poll_network_once().await {
                                 Ok(true) => {
-                                    tracing::info!("📡 Network event processed (poll #{})", poll_count);
+                                    tracing::debug!("📡 Network event processed (poll #{})", poll_count);
+                                    idle_sleep_ms = 1;
                                 }
                                 Ok(false) => {
-                                    // No events, yield to allow other tasks
-                                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                                    tokio::time::sleep(std::time::Duration::from_millis(idle_sleep_ms)).await;
+                                    idle_sleep_ms = (idle_sleep_ms * 2).min(64);
                                 }
                                 Err(e) => {
                                     tracing::error!("Network poll error: {:?}", e);

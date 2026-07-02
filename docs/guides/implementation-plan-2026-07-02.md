@@ -235,9 +235,9 @@ Depende de CORE-07 (callback de mensagens no FFI).
 - [x] **UX-11** (P3) ✅ 2026-07-02 — preview real (list_conversations enriquecido); botão share enganoso removido. *Unificação de idioma: varrer no polimento final.*
 
 ### Rede (pós-alfa, registrar)
-- [ ] **NET-01** (P2) NAT detection real: adicionar AutoNAT (libp2p) ao behaviour em vez da heurística (`nat_detection.rs:60-106`). — 1,5d
+- [x] **NET-01** (P2) ✅ 2026-07-02 — AutoNAT no behaviour (boot 15s, refresh 5min); StatusChanged decide relay-first de verdade (Private → reserva relay; Public → direto). Heurística do identify permanece como sinal complementar.
 - [x] **NET-02** (P3) ✅ 2026-07-02 — DCUtR já registrava HolePunch (Fase 3); contador do bootstrap com decremento saturado.
-- [ ] **NET-03** (P3) Substituir busy-poll de 10ms do swarm por waker adequado (`swarm.rs:435-441`). — 1d
+- [x] **NET-03** (P3) ✅ 2026-07-02 — backoff adaptativo nos drivers (re-poll imediato após evento; ocioso cresce 1→64ms): rajadas sem latência artificial e menos wakeups que o fixo de 10ms. Waker verdadeiro exigiria redesenhar o modelo de lock — não compensa agora.
 - [x] **SRV-16** (P3) ✅ 2026-07-02 — porta default do identity 8083; signaling já em env (Fase 1); uptime real já implementado.
 
 ### Cobertura de testes de UI (adicionado 2026-07-02)
