@@ -84,15 +84,15 @@ Objetivo: nenhum crash conhecido; wrappers deixam de mentir (stubs com sucesso f
 
 Objetivo: mensagem 1:1 nunca se perde silenciosamente; entrega é observável.
 
-- [ ] **CORE-01** (P0) Corrigir race da primeira mensagem: `ensure_peer_connected` (`api/client.rs:450-509`) deve aguardar `ConnectionEstablished` com timeout (ex.: 10s) antes de classificar o peer como offline. *Aceite:* primeira mensagem para peer alcançável vai P2P, não para o store. — 1d
-- [ ] **CORE-02** (P0) Fila de retry outbound persistida: tabela SQLite de mensagens pendentes + worker com backoff usando o `RetryPolicy` existente (`network/retry.rs`, hoje código morto); drenar quando peer conecta ou periodicamente. *Aceite:* enviar com peer offline sem store → mensagem entregue quando o peer voltar. — 2d
-- [ ] **CORE-03** (P1) Tratar `OutboundFailure` (`swarm.rs:686-697`): reencaminhar para a fila de retry (CORE-02) e regredir status da mensagem de `Sent` para `Pending/Failed` visível ao app. — 0,5d
-- [ ] **CORE-04** (P1) Corrigir lock global: reduzir o escopo do write-lock do `NetworkManager` (`client.rs:2087-2099`) — mover descriptografia Signal, escrita SQLite e `std::fs::read` de mídia para fora da seção crítica; remover ou documentar `run_network` (deadlock garantido se chamado). — 1,5d
-- [ ] **CORE-05** (P1) Remover `block_in_place`/`block_on` em `add_reaction`/`remove_reaction` (`client.rs:1583-1661`) — tornar async ou usar canal para o runtime. *Aceite:* reações funcionam em runtime `current_thread`. — 0,5d
-- [ ] **CORE-06** (P1) `spawn_local` sem `LocalSet` (`voip/integration.rs:166` via `builder.rs:194`): usar `tokio::spawn` com tipos Send ou exigir/prover `LocalSet` documentado. *Aceite:* `Client::build` com feature voip funciona em teste comum. — 1d
-- [ ] **CORE-07** (P2) Expor callback de mensagens no FFI: adicionar `FfiMessageEventCallback` (`on_message_received`, `on_message_status_changed`, `on_conversation_updated`) no UDL, ligado ao `ClientEvent` já existente (`api/events.rs:77-79`). Regenerar bindings Kotlin/Swift. *Este é o pré-requisito para remover polling nas 3 plataformas (Fase 8).* — 1,5d
-- [ ] **CORE-08** (P3) Trocar `expect` por erro FFI no build do client (`ffi/client.rs:920`). — 0,25d
-- [ ] **CORE-09** (P2) Canais unbounded (`message_handler.rs:56`, `builder.rs:143`): definir bounds + política de descarte com log. — 0,5d
+- [x] **CORE-01** (P0) ✅ 2026-07-02 — `ensure_peer_connected_with` aguarda a conexão com deadline de 10s após o dial (poll de 200ms); os dois métodos unificados.
+- [x] **CORE-02** (P0) ✅ 2026-07-02 — tabela `outbound_queue` (migration v5) + `storage/outbox.rs` (com testes) + worker no builder com backoff exponencial (5s→15min, purge em 14d). `DeliveryOutcome.queued` → status Pending.
+- [x] **CORE-03** (P1) ✅ 2026-07-02 — mapa `pending_outbound` (request_id→mensagem, só Text/Encrypted) no swarm; `OutboundFailure` → `MessageHandler::requeue_failed_outbound` (enfileira + regride status para Pending); ACK remove do mapa.
+- [ ] **CORE-04** (P1) **PARCIAL** — `run_network` corrigido (loop de poll; antes segurava o write-lock para sempre = deadlock). **Pendente:** processar inbound fora do lock — `handler.handle_incoming_message().await` (decrypt Signal + SQLite + fs) roda dentro do `poll_once` sob write-lock (`swarm.rs:642`); refactor invasivo, fazer com TST-02/03 no lugar. — 1,5d
+- [x] **CORE-05** (P1) ✅ 2026-07-02 — `add_reaction`/`remove_reaction` async reais; `block_in_place`/`block_on` removidos (`broadcast_reaction`).
+- [x] **CORE-06** (P1) ✅ 2026-07-02 (por decisão) — requisito de `LocalSet` para `ClientBuilder::build` formalizado e documentado (NetworkManager é `!Sync` pelo transport do Swarm, com ou sem voip); testes de builder/client rodam em `LocalSet` como o caminho FFI de produção.
+- [x] **CORE-07** (P2) ✅ 2026-07-02 — `FfiMessageEventCallback` no UDL (received/status/typing, eventos thin com IDs) + `register_message_event_callback`; adapter para o `ClientEvent` interno; bindings Kotlin/Swift regenerados (uniffi 0.31.2). Destrava EVT-01/02/03.
+- [x] **CORE-08** (P3) ✅ 2026-07-02 (commit da Fase 2) — `expect` no build → saída graciosa da thread.
+- [ ] **CORE-09** (P2) Canais unbounded (`message_handler.rs:56`, `builder.rs:143`): definir bounds + política de descarte com log. *Adiado: mudar emit_event síncrono para bounded exige revisão dos call sites; baixo risco para alfa.* — 0,5d
 
 **Milestone M2:** texto e mídia 1:1 A↔B nas 4 plataformas, com status correto (Sent→Delivered), sem crash e sem perda silenciosa. Roteiro de teste: `docs/guides/testing-manual.md`.
 
