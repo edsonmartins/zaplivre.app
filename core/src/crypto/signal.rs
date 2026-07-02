@@ -40,6 +40,80 @@ impl SignalSessionManager {
         }
     }
 
+    /// Anexa persistência SQLite (SEC-04): sessões Signal e identidades TOFU
+    /// sobrevivem a restart. Sessões são cifradas com a storage key; as
+    /// identidades confiadas são chaves públicas (armazenadas como estão).
+    /// Carrega o estado existente para a memória.
+    pub async fn attach_persistence(
+        &self,
+        db: crate::storage::Database,
+        storage_key: [u8; 32],
+    ) -> Result<()> {
+        // Carregar sessões persistidas
+        {
+            let rows: Vec<(String, Vec<u8>)> = {
+                let conn = db.conn();
+                let mut stmt = conn
+                    .prepare("SELECT address, record FROM signal_sessions")
+                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                let result = stmt
+                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .map_err(|e| MePassaError::Storage(e.to_string()))?
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                result
+            };
+
+            let mut sessions = self.store.inner.sessions.write().await;
+            for (address, blob) in rows {
+                match crate::crypto::storage::decrypt_for_storage(&storage_key, &blob)
+                    .and_then(|bytes| {
+                        SessionRecord::deserialize(&bytes).map_err(|e| {
+                            MePassaError::Crypto(format!("Invalid session record: {}", e))
+                        })
+                    }) {
+                    Ok(record) => {
+                        sessions.insert(address, record);
+                    }
+                    Err(e) => tracing::warn!("Failed to restore signal session: {}", e),
+                }
+            }
+            if !sessions.is_empty() {
+                tracing::info!("🔐 Restored {} Signal sessions from storage", sessions.len());
+            }
+        }
+
+        // Carregar identidades TOFU
+        {
+            let rows: Vec<(String, Vec<u8>)> = {
+                let conn = db.conn();
+                let mut stmt = conn
+                    .prepare("SELECT address, identity_key FROM signal_identities")
+                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                let result = stmt
+                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .map_err(|e| MePassaError::Storage(e.to_string()))?
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                result
+            };
+
+            let mut identities = self.store.inner.trusted_identities.write().await;
+            for (address, bytes) in rows {
+                match IdentityKey::decode(&bytes) {
+                    Ok(key) => {
+                        identities.insert(address, key);
+                    }
+                    Err(e) => tracing::warn!("Failed to restore trusted identity: {}", e),
+                }
+            }
+        }
+
+        let mut persistence = self.store.inner.persistence.write().await;
+        *persistence = Some((db, storage_key));
+        Ok(())
+    }
+
     pub async fn has_session(&self, peer_id: &str, device_id: u32) -> Result<bool> {
         let address = protocol_address(peer_id, device_id)?;
         let key = address_key(&address);
@@ -168,6 +242,7 @@ impl SignalStore {
                 identity,
                 sessions: RwLock::new(HashMap::new()),
                 trusted_identities: RwLock::new(HashMap::new()),
+                persistence: RwLock::new(None),
             }),
         }
     }
@@ -183,6 +258,58 @@ struct SignalStoreInner {
     identity: Arc<RwLock<Identity>>,
     sessions: RwLock<HashMap<String, SessionRecord>>,
     trusted_identities: RwLock<HashMap<String, IdentityKey>>,
+    /// Persistência SQLite (db + storage key) - SEC-04
+    persistence: RwLock<Option<(crate::storage::Database, [u8; 32])>>,
+}
+
+impl SignalStoreInner {
+    /// Persiste uma sessão (cifrada) - falha só gera warning para não
+    /// bloquear o fluxo de mensagens
+    async fn persist_session(&self, address: &str, record: &SessionRecord) {
+        let persistence = self.persistence.read().await;
+        let Some((db, storage_key)) = persistence.as_ref() else { return };
+
+        let result = record
+            .serialize()
+            .map_err(|e| MePassaError::Crypto(format!("Session serialize failed: {}", e)))
+            .and_then(|bytes| crate::crypto::storage::encrypt_for_storage(storage_key, &bytes))
+            .and_then(|blob| {
+                db.conn()
+                    .execute(
+                        r#"
+                        INSERT INTO signal_sessions (address, record, updated_at)
+                        VALUES (?1, ?2, unixepoch())
+                        ON CONFLICT(address) DO UPDATE SET
+                            record = excluded.record, updated_at = unixepoch()
+                        "#,
+                        rusqlite::params![address, blob],
+                    )
+                    .map_err(|e| MePassaError::Storage(e.to_string()))
+            });
+
+        if let Err(e) = result {
+            tracing::warn!("Failed to persist signal session: {}", e);
+        }
+    }
+
+    /// Persiste uma identidade TOFU (chave pública)
+    async fn persist_identity(&self, address: &str, identity: &IdentityKey) {
+        let persistence = self.persistence.read().await;
+        let Some((db, _)) = persistence.as_ref() else { return };
+
+        let bytes = identity.serialize();
+        let result = db.conn().execute(
+            r#"
+            INSERT INTO signal_identities (address, identity_key)
+            VALUES (?1, ?2)
+            ON CONFLICT(address) DO UPDATE SET identity_key = excluded.identity_key
+            "#,
+            rusqlite::params![address, bytes.as_ref()],
+        );
+        if let Err(e) = result {
+            tracing::warn!("Failed to persist trusted identity: {}", e);
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -209,8 +336,12 @@ impl IdentityKeyStore for SignalStoreHandle {
         identity: &IdentityKey,
     ) -> libsignal_protocol_syft::error::Result<IdentityChange> {
         let key = address_key(address);
-        let mut map = self.inner.trusted_identities.write().await;
-        let changed = map.insert(key, *identity).is_some();
+        let changed = {
+            let mut map = self.inner.trusted_identities.write().await;
+            map.insert(key.clone(), *identity).is_some()
+        };
+        // SEC-04: persistir o pinning TOFU para sobreviver a restart
+        self.inner.persist_identity(&key, identity).await;
         Ok(IdentityChange::from_changed(changed))
     }
 
@@ -379,8 +510,12 @@ impl SessionStore for SignalStoreHandle {
         record: &SessionRecord,
     ) -> libsignal_protocol_syft::error::Result<()> {
         let key = address_key(address);
-        let mut map = self.inner.sessions.write().await;
-        map.insert(key, record.clone());
+        {
+            let mut map = self.inner.sessions.write().await;
+            map.insert(key.clone(), record.clone());
+        }
+        // SEC-04: persistir (cifrado) para sobreviver a restart
+        self.inner.persist_session(&key, record).await;
         Ok(())
     }
 }

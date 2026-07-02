@@ -157,6 +157,15 @@ impl ClientBuilder {
         // IMPORTANT: database.clone() shares the same SQLite connection (via internal Arc<Mutex>)
         // This ensures messages stored by MessageHandler are visible to Client
         let session_manager = SignalSessionManager::new(Arc::clone(&identity));
+
+        // SEC-04: sessões Signal e identidades TOFU persistidas em SQLite
+        // (sessões cifradas com a storage key); restaura o estado existente
+        if let Err(e) = session_manager
+            .attach_persistence(database.clone(), storage_key)
+            .await
+        {
+            tracing::warn!("Failed to attach signal session persistence: {}", e);
+        }
         let message_handler = Arc::new(crate::network::MessageHandler::new(
             peer_id.to_string(),
             Arc::new(database.clone()), // Shares the same SQLite connection!

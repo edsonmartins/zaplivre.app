@@ -44,6 +44,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "Add counter column to group_sender_keys (stateless group crypto)",
         up: migrate_to_v6,
     },
+    Migration {
+        version: 7,
+        description: "Add signal_sessions and signal_identities tables (persist E2E state)",
+        up: migrate_to_v7,
+    },
 ];
 
 /// Migrate database to latest version
@@ -224,6 +229,26 @@ fn migrate_to_v6(db: &Database) -> Result<()> {
             "ALTER TABLE group_sender_keys ADD COLUMN counter INTEGER NOT NULL DEFAULT 0;",
         )?;
     }
+
+    Ok(())
+}
+
+fn migrate_to_v7(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS signal_sessions (
+            address TEXT PRIMARY KEY,
+            record BLOB NOT NULL,
+            updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        CREATE TABLE IF NOT EXISTS signal_identities (
+            address TEXT PRIMARY KEY,
+            identity_key BLOB NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        "#,
+    )?;
 
     Ok(())
 }

@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 6;
+pub const SCHEMA_VERSION: i32 = 7;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -132,6 +132,20 @@ pub fn init_schema(db: &Database) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_outbound_queue_next ON outbound_queue(next_attempt_at);
         CREATE INDEX IF NOT EXISTS idx_outbound_queue_peer ON outbound_queue(peer_id);
+
+        -- Signal sessions (E2E) persisted encrypted with the storage key
+        CREATE TABLE IF NOT EXISTS signal_sessions (
+            address TEXT PRIMARY KEY,
+            record BLOB NOT NULL,
+            updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        -- TOFU trusted identity keys (public keys - stored as-is)
+        CREATE TABLE IF NOT EXISTS signal_identities (
+            address TEXT PRIMARY KEY,
+            identity_key BLOB NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
 
         -- Media table: attachments (images, videos, files)
         CREATE TABLE IF NOT EXISTS media (

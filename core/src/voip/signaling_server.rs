@@ -116,14 +116,25 @@ impl SignalingServerClient {
 }
 
 fn normalize_ws_url(url: &str) -> String {
-    if url.starts_with("ws://") || url.starts_with("wss://") {
+    if url.starts_with("wss://") {
+        return url.to_string();
+    }
+    if url.starts_with("ws://") {
+        // CORE-18: plaintext só com opt-in explícito (dev local)
+        tracing::warn!(
+            "⚠️ Signaling URL uses plaintext ws:// - SDP/ICE will not be encrypted in transit"
+        );
         return url.to_string();
     }
     if url.starts_with("https://") {
         return url.replacen("https://", "wss://", 1);
     }
     if url.starts_with("http://") {
+        tracing::warn!(
+            "⚠️ Signaling URL uses plaintext http:// - SDP/ICE will not be encrypted in transit"
+        );
         return url.replacen("http://", "ws://", 1);
     }
-    format!("ws://{}", url)
+    // CORE-18: URL sem esquema assume TLS (antes caía em ws:// plaintext)
+    format!("wss://{}", url)
 }
