@@ -41,6 +41,12 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Profile : Screen("profile")
     object Search : Screen("search")
+    object MediaGallery : Screen("media_gallery/{peerId}") {
+        fun createRoute(peerId: String) = "media_gallery/$peerId"
+    }
+    object MediaViewer : Screen("media_viewer/{peerId}/{index}") {
+        fun createRoute(peerId: String, index: Int) = "media_viewer/$peerId/$index"
+    }
     object GroupChat : Screen("group_chat/{groupId}") {
         fun createRoute(groupId: String) = "group_chat/$groupId"
     }
@@ -178,6 +184,12 @@ fun MePassaNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
+                onOpenMediaGallery = {
+                    navController.navigate(Screen.MediaGallery.createRoute(peerId))
+                },
+                onOpenSearch = {
+                    navController.navigate(Screen.Search.route)
+                },
                 onStartCall = {
                     // Verificar e solicitar permissões antes de iniciar chamada
                     if (voipPermissions.hasPermissions) {
@@ -280,6 +292,46 @@ fun MePassaNavHost(
                     }
                     peer?.let { navController.navigate(Screen.Chat.createRoute(it)) }
                 }
+            )
+        }
+
+        // Galeria de mídia da conversa (UX-09)
+        composable(
+            route = Screen.MediaGallery.route,
+            arguments = listOf(navArgument("peerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val peerId = backStackEntry.arguments?.getString("peerId") ?: return@composable
+            com.mepassa.ui.screens.media.MediaGalleryScreen(
+                conversationId = "1:1:$peerId",
+                peerName = peerId.take(16),
+                onBack = { navController.popBackStack() },
+                onMediaClick = { media, list ->
+                    val index = list.indexOfFirst { it.id == media.id }.coerceAtLeast(0)
+                    navController.navigate(Screen.MediaViewer.createRoute(peerId, index))
+                }
+            )
+        }
+
+        // Visualizador fullscreen (UX-09)
+        composable(
+            route = Screen.MediaViewer.route,
+            arguments = listOf(
+                navArgument("peerId") { type = NavType.StringType },
+                navArgument("index") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val peerId = backStackEntry.arguments?.getString("peerId") ?: return@composable
+            val index = backStackEntry.arguments?.getInt("index") ?: 0
+            var mediaItems by androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableStateOf<List<uniffi.mepassa.FfiMedia>>(emptyList())
+            }
+            androidx.compose.runtime.LaunchedEffect(peerId) {
+                mediaItems = MePassaClientWrapper.getConversationMedia("1:1:$peerId")
+            }
+            com.mepassa.ui.screens.media.MediaViewerScreen(
+                mediaItems = mediaItems,
+                initialIndex = index,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

@@ -12,6 +12,8 @@
     <!-- Permissões para foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -58,7 +60,7 @@
             android:name=".service.MePassaService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync|phoneCall"
+            android:foregroundServiceType="remoteMessaging|phoneCall"
             android:stopWithTask="false" />
 
         <!-- Firebase Cloud Messaging Service (Push Notifications) -->
@@ -69,6 +71,18 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+
+        <!-- FileProvider para compartilhar/abrir mídia recebida (UX-09) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

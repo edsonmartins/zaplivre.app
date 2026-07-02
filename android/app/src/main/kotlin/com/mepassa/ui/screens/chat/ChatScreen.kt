@@ -145,7 +145,7 @@ fun ChatScreen(
 
                     reactionsMap[message.messageId] = reactionCounts
                 } catch (e: Exception) {
-                    println("Error loading reactions for message ${message.messageId}: ${e.message}")
+                    android.util.Log.e("ChatScreen", "Error loading reactions for ${message.messageId}", e)
                 }
             }
             messageReactions = reactionsMap
@@ -183,7 +183,7 @@ fun ChatScreen(
 
                 messageReactions = messageReactions + (messageId to reactionCounts)
             } catch (e: Exception) {
-                println("Error toggling reaction: ${e.message}")
+                android.util.Log.e("ChatScreen", "Error toggling reaction", e)
             }
         }
     }
@@ -299,7 +299,7 @@ fun ChatScreen(
                                     }
                                 } catch (e: Exception) {
                                     // TODO: Show error to user
-                                    println("Error sending images: ${e.message}")
+                                    android.util.Log.e("ChatScreen", "Error sending images", e)
                                 }
                             }
                         }
@@ -356,7 +356,7 @@ fun ChatScreen(
                                 }
                             } catch (e: Exception) {
                                 // TODO: Show error to user
-                                println("Error sending voice message: ${e.message}")
+                                android.util.Log.e("ChatScreen", "Error sending voice message", e)
                             }
                         }
                     },
@@ -394,7 +394,7 @@ fun ChatScreen(
                                     }
                                 }
                             } catch (e: Exception) {
-                                println("Error sending file: ${e.message}")
+                                android.util.Log.e("ChatScreen", "Error sending file", e)
                             }
                         }
                     },
@@ -486,7 +486,7 @@ fun ChatScreen(
                                 // Reload messages
                                 messages = MePassaClientWrapper.getConversationMessages(peerId)
                             } catch (e: Exception) {
-                                println("Error deleting message: ${e.message}")
+                                android.util.Log.e("ChatScreen", "Error deleting message", e)
                             }
                         }
                         showDeleteDialog = false

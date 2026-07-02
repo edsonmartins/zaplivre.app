@@ -31,6 +31,8 @@ class MePassaService : Service() {
         private const val TAG = "MePassaService"
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "mepassa_service_channel"
+        private const val CALL_CHANNEL_ID = "mepassa_incoming_calls"
+        private const val CALL_NOTIFICATION_ID = 2
 
         fun start(context: Context) {
             val intent = Intent(context, MePassaService::class.java)
@@ -56,6 +58,7 @@ class MePassaService : Service() {
         Log.i(TAG, "Service created")
 
         createNotificationChannel()
+        observeIncomingCalls()
         startForeground(NOTIFICATION_ID, createNotification(0u))
 
         // Inicializar client se ainda não foi
@@ -136,6 +139,58 @@ class MePassaService : Service() {
 
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
+
+            // Canal de chamadas recebidas (AND-14): alta prioridade +
+            // full-screen intent para tocar mesmo com o app em background
+            val callChannel = NotificationChannel(
+                CALL_CHANNEL_ID,
+                "Chamadas recebidas",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notificações de chamadas de voz/vídeo recebidas"
+                setShowBadge(true)
+            }
+            notificationManager.createNotificationChannel(callChannel)
+        }
+    }
+
+    /**
+     * AND-14: observa chamadas recebidas e posta notificação full-screen -
+     * sem isso, chamada com o app em background passa em silêncio
+     */
+    private fun observeIncomingCalls() {
+        serviceScope.launch {
+            MePassaClientWrapper.incomingCall.collect { call ->
+                if (call == null) {
+                    getSystemService(NotificationManager::class.java)
+                        .cancel(CALL_NOTIFICATION_ID)
+                    return@collect
+                }
+
+                val intent = Intent(this@MePassaService, com.mepassa.MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val fullScreenIntent = PendingIntent.getActivity(
+                    this@MePassaService,
+                    1,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val notification = NotificationCompat.Builder(this@MePassaService, CALL_CHANNEL_ID)
+                    .setContentTitle("Chamada recebida")
+                    .setContentText("De ${call.callerPeerId.take(16)}...")
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setCategory(NotificationCompat.CATEGORY_CALL)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setFullScreenIntent(fullScreenIntent, true)
+                    .setOngoing(true)
+                    .setAutoCancel(false)
+                    .build()
+
+                getSystemService(NotificationManager::class.java)
+                    .notify(CALL_NOTIFICATION_ID, notification)
+            }
         }
     }
 
