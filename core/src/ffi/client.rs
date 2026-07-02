@@ -268,6 +268,16 @@ enum ClientCommand {
     GetGroups {
         response: oneshot::Sender<Result<Vec<FfiGroup>, MePassaFfiError>>,
     },
+    GetGroupMembers {
+        group_id: String,
+        response: oneshot::Sender<Result<Vec<String>, MePassaFfiError>>,
+    },
+    UpdateGroup {
+        group_id: String,
+        name: Option<String>,
+        description: Option<String>,
+        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+    },
     GetGroupMessages {
         group_id: String,
         limit: Option<usize>,
@@ -657,6 +667,25 @@ async fn run_client_task_arc(
             ClientCommand::GetGroups { response } => {
                 let result = client
                     .get_groups()
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::GetGroupMembers { group_id, response } => {
+                let result = client
+                    .get_group_members(group_id)
+                    .await
+                    .map_err(|e| e.into());
+                let _ = response.send(result);
+            }
+            ClientCommand::UpdateGroup {
+                group_id,
+                name,
+                description,
+                response,
+            } => {
+                let result = client
+                    .update_group(group_id, name, description)
                     .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
@@ -1888,6 +1917,44 @@ impl MePassaClient {
         self.handle()
             .sender
             .send(ClientCommand::GetGroups { response: tx })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub async fn get_group_members(&self, group_id: String) -> Result<Vec<String>, MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::GetGroupMembers { group_id, response: tx })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| MePassaFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    pub async fn update_group(
+        &self,
+        group_id: String,
+        name: Option<String>,
+        description: Option<String>,
+    ) -> Result<(), MePassaFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::UpdateGroup {
+                group_id,
+                name,
+                description,
+                response: tx,
+            })
             .map_err(|_| MePassaFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;

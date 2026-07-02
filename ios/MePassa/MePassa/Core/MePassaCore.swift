@@ -433,6 +433,22 @@ class MePassaCore: ObservableObject {
     }
 
     /// Add member to group (admin only)
+    /// Update group metadata (admin only)
+    func updateGroup(groupId: String, name: String?, description: String?) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+        try await client.updateGroup(groupId: groupId, name: name, description: description)
+    }
+
+    /// Get group member peer IDs
+    func getGroupMembers(groupId: String) async throws -> [String] {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+        return try await client.getGroupMembers(groupId: groupId)
+    }
+
     func addGroupMember(groupId: String, peerId: String) async throws {
         try await client?.addGroupMember(groupId: groupId, peerId: peerId)
         print("➕ Added member to group \(groupId): \(peerId)")

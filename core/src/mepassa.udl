@@ -320,6 +320,12 @@ interface MePassaClient {
     [Throws=MePassaFfiError, Async]
     sequence<FfiGroup> get_groups();
 
+    [Throws=MePassaFfiError, Async]
+    sequence<string> get_group_members(string group_id);
+
+    [Throws=MePassaFfiError, Async]
+    void update_group(string group_id, string? name, string? description);
+
     [Throws=MePassaFfiError]
     sequence<FfiMessage> get_group_messages(string group_id, u32? limit, u32? offset);
 

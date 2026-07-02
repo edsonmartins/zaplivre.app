@@ -58,6 +58,8 @@ fn main() {
             commands::send_group_message,
             commands::get_group_sender_key_seed,
             commands::add_group_sender_key,
+            commands::get_group_members,
+            commands::update_group,
             // VoIP commands (FASE 12)
             commands::start_call,
             commands::accept_call,

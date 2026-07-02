@@ -312,18 +312,13 @@ struct EditGroupView: View {
         errorMessage = nil
 
         do {
-            // TODO: Update group via MePassaCore
-            /*
+            let trimmedDescription = groupDescription.trimmingCharacters(in: .whitespacesAndNewlines)
             try await MePassaCore.shared.updateGroup(
                 groupId: group.id,
                 name: groupName.trimmingCharacters(in: .whitespacesAndNewlines),
-                description: groupDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : groupDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                description: trimmedDescription.isEmpty ? nil : trimmedDescription
             )
-            */
-
-            // Mock
-            try await Task.sleep(nanoseconds: 500_000_000)
-            errorMessage = "Edição de grupo ainda não implementado"
+            dismiss()
         } catch {
             errorMessage = "Erro ao salvar: \(error.localizedDescription)"
         }

@@ -2169,6 +2169,32 @@ impl Client {
         Ok(())
     }
 
+    /// Get the member peer IDs of a group
+    pub async fn get_group_members(&self, group_id: String) -> Result<Vec<String>> {
+        let group = self
+            .group_manager
+            .get_group(&group_id)
+            .await
+            .ok_or_else(|| MePassaError::NotFound("Group not found".to_string()))?;
+
+        let mut members: Vec<String> = group.members.iter().cloned().collect();
+        members.sort();
+        Ok(members)
+    }
+
+    /// Update group metadata (admin only)
+    pub async fn update_group(
+        &self,
+        group_id: String,
+        name: Option<String>,
+        description: Option<String>,
+    ) -> Result<()> {
+        self.group_manager
+            .update_group(&group_id, name, description, None)
+            .await
+            .map_err(|e| MePassaError::Other(format!("Failed to update group: {}", e)))
+    }
+
     /// Get all groups
     pub async fn get_groups(&self) -> Result<Vec<crate::ffi::FfiGroup>> {
         use crate::ffi::FfiGroup;

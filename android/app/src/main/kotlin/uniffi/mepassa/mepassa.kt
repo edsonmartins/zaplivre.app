@@ -819,6 +819,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages(
     ): Int
+    external fun uniffi_mepassa_core_checksum_method_mepassaclient_get_group_members(
+    ): Int
     external fun uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages(
     ): Int
     external fun uniffi_mepassa_core_checksum_method_mepassaclient_get_group_sender_key_seed(
@@ -888,6 +890,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_mepassa_core_checksum_method_mepassaclient_toggle_mute(
     ): Int
     external fun uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone(
+    ): Int
+    external fun uniffi_mepassa_core_checksum_method_mepassaclient_update_group(
     ): Int
     external fun uniffi_mepassa_core_checksum_constructor_mepassaclient_new(
     ): Int
@@ -972,6 +976,8 @@ external fun uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_media(
 ): RustBuffer.ByValue
 external fun uniffi_mepassa_core_fn_method_mepassaclient_get_conversation_messages(`ptr`: Long,`peerId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+external fun uniffi_mepassa_core_fn_method_mepassaclient_get_group_members(`ptr`: Long,`groupId`: RustBuffer.ByValue,
+): Long
 external fun uniffi_mepassa_core_fn_method_mepassaclient_get_group_messages(`ptr`: Long,`groupId`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,`offset`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 external fun uniffi_mepassa_core_fn_method_mepassaclient_get_group_sender_key_seed(`ptr`: Long,`groupId`: RustBuffer.ByValue,
@@ -1041,6 +1047,8 @@ external fun uniffi_mepassa_core_fn_method_mepassaclient_switch_camera(`ptr`: Lo
 external fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_mute(`ptr`: Long,`callId`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(`ptr`: Long,`callId`: RustBuffer.ByValue,
+): Long
+external fun uniffi_mepassa_core_fn_method_mepassaclient_update_group(`ptr`: Long,`groupId`: RustBuffer.ByValue,`name`: RustBuffer.ByValue,`description`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(`vtable`: UniffiVTableCallbackInterfaceFfiAudioFrameCallback,
 ): Unit
@@ -1216,6 +1224,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 58448) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_group_members() != 28546) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages() != 11603) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1319,6 +1330,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone() != 12721) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mepassa_core_checksum_method_mepassaclient_update_group() != 59486) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 46917) {
@@ -1912,6 +1926,8 @@ public interface MePassaClientInterface {
     
     fun `getConversationMessages`(`peerId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
     
+    suspend fun `getGroupMembers`(`groupId`: kotlin.String): List<kotlin.String>
+    
     fun `getGroupMessages`(`groupId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage>
     
     suspend fun `getGroupSenderKeySeed`(`groupId`: kotlin.String): List<kotlin.UByte>
@@ -1981,6 +1997,8 @@ public interface MePassaClientInterface {
     suspend fun `toggleMute`(`callId`: kotlin.String)
     
     suspend fun `toggleSpeakerphone`(`callId`: kotlin.String)
+    
+    suspend fun `updateGroup`(`groupId`: kotlin.String, `name`: kotlin.String?, `description`: kotlin.String?)
     
     companion object
 }
@@ -2380,6 +2398,27 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
     )
     }
     
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getGroupMembers`(`groupId`: kotlin.String) : List<kotlin.String> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_get_group_members(
+                uniffiHandle,
+                FfiConverterString.lower(`groupId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceString.lift(it) },
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
 
     
     @Throws(MePassaFfiException::class)override fun `getGroupMessages`(`groupId`: kotlin.String, `limit`: kotlin.UInt?, `offset`: kotlin.UInt?): List<FfiMessage> {
@@ -3015,6 +3054,28 @@ open class MePassaClient: Disposable, AutoCloseable, MePassaClientInterface
             UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(
                 uniffiHandle,
                 FfiConverterString.lower(`callId`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_mepassa_core_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_mepassa_core_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        MePassaFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(MePassaFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `updateGroup`(`groupId`: kotlin.String, `name`: kotlin.String?, `description`: kotlin.String?) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_mepassa_core_fn_method_mepassaclient_update_group(
+                uniffiHandle,
+                FfiConverterString.lower(`groupId`),FfiConverterOptionalString.lower(`name`),FfiConverterOptionalString.lower(`description`),
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_mepassa_core_rust_future_poll_void(future, callback, continuation) },

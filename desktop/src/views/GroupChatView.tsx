@@ -27,6 +27,7 @@ export default function GroupChatView() {
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
+  const [groupMembers, setGroupMembers] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   // Ref (não state) para evitar closure obsoleta no setInterval: o intervalo
   // captura o loadMessages criado quando o peer id ainda estava vazio
@@ -49,6 +50,27 @@ export default function GroupChatView() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Carregar membros quando o modal de info abre
+  useEffect(() => {
+    if (!showGroupInfo || !groupId) return
+    invoke<string[]>('get_group_members', { groupId })
+      .then(setGroupMembers)
+      .catch((error) => console.error('Failed to load group members:', error))
+  }, [showGroupInfo, groupId])
+
+  const handleLeaveGroup = async () => {
+    if (!groupId) return
+    if (!window.confirm('Sair do grupo?')) return
+
+    try {
+      await invoke('leave_group', { groupId })
+      navigate('/groups')
+    } catch (error) {
+      console.error('Failed to leave group:', error)
+      setErrorMessage('Failed to leave group: ' + String(error))
+    }
+  }
 
   const loadGroup = async () => {
     try {
@@ -335,6 +357,27 @@ export default function GroupChatView() {
                 </div>
               </div>
 
+              {/* Member list */}
+              {groupMembers.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Membros</h4>
+                  <ul className="space-y-1 max-h-40 overflow-y-auto">
+                    {groupMembers.map((member) => (
+                      <li
+                        key={member}
+                        className="text-xs font-mono text-gray-600 bg-gray-50 rounded px-2 py-1 truncate"
+                        title={member}
+                      >
+                        {member}
+                        {member === localPeerIdRef.current && (
+                          <span className="ml-2 text-blue-600">(você)</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="space-y-2">
                 {group.is_admin && (
@@ -342,7 +385,10 @@ export default function GroupChatView() {
                     Add Member
                   </button>
                 )}
-                <button className="w-full btn-secondary text-sm text-red-600 hover:bg-red-50">
+                <button
+                  className="w-full btn-secondary text-sm text-red-600 hover:bg-red-50"
+                  onClick={handleLeaveGroup}
+                >
                   Leave Group
                 </button>
               </div>

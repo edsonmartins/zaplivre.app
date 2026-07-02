@@ -607,6 +607,8 @@ public protocol MePassaClientProtocol: AnyObject, Sendable {
     
     func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
     
+    func getGroupMembers(groupId: String) async throws  -> [String]
+    
     func getGroupMessages(groupId: String, limit: UInt32?, offset: UInt32?) throws  -> [FfiMessage]
     
     func getGroupSenderKeySeed(groupId: String) async throws  -> [UInt8]
@@ -676,6 +678,8 @@ public protocol MePassaClientProtocol: AnyObject, Sendable {
     func toggleMute(callId: String) async throws 
     
     func toggleSpeakerphone(callId: String) async throws 
+    
+    func updateGroup(groupId: String, name: String?, description: String?) async throws 
     
 }
 open class MePassaClient: MePassaClientProtocol, @unchecked Sendable {
@@ -963,6 +967,23 @@ open func getConversationMessages(peerId: String, limit: UInt32?, offset: UInt32
         FfiConverterOptionUInt32.lower(offset),$0
     )
 })
+}
+    
+open func getGroupMembers(groupId: String)async throws  -> [String]  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_get_group_members(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(groupId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_mepassa_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_mepassa_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceString.lift,
+            errorHandler: FfiConverterTypeMePassaFfiError_lift
+        )
 }
     
 open func getGroupMessages(groupId: String, limit: UInt32?, offset: UInt32?)throws  -> [FfiMessage]  {
@@ -1441,6 +1462,23 @@ open func toggleSpeakerphone(callId: String)async throws   {
                 uniffi_mepassa_core_fn_method_mepassaclient_toggle_speakerphone(
                     self.uniffiCloneHandle(),
                     FfiConverterString.lower(callId)
+                )
+            },
+            pollFunc: ffi_mepassa_core_rust_future_poll_void,
+            completeFunc: ffi_mepassa_core_rust_future_complete_void,
+            freeFunc: ffi_mepassa_core_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMePassaFfiError_lift
+        )
+}
+    
+open func updateGroup(groupId: String, name: String?, description: String?)async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_mepassa_core_fn_method_mepassaclient_update_group(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(groupId),FfiConverterOptionString.lower(name),FfiConverterOptionString.lower(description)
                 )
             },
             pollFunc: ffi_mepassa_core_rust_future_poll_void,
@@ -4238,6 +4276,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_conversation_messages() != 58448) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_get_group_members() != 28546) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_get_group_messages() != 11603) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4341,6 +4382,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_toggle_speakerphone() != 12721) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_update_group() != 59486) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mepassa_core_checksum_constructor_mepassaclient_new() != 46917) {

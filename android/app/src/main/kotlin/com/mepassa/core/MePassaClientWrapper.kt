@@ -565,6 +565,35 @@ object MePassaClientWrapper {
     }
 
     /**
+     * Retorna os peer IDs dos membros de um grupo
+     */
+    suspend fun getGroupMembers(groupId: String): List<String> = withContext(Dispatchers.IO) {
+        try {
+            getClient().getGroupMembers(groupId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get group members", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Atualiza nome/descrição de um grupo (admin only)
+     */
+    suspend fun updateGroup(
+        groupId: String,
+        name: String?,
+        description: String?
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            getClient().updateGroup(groupId, name, description)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update group", e)
+            false
+        }
+    }
+
+    /**
      * Register callback for VoIP control events (mute/speaker/camera)
      */
     fun registerVoipEventCallback(callback: uniffi.mepassa.FfiVoipEventCallback) {

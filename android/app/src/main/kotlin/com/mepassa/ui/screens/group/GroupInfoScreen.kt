@@ -32,11 +32,13 @@ fun GroupInfoScreen(
     val scope = rememberCoroutineScope()
 
     var group by remember { mutableStateOf<FfiGroup?>(null) }
+    var members by remember { mutableStateOf<List<String>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var showAddMemberDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
+    val localPeerId by MePassaClientWrapper.localPeerId.collectAsState()
 
     // Carregar informações do grupo
     LaunchedEffect(groupId) {
@@ -44,6 +46,7 @@ fun GroupInfoScreen(
             try {
                 val groups = MePassaClientWrapper.getGroups()
                 group = groups.find { it.id == groupId }
+                members = MePassaClientWrapper.getGroupMembers(groupId)
                 isLoading = false
 
                 if (group == null) {
@@ -154,19 +157,30 @@ fun GroupInfoScreen(
                         )
                     }
 
-                    // TODO: Listar membros quando API estiver disponível
-                    item {
+                    // Lista de membros (peer IDs)
+                    items(members.size) { index ->
+                        val member = members[index]
+                        val isMe = member == localPeerId
                         Card {
                             ListItem(
                                 headlineContent = {
-                                    Text("Lista de membros disponível em breve")
+                                    Text(
+                                        text = member.take(24) + if (member.length > 24) "..." else "",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
                                 },
                                 supportingContent = {
-                                    Text("Implementação pendente de API de membros")
+                                    val roles = buildList {
+                                        if (isMe) add("Você")
+                                        if (member == group!!.creatorPeerId) add("Admin")
+                                    }
+                                    if (roles.isNotEmpty()) {
+                                        Text(roles.joinToString(" · "))
+                                    }
                                 },
                                 leadingContent = {
                                     Icon(
-                                        Icons.Default.Group,
+                                        if (isMe) Icons.Default.Person else Icons.Default.Group,
                                         contentDescription = null
                                     )
                                 }
@@ -585,10 +599,16 @@ fun EditGroupDialog(
                         isSaving = true
                         errorMessage = null
                         try {
-                            // TODO: Implementar updateGroup quando disponível no FFI
-                            errorMessage = "Edição de grupo ainda não implementado"
-                            // MePassaClientWrapper.updateGroup(group.id, nameInput.trim(), descriptionInput.trim())
-                            // onSuccess()
+                            val ok = MePassaClientWrapper.updateGroup(
+                                group.id,
+                                nameInput.trim(),
+                                descriptionInput.trim().ifEmpty { null }
+                            )
+                            if (ok) {
+                                onSuccess()
+                            } else {
+                                errorMessage = "Erro ao salvar alterações"
+                            }
                         } catch (e: Exception) {
                             errorMessage = "Erro ao salvar: ${e.message}"
                         } finally {
