@@ -10,13 +10,11 @@ pub mod codec;
 pub mod integration;
 pub mod manager;
 #[cfg(feature = "voip")]
-pub mod pipeline;
 pub mod rtp_video;
 pub mod signaling;
 pub mod signaling_server;
 pub mod turn;
 pub mod video;
-pub mod video_pipeline;
 pub mod webrtc;
 
 use thiserror::Error;
@@ -53,7 +51,6 @@ pub use codec::{OpusCodec, OpusConfig, OpusDecoder, OpusEncoder};
 pub use integration::VoIPIntegration;
 pub use manager::{CallEvent, CallManager, TurnCredentials};
 #[cfg(feature = "voip")]
-pub use pipeline::AudioPipeline;
 pub use signaling::{SignalingCodec, SignalingMessage};
 pub use signaling_server::SignalingServerClient;
 pub use turn::TurnCredentialsClient;
@@ -62,5 +59,4 @@ pub use video::{
     CameraInfo, CameraPosition, PixelFormat, VideoCapture, VideoCodec, VideoConfig, VideoFrame,
     VideoResolution,
 };
-pub use video_pipeline::{VideoDecoderPipeline, VideoEncoderPipeline, VideoStats};
 pub use webrtc::{build_turn_config, WebRTCPeer};

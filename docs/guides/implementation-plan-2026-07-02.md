@@ -102,18 +102,18 @@ Objetivo: mensagem 1:1 nunca se perde silenciosamente; entrega é observável.
 
 Objetivo: callee recebe a chamada em todas as plataformas; estados corretos.
 
-- [ ] **AND-06** (P0) Registrar `FfiCallEventCallback` no Android (init do wrapper/service), navegar para `Screen.IncomingCall` em `on_incoming_call`, tratar `on_call_state_changed`/`on_call_ended` no `CallScreen`. *Aceite:* Android recebe chamada do iOS e atende. — 1d
-- [ ] **DSK-05** (P0) Registrar `FfiCallEventCallback` no desktop (`commands.rs`), emitir eventos `voip:incoming_call`/`voip:call_state`/`voip:call_ended`, renderizar `IncomingCallModal` (já pronto, nunca importado) no `App.tsx`. — 1d
-- [ ] **IOS-08** (P1) Ligar chamada de voz na UI: implementar `startVoiceCall()` (`ChatView.swift:454-457`) via CallManager; decidir destino das telas órfãs `CallScreen`/`IncomingCallScreen` (usar ou remover — CallKit já cobre?). — 0,5d
-- [ ] **IOS-09** (P1) Corrigir `.connected` prematuro em `CallManager.swift:296-303` — estado deve vir de `handleCallStateChanged` (`:244-266`). — 0,25d
-- [ ] **AND-07** (P2) CallScreen Android: observar estado real (não iniciar timer ao entrar na tela); tratar rejeição/encerramento remoto. — 0,5d
-- [ ] **CORE-10** (P2) Buffer de ICE candidates que chegam antes do offer (`voip/manager.rs:222-231,433-436`) — hoje descartados com "Call not found". — 0,5d
-- [ ] **CORE-11** (P2) Fallback de signaling que raramente dispara: `send_voip_signal` retorna Ok antes da entrega (`integration.rs:457`; `swarm.rs:387-400`) — aguardar confirmação/timeout antes de considerar entregue, senão acionar fallback WS. — 1d
-- [ ] **CORE-12** (P2) Robustez VoIP: aumentar canal de `CallEvent` (128) e logar sends falhos (`manager.rs:144`); remover `.expect()` do encoder Opus (`manager.rs:616`, `codec.rs:229`); preencher `FfiCall.video_enabled/video_codec` (`ffi/types.rs:310-311`). — 0,5d
-- [ ] **DSK-06** (P1) Captura e envio de vídeo local no desktop: comando `send_video_frame` + captura via `getUserMedia` no frontend (ou documentar como recepção-somente nesta fase). — 2d (ou 0,1d para documentar limitação)
-- [ ] **AND-08** (P1) Validar caminho de áudio `cpal` no Android em device real; se falhar, decidir: backend AAudio/Oboe via JNI ou envio de frames do Kotlin (`send_audio_frame` já existe no FFI). *Spike primeiro (0,5d), correção estimada à parte.* — 0,5d+
-- [ ] **CORE-13** (P3) VP9 packetization não conforme (delega a VP8) (`rtp_video.rs:412-418`): restringir negociação a H.264/VP8 por ora. — 0,25d
-- [ ] **CORE-14** (P3) Remover código morto de vídeo (`voip/pipeline.rs`, `voip/video_pipeline.rs` desconectado). — 0,25d
+- [x] **AND-06** (P0) ✅ 2026-07-02 — `FfiCallEventCallback` registrado no `initialize()`; eventos expostos como StateFlows; NavHost navega para IncomingCall. *Validação de compile pendente (sem Android SDK nesta máquina).*
+- [x] **DSK-05** (P0) ✅ 2026-07-02 — `CallEventEmitter` no init_client emite `voip:incoming_call`/`call_state`/`call_ended`; `IncomingCallModal` renderizado no App com notificação; `call_ended` fecha modal/tela. tsc + cargo check OK.
+- [x] **IOS-08** (P1) ✅ 2026-07-02 — `startVoiceCall()` via `callManager.startCall`. Telas órfãs CallScreen/IncomingCallScreen: manter decisão para depois (CallKit cobre a UI de chamada nativa).
+- [x] **IOS-09** (P1) ✅ 2026-07-02 — `.connecting` até o core reportar ACTIVE (caller e CXAnswerCallAction); áudio inicia na transição real em `handleCallStateChanged`.
+- [x] **AND-07** (P2) ✅ 2026-07-02 — CallScreen observa `callState`/`callEnded`; timer só conta em ACTIVE; encerramento remoto fecha a tela.
+- [x] **CORE-10** (P2) ✅ 2026-07-02 — `pending_ice` buffer (cap 64/chamada) + `drain_pending_ice` ao registrar o peer.
+- [x] **CORE-11** (P2) ✅ 2026-07-02 — sinais em voo rastreados (`pending_voip_signals`); `OutboundFailure` reenvia via canal fallback → servidor WebSocket (consumidor no `VoIPIntegration::spawn`).
+- [x] **CORE-12** (P2) ✅ 2026-07-02 — canal CallEvent 128→1024; expect do Opus → erro; `FfiCall.video_enabled/video_codec` reais (novos campos em `Call`).
+- [ ] **DSK-06** (P1) Captura e envio de vídeo local no desktop: comando `send_video_frame` + captura via `getUserMedia` no frontend. *Decisão 2026-07-02: desktop fica recepção-somente de vídeo nesta fase; UI já mostra placeholder no preview local.* — 2d
+- [ ] **AND-08** (P1) Validar caminho de áudio `cpal` no Android em **device real** (não validável nesta máquina); se falhar, decidir: backend AAudio/Oboe via JNI ou envio de frames do Kotlin (`send_audio_frame` já existe no FFI). — 0,5d+
+- [x] **CORE-13** (P3) ✅ 2026-07-02 — `enable_video` força fallback VP9→VP8 com warning.
+- [x] **CORE-14** (P3) ✅ 2026-07-02 — `voip/pipeline.rs` e `voip/video_pipeline.rs` (código morto) removidos.
 
 **Milestone M3:** chamada de voz iOS↔Android↔Desktop com atender/recusar/desligar/mute; vídeo onde suportado. Roteiro: `docs/guides/video-calls-checklist.md`.
 
