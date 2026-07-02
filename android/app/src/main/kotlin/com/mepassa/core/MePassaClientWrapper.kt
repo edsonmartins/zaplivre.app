@@ -36,6 +36,43 @@ object MePassaClientWrapper {
     private val _localPeerId = MutableStateFlow<String?>(null)
     val localPeerId: StateFlow<String?> = _localPeerId.asStateFlow()
 
+    // ─── Eventos de chamada (core -> UI) ───────────────────────────────────
+    data class IncomingCallEvent(val callId: String, val callerPeerId: String)
+
+    private val _incomingCall = MutableStateFlow<IncomingCallEvent?>(null)
+    val incomingCall: StateFlow<IncomingCallEvent?> = _incomingCall.asStateFlow()
+
+    private val _callState = MutableStateFlow<Pair<String, FfiCallState>?>(null)
+    val callState: StateFlow<Pair<String, FfiCallState>?> = _callState.asStateFlow()
+
+    private val _callEnded = MutableStateFlow<Pair<String, FfiCallEndReason>?>(null)
+    val callEnded: StateFlow<Pair<String, FfiCallEndReason>?> = _callEnded.asStateFlow()
+
+    /** Limpa o evento de chamada recebida após a UI navegar */
+    fun consumeIncomingCall() {
+        _incomingCall.value = null
+    }
+
+    private val callEventCallback = object : FfiCallEventCallback {
+        override fun onIncomingCall(callId: String, fromPeerId: String) {
+            Log.i(TAG, "📞 Incoming call $callId from $fromPeerId")
+            _incomingCall.value = IncomingCallEvent(callId, fromPeerId)
+        }
+
+        override fun onCallStateChanged(callId: String, state: FfiCallState) {
+            Log.i(TAG, "📞 Call $callId state: $state")
+            _callState.value = callId to state
+        }
+
+        override fun onCallEnded(callId: String, reason: FfiCallEndReason) {
+            Log.i(TAG, "📞 Call $callId ended: $reason")
+            _callEnded.value = callId to reason
+            if (_incomingCall.value?.callId == callId) {
+                _incomingCall.value = null
+            }
+        }
+    }
+
     /**
      * Inicializa o MePassaClient
      *
@@ -88,6 +125,14 @@ object MePassaClientWrapper {
                 registerVoipEventCallback(VoipEventHandler(context))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to register VoIP event callback", e)
+            }
+
+            // Register call lifecycle callback (incoming/state/ended) - sem isso
+            // o callee nunca fica sabendo de uma chamada recebida
+            try {
+                client!!.registerCallEventCallback(callEventCallback)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to register call event callback", e)
             }
 
             Log.i(TAG, "Client initialized successfully. PeerId: $peerId")

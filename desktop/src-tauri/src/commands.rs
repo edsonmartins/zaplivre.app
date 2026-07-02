@@ -1,5 +1,5 @@
 use mepassa_core::ffi::MePassaClient;
-use mepassa_core::{FfiVideoCodec, FfiVideoFrameCallback, FfiVoipEventCallback};
+use mepassa_core::{FfiCallEventCallback, FfiVideoCodec, FfiVideoFrameCallback, FfiVoipEventCallback};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 use base64::{engine::general_purpose, Engine as _};
@@ -39,6 +39,38 @@ impl FfiVoipEventCallback for VoipEventLogger {
         let _ = self.app.emit(
             "voip:camera_switch_requested",
             serde_json::json!({ "call_id": call_id }),
+        );
+    }
+}
+
+/// Emite eventos de ciclo de vida de chamada para o frontend - sem isso o
+/// callee nunca fica sabendo de uma chamada recebida.
+struct CallEventEmitter {
+    app: tauri::AppHandle,
+}
+
+impl FfiCallEventCallback for CallEventEmitter {
+    fn on_incoming_call(&self, call_id: String, from_peer_id: String) {
+        tracing::info!("📞 Incoming call {} from {}", call_id, from_peer_id);
+        let _ = self.app.emit(
+            "voip:incoming_call",
+            serde_json::json!({ "call_id": call_id, "from_peer_id": from_peer_id }),
+        );
+    }
+
+    fn on_call_state_changed(&self, call_id: String, state: mepassa_core::ffi::FfiCallState) {
+        tracing::info!("📞 Call {} state: {:?}", call_id, state);
+        let _ = self.app.emit(
+            "voip:call_state",
+            serde_json::json!({ "call_id": call_id, "state": format!("{:?}", state) }),
+        );
+    }
+
+    fn on_call_ended(&self, call_id: String, reason: mepassa_core::ffi::FfiCallEndReason) {
+        tracing::info!("📞 Call {} ended: {:?}", call_id, reason);
+        let _ = self.app.emit(
+            "voip:call_ended",
+            serde_json::json!({ "call_id": call_id, "reason": format!("{:?}", reason) }),
         );
     }
 }
@@ -120,8 +152,13 @@ pub async fn init_client(
     *client_guard = Some(client);
 
     if let Some(client) = client_guard.as_ref() {
-        if let Err(err) = client.register_voip_event_callback(Box::new(VoipEventLogger { app })) {
+        if let Err(err) =
+            client.register_voip_event_callback(Box::new(VoipEventLogger { app: app.clone() }))
+        {
             tracing::warn!("Failed to register VoIP event callback: {}", err);
+        }
+        if let Err(err) = client.register_call_event_callback(Box::new(CallEventEmitter { app })) {
+            tracing::warn!("Failed to register call event callback: {}", err);
         }
     }
 

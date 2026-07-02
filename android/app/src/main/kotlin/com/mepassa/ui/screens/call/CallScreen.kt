@@ -46,6 +46,22 @@ fun CallScreen(
     var callDuration by remember { mutableStateOf(0) } // em segundos
     var isCallActive by remember { mutableStateOf(true) }
 
+    // Estado real da chamada vindo do core (FfiCallEventCallback)
+    val callStateEvent by MePassaClientWrapper.callState.collectAsState()
+    val callEndedEvent by MePassaClientWrapper.callEnded.collectAsState()
+    val isConnected = callStateEvent?.let { (id, state) ->
+        id == callId && state == uniffi.mepassa.FfiCallState.ACTIVE
+    } ?: false
+
+    // Encerramento remoto: sair da tela quando o core reportar fim da chamada
+    LaunchedEffect(callEndedEvent) {
+        val (endedId, _) = callEndedEvent ?: return@LaunchedEffect
+        if (endedId == callId) {
+            isCallActive = false
+            onCallEnded()
+        }
+    }
+
     // Iniciar gerenciamento de áudio
     DisposableEffect(Unit) {
         audioManager.startCall()
@@ -54,9 +70,9 @@ fun CallScreen(
         }
     }
 
-    // Timer para duração da chamada
-    LaunchedEffect(Unit) {
-        while (isCallActive) {
+    // Timer só conta a partir da chamada conectada (estado ACTIVE do core)
+    LaunchedEffect(isConnected) {
+        while (isCallActive && isConnected) {
             delay(1.seconds)
             callDuration++
         }
@@ -107,18 +123,18 @@ fun CallScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Status
+                // Status (refletindo o estado real do core)
                 Text(
-                    text = "Chamada em andamento",
+                    text = if (isConnected) "Chamada em andamento" else "Chamando...",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Timer
+                // Timer (só conta após conectar)
                 Text(
-                    text = formatDuration(callDuration),
+                    text = if (isConnected) formatDuration(callDuration) else "—",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium

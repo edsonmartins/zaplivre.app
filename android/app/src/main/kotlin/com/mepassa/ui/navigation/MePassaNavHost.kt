@@ -4,6 +4,8 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
@@ -82,6 +84,17 @@ fun MePassaNavHost(
             launchSingleTop = true
         }
         onPeerIdConsumed()
+    }
+
+    // Chamada recebida (core -> FfiCallEventCallback -> StateFlow): navegar
+    // para a tela de IncomingCall assim que o evento chegar
+    val incomingCall by MePassaClientWrapper.incomingCall.collectAsState()
+    LaunchedEffect(incomingCall) {
+        val call = incomingCall ?: return@LaunchedEffect
+        navController.navigate(Screen.IncomingCall.createRoute(call.callId, call.callerPeerId)) {
+            launchSingleTop = true
+        }
+        MePassaClientWrapper.consumeIncomingCall()
     }
 
     NavHost(navController = navController, startDestination = startDestination) {

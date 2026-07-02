@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { homeDir } from '@tauri-apps/api/path'
+import IncomingCallModal from './components/IncomingCallModal'
 import OnboardingView from './views/OnboardingView'
 import ConversationsView from './views/ConversationsView'
 import ChatView from './views/ChatView'
@@ -27,6 +28,10 @@ function App() {
   const [localPeerId, setLocalPeerId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [toasts, setToasts] = useState<VoipToast[]>([])
+  const [incomingCall, setIncomingCall] = useState<{
+    callId: string
+    callerPeerId: string
+  } | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -153,7 +158,37 @@ function App() {
           }, 6000)
         }
       )
-      unsubs.push(mute, speaker, camera)
+      // Ciclo de vida de chamadas (callee): sem estes listeners quem recebe
+      // uma chamada nunca fica sabendo dela
+      const incoming = await listen<{ call_id: string; from_peer_id: string }>(
+        'voip:incoming_call',
+        (event) => {
+          console.log('📞 voip:incoming_call', event.payload)
+          setIncomingCall({
+            callId: event.payload.call_id,
+            callerPeerId: event.payload.from_peer_id,
+          })
+          invoke('show_notification', {
+            title: 'Chamada recebida',
+            body: `De ${event.payload.from_peer_id.slice(0, 16)}...`,
+          }).catch(() => undefined)
+        }
+      )
+      const ended = await listen<{ call_id: string; reason: string }>(
+        'voip:call_ended',
+        (event) => {
+          console.log('📞 voip:call_ended', event.payload)
+          // Fechar o modal se a chamada recebida foi cancelada pelo caller
+          setIncomingCall((prev) =>
+            prev?.callId === event.payload.call_id ? null : prev
+          )
+          // Se estamos na tela da chamada encerrada, voltar para conversas
+          if (window.location.pathname.includes(event.payload.call_id)) {
+            navigate('/conversations')
+          }
+        }
+      )
+      unsubs.push(mute, speaker, camera, incoming, ended)
     }
 
     registerVoipListeners()
@@ -244,6 +279,13 @@ function App() {
             </div>
           ))}
         </div>
+      )}
+      {incomingCall && (
+        <IncomingCallModal
+          callId={incomingCall.callId}
+          callerPeerId={incomingCall.callerPeerId}
+          onClose={() => setIncomingCall(null)}
+        />
       )}
       <Routes>
       <Route path="/onboarding" element={<OnboardingView localPeerId={localPeerId} />} />
