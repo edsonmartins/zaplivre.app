@@ -127,7 +127,7 @@ Objetivo: grupo multi-dispositivo funcional e íntegro; sem hack de chave por me
 - [ ] **CORE-16** (P0) Protocolo in-band de grupo: mensagens de protocolo tipadas (protobuf) para invite/join/leave/membership-update e **distribuição de sender key via sessão 1:1 E2E** (substituindo o hack `mepassa-group-key:v1:` sobre texto). Validar remetente contra membership antes de aceitar seed. Atualizar `group/manager.rs:137-171` para processar membership recebida. — 3d
 - [ ] **AND-09** (P1) Android: remover o parsing de `mepassa-group-key:` por string-matching (`MePassaClientWrapper.kt:589-619`) quando CORE-16 chegar; validar origem. — 0,5d
 - [ ] **DSK-07** (P1) Desktop: idem — remover aceitação de sender key de qualquer peer (`ConversationsView.tsx:103-150`, `ChatView.tsx:73-127`) e ligar `join_group` ao fluxo de convite. — 0,5d
-- [ ] **IOS-10** (P0) iOS: descomentar chamadas reais em `GroupListView.swift:102-119` (loadGroups) e `:237-255` (createGroup); ligar `leaveGroup` real (`GroupInfoView.swift:150-157`). *Aceite:* grupos criados aparecem e persistem.* — 0,5d
+- [x] **IOS-10** (P0) ✅ 2026-07-02 (antecipado) — loadGroups/createGroup/leaveGroup reais via MePassaCore (mocks removidos). *Validar com xcodebuild no primeiro build iOS.*
 - [ ] **DSK-08** (P2) Desktop: botão Leave Group com onClick (`GroupChatView.tsx:354-356`); Group Info com lista de membros real. — 0,5d
 - [ ] **AND-10** (P2) Android: lista de membros real no `GroupInfoScreen.kt:157-170`; adicionar `update_group` ao FFI (nome/descrição) e ligar edição (`:587-589`). — 1d
 - [ ] **IOS-11** (P2) iOS: edição de grupo real (`GroupInfoView.swift:321-332`) usando o mesmo `update_group`. — 0,25d

@@ -147,13 +147,7 @@ struct GroupInfoView: View {
         errorMessage = nil
 
         do {
-            // TODO: Leave group via MePassaCore
-            /*
             try await MePassaCore.shared.leaveGroup(groupId: group.id)
-            */
-
-            // Mock
-            try await Task.sleep(nanoseconds: 500_000_000)
             print("👋 Left group: \(group.name)")
 
             dismiss()

@@ -99,11 +99,9 @@ struct GroupListView: View {
         errorMessage = nil
 
         do {
-            // TODO: Load groups from MePassaCore
-            /*
             let groups = try await MePassaCore.shared.getGroups()
             appState.groups = groups.map {
-                Group(
+                ChatGroup(
                     id: $0.id,
                     name: $0.name,
                     description: $0.description,
@@ -112,11 +110,6 @@ struct GroupListView: View {
                     createdAt: $0.createdAt
                 )
             }
-            */
-
-            // Mock data
-            try await Task.sleep(nanoseconds: 500_000_000)
-            appState.groups = []
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -234,14 +227,14 @@ struct CreateGroupView: View {
         errorMessage = nil
 
         do {
-            // TODO: Create group via MePassaCore
-            /*
+            let trimmedName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedDescription = groupDescription.trimmingCharacters(in: .whitespacesAndNewlines)
             let group = try await MePassaCore.shared.createGroup(
-                name: groupName.trimmingCharacters(in: .whitespacesAndNewlines),
-                description: groupDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : groupDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                name: trimmedName,
+                description: trimmedDescription.isEmpty ? nil : trimmedDescription
             )
 
-            appState.groups.append(Group(
+            appState.groups.append(ChatGroup(
                 id: group.id,
                 name: group.name,
                 description: group.description,
@@ -249,10 +242,6 @@ struct CreateGroupView: View {
                 isAdmin: group.isAdmin,
                 createdAt: group.createdAt
             ))
-            */
-
-            // Mock
-            try await Task.sleep(nanoseconds: 500_000_000)
 
             dismiss()
         } catch {
