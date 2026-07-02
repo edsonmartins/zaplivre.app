@@ -186,15 +186,15 @@ Objetivo: apto a testes com dados reais. Nada de plaintext silencioso; backend n
 
 Depende de CORE-07 (callback de mensagens no FFI).
 
-- [ ] **EVT-01** (P2) Android: substituir polling (ChatScreen 2s, Conversations 5s, GroupChat 3s) por `FfiMessageEventCallback`; corrigir bug do `filtered.size > messages.size` (`ChatScreen.kt:314`) que esconde updates de status/deleção. — 1d
-- [ ] **EVT-02** (P2) iOS: substituir timers (`MePassaApp.swift:173-182`, `ChatView.swift:442-447`) pelo callback. — 1d
-- [ ] **EVT-03** (P2) Desktop: emitir eventos Tauri de mensagem a partir do callback; remover polling (ChatView 2s, Conversations 5s/30s, Group 3s/10s); de quebra elimina notificações duplicadas (`ChatView.tsx:132-147` + `ConversationsView.tsx:50-68`). — 1d
+- [x] **EVT-01** (P2) ✅ 2026-07-02 — SharedFlow de eventos no wrapper; Chat/Conversations coletam eventos (polling vira safety net de 30s); bug do `size >` removido. *Grupos continuam com polling (eventos de grupo têm canal próprio não exposto — futuro).*
+- [x] **EVT-02** (P2) ✅ 2026-07-02 — `MessageEventHandler` (novo arquivo — rodar xcodegen) via NotificationCenter; timers 2s/5s → safety net 30s.
+- [x] **EVT-03** (P2) ✅ 2026-07-02 — eventos Tauri `message:received/status/typing`; polling 2s/5s → safety net 30s; notificações duplicadas eliminadas.
 
 ### Identidade: backup/restore funcionais
-- [ ] **IDN-01** (P1) Definir fluxo de import ANTES do init do client: Android — onboarding pergunta "restaurar?" antes de `initialize()` (remover auto-init do `MainActivity.kt:61` ou condicioná-lo); resolver corrida do `OnboardingScreen.kt:43-50`. — 1d
-- [ ] **IDN-02** (P1) iOS — mesmo problema: `MePassaApp.init()` inicializa antes da LoginView; suportar init adiado ou reinit para import (`MePassaCore.swift:79-81`). — 1d
-- [ ] **AND-13** (P1) Android: ligar Settings/Profile/Search/MediaGallery/MediaViewer ao NavHost (`MePassaNavHost.kt`) — sem isso export de backup e troca de prekeys ficam inacessíveis. — 0,5d
-- [ ] **DSK-09** (P2) Desktop: UI de backup/restore de identidade (export/import — comandos keychain já existem em `commands.rs:90-131`). — 1d
+- [x] **IDN-01** (P1) ✅ 2026-07-02 — auto-init (MainActivity e service) condicionado à existência de identidade; primeira execução decide criar/restaurar no Onboarding, que inicia o service ao concluir.
+- [x] **IDN-02** (P1) ✅ 2026-07-02 — guard `hasExistingIdentity` no launch; pós-init extraído (`completeCoreSetup`) e disparado pela LoginView via `.mePassaCoreStarted` — criar/restaurar funciona sem reiniciar o app.
+- [x] **AND-13** (P1) ✅ 2026-07-02 — Settings/Profile/Search no NavHost com ícones na barra de conversas (backup e prekeys acessíveis). MediaGallery/Viewer ficam para UX-09.
+- [ ] **DSK-09** (P2) Desktop: UI de backup/restore de identidade (comandos keychain já existem). — 1d
 
 ---
 
@@ -209,7 +209,7 @@ Depende de CORE-07 (callback de mensagens no FFI).
   *Aceite:* `cargo test --workspace` compila 100%.* — 1,5d
 - [ ] **TST-02** (P1) Reativar `test_end_to_end_message_exchange` (`message_integration.rs:131`) com verificação real de recepção (hoje `#[ignore]` e sem assert). — 1d
 - [ ] **TST-03** (P2) Novos testes cobrindo os P0 corrigidos: race de conexão (CORE-01), retry offline (CORE-02), grupo com perda de mensagem (CORE-15), chunks de mídia com hash (SEC-03). — 2d
-- [ ] **TST-04** (P2) CI (GitHub Actions): `cargo fmt --check`, `clippy -D warnings` (após TST-05), `cargo test --workspace`, `tsc --noEmit`, build Android debug. — 1d
+- [x] **TST-04** (P2) ✅ 2026-07-02 — `.github/workflows/ci.yml`: check workspace + `--features voip`, testes core (lib + suítes funcionais) e servers, typecheck desktop. fmt/clippy entram após TST-05.
 - [ ] **TST-05** (P3) Zerar os 55 warnings do clippy (10× conversão inútil `SignalProtocolError`, base64 deprecado no store, `Arc` não-Send/Sync, etc.). — 1d
 - [ ] **TST-06** (P3) Remover código morto: `crypto/ratchet.rs`, `crypto/session.rs` antigos (não compilam, órfãos), `group/sender_keys.rs` órfão, presença Redis não usada no store (`redis_client.rs:41-72`). — 0,5d
 
@@ -218,15 +218,15 @@ Depende de CORE-07 (callback de mensagens no FFI).
 ## FASE 10 — UX debt e polimento (M7, parte 3)
 
 ### Feature parity (FFI pronto, UI faltando)
-- [ ] **UX-01** (P2) Android: ligar forward (`ChatScreen.kt:504-517` — FFI pronto) e envio de vídeo no chat (`:399,581-582`). — 1d
-- [ ] **UX-02** (P2) Desktop: envio de mídia (expor comandos `send_image/voice/document_message` + UI de anexo); UI de reações e forward (hoje inexistentes). — 2d
+- [x] **UX-01** (P2) **PARCIAL** ✅ 2026-07-02 — forward com seletor de conversas implementado. *Envio de vídeo no chat ainda pendente.*
+- [x] **UX-02** (P2) **PARCIAL** ✅ 2026-07-02 — anexo de arquivos funcional (comando `send_file_message`: imagens comprimidas, resto documento, cap 50MB; dialog plugin habilitado). *Reações/forward na UI desktop ainda pendentes.*
 - [ ] **UX-03** (P2) Desktop: ligar comandos órfãos — `connect_to_peer` (adicionar contato por multiaddr/QR) e `search_messages` (UI de busca). — 1d
 
 ### Settings/Profile (3 plataformas)
-- [ ] **UX-04** (P2) Logout real: Android (`SettingsScreen.kt:294`), iOS (`SettingsView.swift:130` → chamar `AppState.logout()` existente). — 0,5d
-- [ ] **UX-05** (P2) Cache/armazenamento real: cálculo de uso e limpeza de cache de imagem/vídeo (Android `SettingsScreen.kt:195-214`, iOS `SettingsView.swift:83-92`). — 1d
+- [x] **UX-04** (P2) ✅ 2026-07-02 — logout destrutivo com aviso explícito nas duas plataformas (apaga identidade segura + dados locais).
+- [x] **UX-05** (P2) ✅ 2026-07-02 — uso de armazenamento calculado de verdade + limpeza de caches funcional (Android e iOS).
 - [ ] **UX-06** (P3) Profile: avatar picker + salvar display name (Android `ProfileScreen.kt:107,142`; iOS `ProfileView.swift:46,69`); exibir nome em vez de peerId truncado nas conversas. — 1,5d
-- [ ] **UX-07** (P3) Versão exibida vinda do build config (hoje "1.0.0 (Beta)" hardcoded divergindo de 0.1.0-alpha) — Android e iOS. — 0,1d
+- [x] **UX-07** (P3) ✅ 2026-07-02 — versão vem de `BuildConfig.VERSION_NAME` / `CFBundleShortVersionString`.
 - [ ] **UX-08** (P3) Licenças/termos/privacidade (links reais ou remover entradas). — 0,25d
 
 ### Media viewer
@@ -234,7 +234,7 @@ Depende de CORE-07 (callback de mensagens no FFI).
 - [ ] **UX-10** (P3) iOS: share/save no MediaViewerView (`:150,169`) + `NSPhotoLibraryAddUsageDescription`. — 0,5d
 
 ### Ciclo de vida / plataforma
-- [ ] **AND-14** (P2) Foreground service: avaliar tipo (`dataSync` tem limite ~6h no Android 14+) — considerar `connectedDevice`/exemption de bateria; PendingIntent na notificação; ícone próprio; full-screen intent para chamada recebida em background. — 1d
+- [ ] **AND-14** (P2) **PARCIAL** — ✅ PendingIntent e ícone do app na notificação do service. Pendente: tipo do service (limite ~6h do `dataSync` no Android 14+), exemption de bateria e full-screen intent para chamada em background. — 0,5d
 - [ ] **DSK-10** (P3) HashRouter em vez de BrowserRouter (`main.tsx`); revisar `window.location.reload()`; limpar `voipState` do localStorage ao encerrar chamadas; remover plugin dialog não usado ou adicionar capability; guard no StrictMode double-init. — 0,5d
 - [ ] **IOS-12** (P3) ~~`UIRequiredDeviceCapabilities` → `arm64`~~ (✅ feito na Fase 1); resta: `setBadgeCount` (API nova) e logs com `os.Logger` em vez de `print` com dados sensíveis. — 0,4d
 - [ ] **AND-15** (P3) `processedGroupKeyMessageIds` persistido (hoje só memória); remover `println` de erros de mídia (`ChatScreen.kt:298,355`) por tratamento real. — 0,5d
