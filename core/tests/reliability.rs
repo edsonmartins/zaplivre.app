@@ -141,3 +141,59 @@ async fn test_offline_send_queues_and_retry_delivers() {
         })
         .await;
 }
+
+/// SEC-07: o bundle de prekeys publicado precisa ser o MESMO após restart -
+/// bundle novo a cada boot invalida o que os contatos já buscaram
+#[tokio::test]
+async fn test_prekey_bundle_stable_across_restarts() {
+    let local = tokio::task::LocalSet::new();
+    local
+        .run_until(async {
+            let dir = tempfile::TempDir::new().unwrap();
+            // Identidade fixa via env NÃO é usada aqui: o builder gera e
+            // persiste identity.key no data_dir, então o segundo boot reusa
+            let bundle_first = {
+                let client = ClientBuilder::new()
+                    .data_dir(dir.path().to_path_buf())
+                    .build()
+                    .await
+                    .expect("build #1");
+                client.get_prekey_bundle_json().await.expect("bundle #1")
+            };
+
+            let bundle_second = {
+                let client = ClientBuilder::new()
+                    .data_dir(dir.path().to_path_buf())
+                    .build()
+                    .await
+                    .expect("build #2");
+                client.get_prekey_bundle_json().await.expect("bundle #2")
+            };
+
+            // O one_time_prekey é sorteado do pool a cada chamada (semântica
+            // Signal); o que precisa ser estável é todo o resto: identidade,
+            // signed prekey (e assinatura) e kyber prekey
+            let first: serde_json::Value = serde_json::from_str(&bundle_first).unwrap();
+            let second: serde_json::Value = serde_json::from_str(&bundle_second).unwrap();
+            for field in [
+                "identity_key",
+                "signal_identity_key",
+                "signal_registration_id",
+                "signal_device_id",
+                "signed_prekey_id",
+                "signed_prekey",
+                "signed_prekey_signature",
+                "kyber_prekey_id",
+                "kyber_prekey",
+                "kyber_prekey_signature",
+            ] {
+                assert_eq!(
+                    first.get(field),
+                    second.get(field),
+                    "bundle field '{}' changed across restart - pool not persisted",
+                    field
+                );
+            }
+        })
+        .await;
+}

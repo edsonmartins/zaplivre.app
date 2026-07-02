@@ -112,6 +112,24 @@ impl Identity {
         self.prekey_pool.as_ref()
     }
 
+    /// SEC-07: snapshot do pool para persistência
+    pub fn snapshot_prekey_pool(&self) -> Option<Result<Vec<u8>>> {
+        self.prekey_pool.as_ref().map(|p| p.to_snapshot_bytes())
+    }
+
+    /// SEC-07: restaura o pool persistido (mantém o bundle estável entre
+    /// restarts). Retorna Err se o snapshot for inválido.
+    pub fn restore_prekey_pool(&mut self, snapshot: &[u8]) -> Result<()> {
+        let pool = PreKeyPool::from_snapshot_bytes(self.keypair.clone(), snapshot)?;
+        // A identidade Signal acompanha o pool restaurado - o signed prekey
+        // do snapshot foi assinado por ELA
+        self.signal_identity_keypair_record =
+            pool.signal_identity_keypair_record_bytes().to_vec();
+        self.signal_registration_id = pool.signal_registration_id_value();
+        self.prekey_pool = Some(pool);
+        Ok(())
+    }
+
     /// Initialize prekey pool if not already initialized
     pub fn init_prekey_pool(&mut self, prekey_count: usize) {
         if self.prekey_pool.is_none() {

@@ -9,6 +9,7 @@ pub mod media;
 pub mod messages;
 pub mod migrations;
 pub mod outbox;
+pub mod prekeys;
 pub mod reactions;
 pub mod schema;
 

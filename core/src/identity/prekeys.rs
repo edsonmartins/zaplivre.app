@@ -119,7 +119,106 @@ pub struct PreKeyPool {
     next_kyber_prekey_id: u32,
 }
 
+/// SEC-07: snapshot serializável do pool (records em bytes libsignal)
+#[derive(Serialize, Deserialize)]
+struct PreKeyPoolSnapshot {
+    /// A identidade Signal TAMBÉM precisa ser estável entre restarts -
+    /// sem ela o signed prekey restaurado não casa com a identity key nova
+    signal_identity_keypair_record: Vec<u8>,
+    signal_registration_id: u32,
+    signal_device_id: u32,
+    signed_prekey: Vec<u8>,
+    kyber_prekey: Vec<u8>,
+    one_time_prekeys: Vec<(u32, Vec<u8>)>,
+    next_prekey_id: u32,
+    next_signed_prekey_id: u32,
+    next_kyber_prekey_id: u32,
+}
+
 impl PreKeyPool {
+    /// Record serializado da identidade Signal deste pool
+    pub fn signal_identity_keypair_record_bytes(&self) -> &[u8] {
+        &self.signal_identity_keypair_record
+    }
+
+    /// Registration id Signal deste pool
+    pub fn signal_registration_id_value(&self) -> u32 {
+        self.signal_registration_id
+    }
+
+    /// SEC-07: serializa o pool para persistência (o bundle publicado deixa
+    /// de mudar a cada restart)
+    pub fn to_snapshot_bytes(&self) -> Result<Vec<u8>> {
+        let snapshot = PreKeyPoolSnapshot {
+            signal_identity_keypair_record: self.signal_identity_keypair_record.clone(),
+            signal_registration_id: self.signal_registration_id,
+            signal_device_id: self.signal_device_id,
+            signed_prekey: self
+                .signed_prekey
+                .serialize()
+                .map_err(|e| MePassaError::Crypto(format!("serialize signed prekey: {}", e)))?
+                .to_vec(),
+            kyber_prekey: self
+                .kyber_prekey
+                .serialize()
+                .map_err(|e| MePassaError::Crypto(format!("serialize kyber prekey: {}", e)))?
+                .to_vec(),
+            one_time_prekeys: self
+                .one_time_prekeys
+                .iter()
+                .map(|(id, record)| {
+                    record
+                        .serialize()
+                        .map(|bytes| (*id, bytes.to_vec()))
+                        .map_err(|e| MePassaError::Crypto(format!("serialize prekey: {}", e)))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            next_prekey_id: self.next_prekey_id,
+            next_signed_prekey_id: self.next_signed_prekey_id,
+            next_kyber_prekey_id: self.next_kyber_prekey_id,
+        };
+        serde_json::to_vec(&snapshot)
+            .map_err(|e| MePassaError::Storage(format!("serialize prekey pool: {}", e)))
+    }
+
+    /// SEC-07: reconstrói o pool a partir de um snapshot persistido.
+    /// O record da identidade Signal e o registration id vêm do snapshot
+    /// (precisam ser os MESMOS que assinaram o signed prekey).
+    pub fn from_snapshot_bytes(
+        identity_keypair: crate::identity::Keypair,
+        bytes: &[u8],
+    ) -> Result<Self> {
+        let snapshot: PreKeyPoolSnapshot = serde_json::from_slice(bytes)
+            .map_err(|e| MePassaError::Storage(format!("deserialize prekey pool: {}", e)))?;
+
+        let signed_prekey = SignedPreKeyRecord::deserialize(&snapshot.signed_prekey)
+            .map_err(|e| MePassaError::Crypto(format!("deserialize signed prekey: {}", e)))?;
+        let kyber_prekey = KyberPreKeyRecord::deserialize(&snapshot.kyber_prekey)
+            .map_err(|e| MePassaError::Crypto(format!("deserialize kyber prekey: {}", e)))?;
+        let one_time_prekeys = snapshot
+            .one_time_prekeys
+            .iter()
+            .map(|(id, bytes)| {
+                PreKeyRecord::deserialize(bytes)
+                    .map(|r| (*id, r))
+                    .map_err(|e| MePassaError::Crypto(format!("deserialize prekey: {}", e)))
+            })
+            .collect::<Result<HashMap<_, _>>>()?;
+
+        Ok(Self {
+            identity_keypair,
+            signal_identity_keypair_record: snapshot.signal_identity_keypair_record,
+            signal_registration_id: snapshot.signal_registration_id,
+            signal_device_id: snapshot.signal_device_id,
+            signed_prekey,
+            kyber_prekey,
+            one_time_prekeys,
+            next_prekey_id: snapshot.next_prekey_id,
+            next_signed_prekey_id: snapshot.next_signed_prekey_id,
+            next_kyber_prekey_id: snapshot.next_kyber_prekey_id,
+        })
+    }
+
     /// Create a new prekey pool with initial prekeys
     pub fn new(
         identity_keypair: crate::identity::Keypair,

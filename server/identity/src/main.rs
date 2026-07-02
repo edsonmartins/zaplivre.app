@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost".to_string());
 
-    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+    let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8083".to_string());
 
     // Initialize database connection pool
     tracing::info!("Connecting to PostgreSQL...");

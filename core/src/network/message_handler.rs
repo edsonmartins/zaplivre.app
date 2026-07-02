@@ -53,7 +53,7 @@ pub struct MessageHandler {
     storage_key: [u8; 32],
 
     /// Event callback for notifying UI
-    event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
+    event_tx: Option<tokio::sync::mpsc::Sender<MessageEvent>>,
 }
 
 impl MessageHandler {
@@ -65,7 +65,7 @@ impl MessageHandler {
         identity: Arc<RwLock<Identity>>,
         session_manager: SignalSessionManager,
         storage_key: [u8; 32],
-        event_tx: Option<tokio::sync::mpsc::UnboundedSender<MessageEvent>>,
+        event_tx: Option<tokio::sync::mpsc::Sender<MessageEvent>>,
     ) -> Self {
         Self {
             local_peer_id,
@@ -667,11 +667,20 @@ impl MessageHandler {
         }
     }
 
-    /// Emit an event to the application layer
+    /// Emit an event to the application layer.
+    /// CORE-09: canal bounded - se a UI não consome (1024 pendentes), o
+    /// evento é DESCARTADO com log em vez de crescer memória sem teto.
+    /// A UI tem safety net de refresh periódico que cobre eventos perdidos.
     fn emit_event(&self, event: MessageEvent) {
         if let Some(ref tx) = self.event_tx {
-            if let Err(e) = tx.send(event) {
-                tracing::warn!("Failed to emit message event: {}", e);
+            match tx.try_send(event) {
+                Ok(()) => {}
+                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                    tracing::warn!("Event channel full - dropping message event");
+                }
+                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                    tracing::warn!("Event channel closed - dropping message event");
+                }
             }
         }
     }
@@ -894,7 +903,7 @@ mod tests {
 
         let db_arc = Arc::new(db);
 
-        let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(64);
 
         let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
         let storage_key = identity.read().await.storage_key().unwrap();

@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 7;
+pub const SCHEMA_VERSION: i32 = 8;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -141,6 +141,12 @@ pub fn init_schema(db: &Database) -> Result<()> {
         );
 
         -- TOFU trusted identity keys (public keys - stored as-is)
+        CREATE TABLE IF NOT EXISTS identity_prekeys (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            pool BLOB NOT NULL,
+            updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
         CREATE TABLE IF NOT EXISTS signal_identities (
             address TEXT PRIMARY KEY,
             identity_key BLOB NOT NULL,

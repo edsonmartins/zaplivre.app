@@ -140,7 +140,7 @@ fn build_test_handler(
     local_peer_id: &str,
     db: &Database,
     data_dir: std::path::PathBuf,
-    event_tx: tokio::sync::mpsc::UnboundedSender<MessageEvent>,
+    event_tx: tokio::sync::mpsc::Sender<MessageEvent>,
 ) -> MessageHandler {
     let mut identity = Identity::generate(1);
     let storage_key = identity.storage_key().expect("storage key");
@@ -175,7 +175,7 @@ async fn test_message_handler_processing() {
     };
     db.insert_contact(&contact).expect("Failed to insert contact");
 
-    let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(64);
     let tmp = tempfile::TempDir::new().unwrap();
     let handler = build_test_handler("local-peer", &db, tmp.path().to_path_buf(), event_tx);
 
@@ -270,7 +270,7 @@ async fn test_ack_handling() {
     })
     .expect("Failed to insert message");
 
-    let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(64);
     let tmp = tempfile::TempDir::new().unwrap();
     let handler = build_test_handler(&local_peer_id, &db, tmp.path().to_path_buf(), event_tx);
 

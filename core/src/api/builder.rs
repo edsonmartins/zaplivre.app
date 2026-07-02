@@ -124,9 +124,7 @@ impl ClientBuilder {
         // Create identity (convert from libp2p keypair)
         let our_keypair = crate::identity::Keypair::from_libp2p_keypair(&keypair)?;
         let mut identity = Identity::from_keypair(our_keypair);
-        identity.init_prekey_pool(100);
         let storage_key = identity.storage_key()?;
-        let identity = Arc::new(RwLock::new(identity));
 
         // Open database
         let db_path = data_dir.join("mepassa.db");
@@ -136,6 +134,46 @@ impl ClientBuilder {
         if needs_migration(&database)? {
             migrate(&database)?;
         }
+
+        // SEC-07: pool de prekeys persistido - o bundle publicado precisa
+        // ser estável entre restarts (bundle novo a cada boot invalida os
+        // bundles que os contatos já buscaram)
+        let restored = match database.load_prekey_pool() {
+            Ok(Some(blob)) => {
+                match crate::crypto::storage::decrypt_for_storage(&storage_key, &blob)
+                    .and_then(|bytes| identity.restore_prekey_pool(&bytes))
+                {
+                    Ok(()) => {
+                        tracing::info!("🔑 Restored persisted prekey pool");
+                        true
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to restore prekey pool ({}); regenerating", e);
+                        false
+                    }
+                }
+            }
+            Ok(None) => false,
+            Err(e) => {
+                tracing::warn!("Failed to load prekey pool ({}); regenerating", e);
+                false
+            }
+        };
+        if !restored {
+            identity.init_prekey_pool(100);
+            if let Some(Ok(snapshot)) = identity.snapshot_prekey_pool() {
+                match crate::crypto::storage::encrypt_for_storage(&storage_key, &snapshot) {
+                    Ok(encrypted) => {
+                        if let Err(e) = database.save_prekey_pool(&encrypted) {
+                            tracing::warn!("Failed to persist prekey pool: {}", e);
+                        }
+                    }
+                    Err(e) => tracing::warn!("Failed to encrypt prekey pool: {}", e),
+                }
+            }
+        }
+
+        let identity = Arc::new(RwLock::new(identity));
 
         // Get peer ID from libp2p keypair
         let peer_id = libp2p::PeerId::from(keypair.public());
@@ -151,7 +189,8 @@ impl ClientBuilder {
             Arc::new(RwLock::new(Vec::new()));
         let callbacks_for_events = Arc::clone(&callbacks);
 
-        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        // CORE-09: bounded - descarte logado no produtor em vez de OOM
+        let (event_tx, mut event_rx) = mpsc::channel(1024);
 
         // Create message handler for processing incoming messages
         // IMPORTANT: database.clone() shares the same SQLite connection (via internal Arc<Mutex>)

@@ -49,6 +49,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "Add signal_sessions and signal_identities tables (persist E2E state)",
         up: migrate_to_v7,
     },
+    Migration {
+        version: 8,
+        description: "Add identity_prekeys table (SEC-07: stable prekey bundle across restarts)",
+        up: migrate_to_v8,
+    },
 ];
 
 /// Migrate database to latest version
@@ -246,6 +251,20 @@ fn migrate_to_v7(db: &Database) -> Result<()> {
             address TEXT PRIMARY KEY,
             identity_key BLOB NOT NULL,
             created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        "#,
+    )?;
+
+    Ok(())
+}
+
+fn migrate_to_v8(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS identity_prekeys (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            pool BLOB NOT NULL,
+            updated_at INTEGER NOT NULL DEFAULT (unixepoch())
         );
         "#,
     )?;

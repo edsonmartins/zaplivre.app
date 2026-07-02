@@ -121,7 +121,11 @@ async fn main() -> Result<()> {
 
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                 warn!("❌ Connection closed with {}: {:?}", peer_id, cause);
-                peer_count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                let _ = peer_count.fetch_update(
+                    std::sync::atomic::Ordering::Relaxed,
+                    std::sync::atomic::Ordering::Relaxed,
+                    |n| Some(n.saturating_sub(1)),
+                );
             }
 
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
