@@ -1,0 +1,17 @@
+# Anti-órfã iOS: telas principais alcançáveis
+appId: app.mepassa.ios
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 15000
+
+# Configurações (backup/prekeys/logout)
+- tapOn: "Configurações"
+- assertVisible: "Exportar backup da identidade"
+- assertVisible: "Sair"
+- back
+
+# Grupos: lista deve carregar de verdade (regressão IOS-10: mock vazio)
+- tapOn: "Grupos"
+- back

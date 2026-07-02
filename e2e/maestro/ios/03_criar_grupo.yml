@@ -1,0 +1,15 @@
+# Criar grupo iOS: grupo criado precisa aparecer na lista
+# Regressão IOS-10: loadGroups/createGroup eram mocks (lista sempre vazia)
+appId: app.mepassa.ios
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 15000
+- tapOn: "Grupos"
+- tapOn:
+    id: "plus"
+    optional: true
+- inputText: "Grupo Maestro iOS"
+- tapOn: "Criar"
+- assertVisible: "Grupo Maestro iOS"

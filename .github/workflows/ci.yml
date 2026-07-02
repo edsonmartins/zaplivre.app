@@ -61,3 +61,6 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+      - name: Screen tests (vitest + Testing Library + mock do Tauri)
+        run: npm test

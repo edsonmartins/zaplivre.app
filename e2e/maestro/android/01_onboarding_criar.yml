@@ -1,0 +1,15 @@
+# Onboarding: primeira execução → criar identidade → Conversas
+# Regressão: IDN-01 (auto-init não pode atropelar o onboarding)
+appId: com.mepassa
+---
+- clearState
+- launchApp
+# Tela de onboarding deve aparecer (sem identidade ainda)
+- assertVisible: "MePassa"
+- tapOn: "Começar"
+# Peer ID gerado deve aparecer
+- assertVisible: "Seu Peer ID:"
+# Auto-navega para conversas
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 10000

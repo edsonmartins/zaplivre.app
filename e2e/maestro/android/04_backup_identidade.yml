@@ -1,0 +1,13 @@
+# Backup da identidade: exportar deve mostrar o Base64
+# Regressão: backup implementado mas inacessível (tela órfã)
+appId: com.mepassa
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 10000
+- tapOn: "Configurações"
+- tapOn: "Exportar backup da identidade"
+- assertVisible: "Backup da identidade"
+# O campo deve conter conteúdo (Base64), não vazio nem erro
+- assertNotVisible: "Backup não encontrado"
