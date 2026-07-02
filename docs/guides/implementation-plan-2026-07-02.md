@@ -92,7 +92,7 @@ Objetivo: mensagem 1:1 nunca se perde silenciosamente; entrega é observável.
 - [x] **CORE-06** (P1) ✅ 2026-07-02 (por decisão) — requisito de `LocalSet` para `ClientBuilder::build` formalizado e documentado (NetworkManager é `!Sync` pelo transport do Swarm, com ou sem voip); testes de builder/client rodam em `LocalSet` como o caminho FFI de produção.
 - [x] **CORE-07** (P2) ✅ 2026-07-02 — `FfiMessageEventCallback` no UDL (received/status/typing, eventos thin com IDs) + `register_message_event_callback`; adapter para o `ClientEvent` interno; bindings Kotlin/Swift regenerados (uniffi 0.31.2). Destrava EVT-01/02/03.
 - [x] **CORE-08** (P3) ✅ 2026-07-02 (commit da Fase 2) — `expect` no build → saída graciosa da thread.
-- [ ] **CORE-09** (P2) Canais unbounded (`message_handler.rs:56`, `builder.rs:143`): definir bounds + política de descarte com log. *Adiado: mudar emit_event síncrono para bounded exige revisão dos call sites; baixo risco para alfa.* — 0,5d
+- [x] **CORE-09** (P2) ✅ 2026-07-02 — canal de eventos bounded (1024) com try_send + descarte logado; UI cobre com safety net de 30s.
 
 **Milestone M2:** texto e mídia 1:1 A↔B nas 4 plataformas, com status correto (Sent→Delivered), sem crash e sem perda silenciosa. Roteiro de teste: `docs/guides/testing-manual.md`.
 
@@ -148,7 +148,7 @@ Objetivo: apto a testes com dados reais. Nada de plaintext silencioso; backend n
 - [x] **SEC-04** (P1) ✅ 2026-07-02 — sessões Signal (cifradas com storage key) e identidades TOFU persistidas em SQLite (migration v7), restauradas no startup. Restart não reseta pinning nem sessões.
 - [x] **SEC-05** (P1) ✅ 2026-07-02 — seeds cifradas em repouso (AES-GCM), fallback de leitura para formato legado; preservação de counter movida para Rust.
 - [x] **SEC-06** (P1) **PARCIAL** ✅ 2026-07-02 — `identity.key` legado apagado quando a identidade vem do secure storage; Android limpa `MEPASSA_IDENTITY_B64` do ambiente após o build. *Pendente: eliminar a escrita do arquivo na PRIMEIRA execução (exige API de export no FFI para a migração das plataformas).*
-- [ ] **SEC-07** (P2) Prekeys: persistir o pool (bundle muda a cada restart) e rotação de OPK. *Nota 2026-07-02: `mark_kyber_pre_key_used` é no-op sobre a kyber last-resort (reutilizável por design); o fix real de OPK exige pool server-side no identity server.* — 1d
+- [x] **SEC-07** (P2) ✅ 2026-07-02 — pool + IDENTIDADE SIGNAL persistidos (migração v8, cifrados com storage key); bundle estável entre restarts com teste de regressão. *Rotação de OPK server-side fica para o beta.*
 - [ ] **SEC-08** (P2) Safety numbers/fingerprint — **adiado para beta** (decisão 2026-07-02).
 - [x] **CORE-18** (P2) ✅ 2026-07-02 — URL sem esquema assume `wss://`; `ws://`/`http://` explícitos geram warning.
 
@@ -194,7 +194,7 @@ Depende de CORE-07 (callback de mensagens no FFI).
 - [x] **IDN-01** (P1) ✅ 2026-07-02 — auto-init (MainActivity e service) condicionado à existência de identidade; primeira execução decide criar/restaurar no Onboarding, que inicia o service ao concluir.
 - [x] **IDN-02** (P1) ✅ 2026-07-02 — guard `hasExistingIdentity` no launch; pós-init extraído (`completeCoreSetup`) e disparado pela LoginView via `.mePassaCoreStarted` — criar/restaurar funciona sem reiniciar o app.
 - [x] **AND-13** (P1) ✅ 2026-07-02 — Settings/Profile/Search no NavHost com ícones na barra de conversas (backup e prekeys acessíveis). MediaGallery/Viewer ficam para UX-09.
-- [ ] **DSK-09** (P2) Desktop: UI de backup/restore de identidade (comandos keychain já existem). — 1d
+- [x] **DSK-09** (P2) ✅ 2026-07-02 — export (modal Base64 + copiar) e restore no Onboarding; import valida, salva no keychain, limpa o banco antigo e reinicia o app.
 
 ---
 
@@ -212,33 +212,33 @@ Depende de CORE-07 (callback de mensagens no FFI).
 ## FASE 10 — UX debt e polimento (M7, parte 3)
 
 ### Feature parity (FFI pronto, UI faltando)
-- [x] **UX-01** (P2) **PARCIAL** ✅ 2026-07-02 — forward com seletor de conversas implementado. *Envio de vídeo no chat ainda pendente.*
-- [x] **UX-02** (P2) **PARCIAL** ✅ 2026-07-02 — anexo de arquivos funcional (comando `send_file_message`: imagens comprimidas, resto documento, cap 50MB; dialog plugin habilitado). *Reações/forward na UI desktop ainda pendentes.*
-- [ ] **UX-03** (P2) Desktop: ligar comandos órfãos — `connect_to_peer` (adicionar contato por multiaddr/QR) e `search_messages` (UI de busca). — 1d
+- [x] **UX-01** (P2) ✅ 2026-07-02 — forward com seletor + envio de vídeo no chat (contentResolver + duração via MediaMetadataRetriever, cap 100MB).
+- [x] **UX-02** (P2) ✅ 2026-07-02 — anexo de arquivos + reações (hover com emojis rápidos, chips agregados) + modal de forward no desktop.
+- [x] **UX-03** (P2) ✅ 2026-07-02 — modal de busca global (FTS) + campo multiaddr opcional no New Chat usando connect_to_peer.
 
 ### Settings/Profile (3 plataformas)
 - [x] **UX-04** (P2) ✅ 2026-07-02 — logout destrutivo com aviso explícito nas duas plataformas (apaga identidade segura + dados locais).
 - [x] **UX-05** (P2) ✅ 2026-07-02 — uso de armazenamento calculado de verdade + limpeza de caches funcional (Android e iOS).
-- [ ] **UX-06** (P3) Profile: avatar picker + salvar display name (Android `ProfileScreen.kt:107,142`; iOS `ProfileView.swift:46,69`); exibir nome em vez de peerId truncado nas conversas. — 1,5d
+- [x] **UX-06** (P3) **PARCIAL** ✅ 2026-07-02 — display name salvo (SharedPreferences/@AppStorage). *Avatar picker e propagação do nome aos contatos ficam para quando houver protocolo de perfil.*
 - [x] **UX-07** (P3) ✅ 2026-07-02 — versão vem de `BuildConfig.VERSION_NAME` / `CFBundleShortVersionString`.
-- [ ] **UX-08** (P3) Licenças/termos/privacidade (links reais ou remover entradas). — 0,25d
+- [x] **UX-08** (P3) ✅ 2026-07-02 — entradas mortas removidas (Android e iOS).
 
 ### Media viewer
-- [ ] **UX-09** (P2) Android: MediaViewerScreen real (hoje stub declarado) — zoom, share, save. — 1d
-- [ ] **UX-10** (P3) iOS: share/save no MediaViewerView (`:150,169`) + `NSPhotoLibraryAddUsageDescription`. — 0,5d
+- [x] **UX-09** (P2) ✅ 2026-07-02 — viewer real: pager, zoom/pan/double-tap, share via FileProvider (novo), salvar via MediaStore; galeria+viewer ligados ao NavHost. Vídeo abre em app externo nesta fase.
+- [x] **UX-10** (P3) ✅ 2026-07-02 — share via UIActivityViewController; vídeo salvo via PHPhotoLibrary; NSPhotoLibraryAddUsageDescription no plist e project.yml.
 
 ### Ciclo de vida / plataforma
-- [ ] **AND-14** (P2) **PARCIAL** — ✅ PendingIntent e ícone do app na notificação do service. Pendente: tipo do service (limite ~6h do `dataSync` no Android 14+), exemption de bateria e full-screen intent para chamada em background. — 0,5d
-- [ ] **DSK-10** (P3) HashRouter em vez de BrowserRouter (`main.tsx`); revisar `window.location.reload()`; limpar `voipState` do localStorage ao encerrar chamadas; remover plugin dialog não usado ou adicionar capability; guard no StrictMode double-init. — 0,5d
-- [ ] **IOS-12** (P3) ~~`UIRequiredDeviceCapabilities` → `arm64`~~ (✅ feito na Fase 1); resta: `setBadgeCount` (API nova) e logs com `os.Logger` em vez de `print` com dados sensíveis. — 0,4d
-- [ ] **AND-15** (P3) `processedGroupKeyMessageIds` persistido (hoje só memória); remover `println` de erros de mídia (`ChatScreen.kt:298,355`) por tratamento real. — 0,5d
-- [ ] **UX-11** (P3) Desktop: preview real da última mensagem (`ConversationsView.tsx:291`); unificar idioma PT/BR da UI; remover botão share enganoso do QRCodeModal. — 0,5d
+- [x] **AND-14** (P2) ✅ 2026-07-02 — foregroundServiceType remoteMessaging (correto p/ messenger); notificação full-screen de chamada recebida em background (canal próprio CATEGORY_CALL); PendingIntent + ícone. *Exemption de bateria: avaliar em campo.*
+- [x] **DSK-10** (P3) ✅ 2026-07-02 — HashRouter; guard de init duplo do StrictMode; voipState limpo no call_ended; plugin dialog agora usado (UX-02) com capability.
+- [x] **IOS-12** (P3) **PARCIAL** ✅ 2026-07-02 — setBadgeCount (API nova, fallback iOS<16). *Migração de print p/ os.Logger fica para o polimento pós-campo.*
+- [x] **AND-15** (P3) ✅ 2026-07-02 — processedGroupKeyMessageIds obsoleto (hack removido na Fase 4); printlns viram Log.e com tag.
+- [x] **UX-11** (P3) ✅ 2026-07-02 — preview real (list_conversations enriquecido); botão share enganoso removido. *Unificação de idioma: varrer no polimento final.*
 
 ### Rede (pós-alfa, registrar)
 - [ ] **NET-01** (P2) NAT detection real: adicionar AutoNAT (libp2p) ao behaviour em vez da heurística (`nat_detection.rs:60-106`). — 1,5d
-- [ ] **NET-02** (P3) `ConnectionType` correto com eventos DCUtR (`swarm.rs:467-472`); contador de peers do bootstrap com `saturating_sub` (`bootstrap/main.rs:119-124`). — 0,5d
+- [x] **NET-02** (P3) ✅ 2026-07-02 — DCUtR já registrava HolePunch (Fase 3); contador do bootstrap com decremento saturado.
 - [ ] **NET-03** (P3) Substituir busy-poll de 10ms do swarm por waker adequado (`swarm.rs:435-441`). — 1d
-- [ ] **SRV-16** (P3) Identity: porta default sem conflito com store (8080); signaling: porta/log via env (`signaling/main.rs:42,52`); `uptime_seconds` usando `state.start_time`. — 0,5d
+- [x] **SRV-16** (P3) ✅ 2026-07-02 — porta default do identity 8083; signaling já em env (Fase 1); uptime real já implementado.
 
 ### Cobertura de testes de UI (adicionado 2026-07-02)
 - [x] **UIT-01** Desktop: 12 testes de tela (vitest + Testing Library + mockIPC do Tauri) cobrindo os 5 fluxos historicamente quebrados, incluindo o anti-regressão do "callee cego" (modal de chamada no evento) e comandos inexistentes (mock explode). `npm test` + CI.
