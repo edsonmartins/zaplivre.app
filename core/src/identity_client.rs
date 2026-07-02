@@ -334,7 +334,7 @@ mod tests {
             .prekey_pool_mut()
             .unwrap()
             .get_bundle()
-            .map_err(|e| anyhow!(e.to_string()))?;
+            .expect("failed to get prekey bundle");
 
         // Convert to API format and back
         let api_bundle = PreKeyBundle::from_core(&core_bundle);

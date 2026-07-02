@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 4;
+pub const SCHEMA_VERSION: i32 = 5;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {

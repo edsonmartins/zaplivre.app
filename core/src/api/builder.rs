@@ -218,6 +218,10 @@ impl ClientBuilder {
             }
         }
 
+        // Handles para o worker de retry outbound (clonados antes do move para Client::new)
+        let retry_db = database.clone();
+        let retry_network = Arc::clone(&network_arc);
+
         // Create client (keep network as Arc since it's shared with VoIPIntegration)
         // Note: database.clone() shares the same SQLite connection with MessageHandler
         let client = Client::new(
@@ -248,6 +252,96 @@ impl ClientBuilder {
                 }
             }
         });
+
+        // Worker da fila de retry outbound: mensagens que não puderam ser
+        // entregues (peer offline sem store, ou OutboundFailure) ficam em
+        // outbound_queue e são reenviadas aqui com backoff exponencial.
+        let retry_worker = async move {
+            use prost::Message as _;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+                let now = chrono::Utc::now().timestamp();
+                let due = match retry_db.due_outbound(now, 20) {
+                    Ok(entries) => entries,
+                    Err(e) => {
+                        tracing::warn!("Outbound retry: failed to read queue: {}", e);
+                        continue;
+                    }
+                };
+
+                for entry in due {
+                    let Ok(peer) = entry.peer_id.parse::<libp2p::PeerId>() else {
+                        tracing::warn!(
+                            "Outbound retry: invalid peer id {}, dropping entry",
+                            entry.peer_id
+                        );
+                        let _ = retry_db.remove_outbound(entry.id);
+                        continue;
+                    };
+
+                    let connected =
+                        Client::ensure_peer_connected_with(Arc::clone(&retry_network), peer).await;
+
+                    if connected {
+                        match crate::protocol::Message::decode(entry.proto_bytes.as_slice()) {
+                            Ok(msg) => {
+                                let send_result = {
+                                    let mut network = retry_network.write().await;
+                                    network.send_message(peer, msg)
+                                };
+                                if send_result.is_ok() {
+                                    let _ = retry_db.remove_outbound(entry.id);
+                                    let _ = retry_db.update_message(
+                                        &entry.message_id,
+                                        &crate::storage::UpdateMessage {
+                                            sent_at: Some(chrono::Utc::now().timestamp()),
+                                            received_at: None,
+                                            read_at: None,
+                                            status: Some(crate::storage::MessageStatus::Sent),
+                                            is_deleted: None,
+                                        },
+                                    );
+                                    tracing::info!(
+                                        "Outbound retry: delivered queued message {} to {}",
+                                        entry.message_id,
+                                        peer
+                                    );
+                                    continue;
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Outbound retry: corrupt entry {} ({}), dropping",
+                                    entry.message_id,
+                                    e
+                                );
+                                let _ = retry_db.remove_outbound(entry.id);
+                                continue;
+                            }
+                        }
+                    }
+
+                    // Backoff exponencial: 5s * 2^attempts, teto de 15 min
+                    let delay = (5i64 << entry.attempts.min(8)).min(900);
+                    let _ = retry_db.bump_outbound_attempt(entry.id, now + delay);
+                }
+
+                // Alinhado ao TTL de 14 dias do store & forward
+                let cutoff = now - 14 * 24 * 3600;
+                if let Ok(purged) = retry_db.purge_expired_outbound(cutoff) {
+                    if purged > 0 {
+                        tracing::info!("Outbound retry: purged {} expired entries", purged);
+                    }
+                }
+            }
+        };
+
+        // NetworkManager é !Sync (transport do Swarm), então o worker exige
+        // spawn_local. Consequência: `ClientBuilder::build` deve rodar dentro
+        // de um LocalSet - garantido no caminho FFI (thread dedicada) e já
+        // exigido pelo VoIPIntegration quando a feature voip está ativa.
+        tokio::task::spawn_local(retry_worker);
 
         Ok(client)
     }
@@ -385,38 +479,51 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    // build() spawna workers com spawn_local, então precisa rodar em LocalSet
+    // (igual ao caminho FFI de produção)
+
     #[tokio::test]
     async fn test_builder() {
-        let temp_dir = TempDir::new().unwrap();
-        let data_dir = temp_dir.path().to_path_buf();
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let temp_dir = TempDir::new().unwrap();
+                let data_dir = temp_dir.path().to_path_buf();
 
-        let client = ClientBuilder::new()
-            .data_dir(data_dir.clone())
-            .build()
-            .await
-            .unwrap();
+                let client = ClientBuilder::new()
+                    .data_dir(data_dir.clone())
+                    .build()
+                    .await
+                    .unwrap();
 
-        assert!(client.local_peer_id().to_string().len() > 0);
+                assert!(client.local_peer_id().to_string().len() > 0);
 
-        // Database should be created
-        assert!(data_dir.join("mepassa.db").exists());
+                // Database should be created
+                assert!(data_dir.join("mepassa.db").exists());
+            })
+            .await;
     }
 
     #[tokio::test]
     async fn test_builder_with_keypair() {
-        let temp_dir = TempDir::new().unwrap();
-        let data_dir = temp_dir.path().to_path_buf();
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let temp_dir = TempDir::new().unwrap();
+                let data_dir = temp_dir.path().to_path_buf();
 
-        let keypair = Keypair::generate_ed25519();
-        let expected_peer_id = libp2p::PeerId::from(keypair.public());
+                let keypair = Keypair::generate_ed25519();
+                let expected_peer_id = libp2p::PeerId::from(keypair.public());
 
-        let client = ClientBuilder::new()
-            .data_dir(data_dir)
-            .keypair(keypair)
-            .build()
-            .await
-            .unwrap();
+                let client = ClientBuilder::new()
+                    .data_dir(data_dir)
+                    .keypair(keypair)
+                    .build()
+                    .await
+                    .unwrap();
 
-        assert_eq!(client.local_peer_id(), expected_peer_id);
+                assert_eq!(client.local_peer_id(), expected_peer_id);
+            })
+            .await;
     }
 }

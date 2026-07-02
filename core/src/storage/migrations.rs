@@ -34,6 +34,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "Add group_sender_keys table for group encryption",
         up: migrate_to_v4,
     },
+    Migration {
+        version: 5,
+        description: "Add outbound_queue table for offline message retry",
+        up: migrate_to_v5,
+    },
 ];
 
 /// Migrate database to latest version
@@ -168,6 +173,28 @@ fn migrate_to_v4(db: &Database) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_group_sender_keys_group ON group_sender_keys(group_id);
         CREATE INDEX IF NOT EXISTS idx_group_sender_keys_sender ON group_sender_keys(sender_peer_id);
+        "#,
+    )?;
+
+    Ok(())
+}
+
+fn migrate_to_v5(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS outbound_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id TEXT NOT NULL UNIQUE,
+            peer_id TEXT NOT NULL,
+            message_type TEXT NOT NULL,
+            proto_bytes BLOB NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            next_attempt_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outbound_queue_next ON outbound_queue(next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_outbound_queue_peer ON outbound_queue(peer_id);
         "#,
     )?;
 

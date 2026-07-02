@@ -362,7 +362,8 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. })
+            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
             _ => MessageStatus::Failed,
         };
         let new_msg = NewMessage {
@@ -448,35 +449,10 @@ impl Client {
     }
 
     async fn ensure_peer_connected(&self, peer_id: PeerId) -> bool {
-        let rx = {
-            let mut network = self.network.write().await;
-            if network.is_connected(&peer_id) {
-                return true;
-            } else {
-                Some(network.resolve_peer_address(peer_id))
-            }
-        };
-
-        let Some(rx) = rx else { return false };
-
-        let resolved = match timeout(Duration::from_secs(5), rx).await {
-            Ok(Ok(Some(addr))) => Some(addr),
-            _ => None,
-        };
-
-        if let Some(addr) = resolved {
-            let mut network = self.network.write().await;
-            if !network.is_connected(&peer_id) {
-                network.add_peer_to_dht(peer_id, addr.clone());
-                let _ = network.dial(peer_id, addr);
-            }
-        }
-
-        let network = self.network.read().await;
-        network.is_connected(&peer_id)
+        Self::ensure_peer_connected_with(Arc::clone(&self.network), peer_id).await
     }
 
-    async fn ensure_peer_connected_with(
+    pub(crate) async fn ensure_peer_connected_with(
         network: Arc<RwLock<NetworkManager>>,
         peer_id: PeerId,
     ) -> bool {
@@ -496,16 +472,34 @@ impl Client {
             _ => None,
         };
 
-        if let Some(addr) = resolved {
+        let Some(addr) = resolved else { return false };
+
+        {
             let mut network = network.write().await;
-            if !network.is_connected(&peer_id) {
-                network.add_peer_to_dht(peer_id, addr.clone());
-                let _ = network.dial(peer_id, addr);
+            if network.is_connected(&peer_id) {
+                return true;
             }
+            network.add_peer_to_dht(peer_id, addr.clone());
+            let _ = network.dial(peer_id, addr);
         }
 
-        let network = network.read().await;
-        network.is_connected(&peer_id)
+        // Dial não é instantâneo: o ConnectionEstablished chega pelo event loop
+        // do swarm, que roda em paralelo. Aguardar com deadline em vez de checar
+        // imediatamente - senão a primeira mensagem para um peer alcançável cai
+        // no caminho "offline".
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            {
+                let network = network.read().await;
+                if network.is_connected(&peer_id) {
+                    return true;
+                }
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
     }
 
     async fn deliver_message(
@@ -518,21 +512,38 @@ impl Client {
         if connected {
             let mut network = self.network.write().await;
             network.send_message(to, proto_message.clone())?;
-            return Ok(DeliveryOutcome { sent: true, stored: false });
+            return Ok(DeliveryOutcome { sent: true, stored: false, queued: false });
         }
 
-        if let Some(_) = self.message_store_url {
-            if self.store_offline_message(proto_message, message_type).await.is_ok() {
-                return Ok(DeliveryOutcome { sent: false, stored: true });
-            }
-            return Err(MePassaError::Network(
-                "Failed to store offline message".to_string(),
-            ));
+        if self.message_store_url.is_some()
+            && self
+                .store_offline_message(proto_message, message_type)
+                .await
+                .is_ok()
+        {
+            return Ok(DeliveryOutcome { sent: false, stored: true, queued: false });
         }
 
-        Err(MePassaError::Network(
-            "Peer offline and message store not configured".to_string(),
-        ))
+        // Peer offline e sem store (ou store falhou): persistir na fila local de
+        // retry em vez de descartar a mensagem. O worker (builder) drena com backoff.
+        let proto_bytes = {
+            use prost::Message as _;
+            proto_message.encode_to_vec()
+        };
+        let next_attempt_at = chrono::Utc::now().timestamp() + 5;
+        match self.database.enqueue_outbound(
+            &proto_message.id,
+            &to.to_string(),
+            message_type,
+            &proto_bytes,
+            next_attempt_at,
+        ) {
+            Ok(()) => Ok(DeliveryOutcome { sent: false, stored: false, queued: true }),
+            Err(e) => Err(MePassaError::Network(format!(
+                "Peer offline and failed to queue message for retry: {}",
+                e
+            ))),
+        }
     }
 
     async fn deliver_message_with(
@@ -786,7 +797,8 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. })
+            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -920,7 +932,8 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. })
+            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -1050,7 +1063,8 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. })
+            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -1195,7 +1209,8 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. })
+            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -1476,7 +1491,8 @@ impl Client {
             .await;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. })
+            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
             _ => MessageStatus::Failed,
         };
 
@@ -1512,7 +1528,7 @@ impl Client {
     // ═════════════════════════════════════════════════════════════════════
 
     /// Add a reaction to a message
-    pub fn add_reaction(&self, message_id: &str, emoji: &str) -> Result<()> {
+    pub async fn add_reaction(&self, message_id: &str, emoji: &str) -> Result<()> {
         let reaction_id = uuid::Uuid::new_v4().to_string();
         let peer_id = self.local_peer_id().to_string();
 
@@ -1527,20 +1543,20 @@ impl Client {
             .add_reaction(&new_reaction)
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
-        self.spawn_reaction_broadcast(message_id, emoji, "add")?;
+        self.broadcast_reaction(message_id, emoji, "add").await?;
 
         Ok(())
     }
 
     /// Remove a reaction from a message
-    pub fn remove_reaction(&self, message_id: &str, emoji: &str) -> Result<()> {
+    pub async fn remove_reaction(&self, message_id: &str, emoji: &str) -> Result<()> {
         let peer_id = self.local_peer_id().to_string();
 
         self.database
             .remove_reaction(message_id, &peer_id, emoji)
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
-        self.spawn_reaction_broadcast(message_id, emoji, "remove")?;
+        self.broadcast_reaction(message_id, emoji, "remove").await?;
 
         Ok(())
     }
@@ -1564,7 +1580,7 @@ impl Client {
             .map_err(|_| MePassaError::Network("Invalid peer ID".to_string()))
     }
 
-    fn spawn_reaction_broadcast(
+    async fn broadcast_reaction(
         &self,
         message_id: &str,
         emoji: &str,
@@ -1580,16 +1596,9 @@ impl Client {
         };
         let content = envelope.encode()?;
 
-        let encryption_result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            tokio::task::block_in_place(|| {
-                handle.block_on(self.encrypt_message_for_peer(&to_peer_id, content.as_bytes()))
-            })
-        } else {
-            futures::executor::block_on(self.encrypt_message_for_peer(
-                &to_peer_id,
-                content.as_bytes(),
-            ))
-        };
+        let encryption_result = self
+            .encrypt_message_for_peer(&to_peer_id, content.as_bytes())
+            .await;
 
         let (message_type, payload) = match encryption_result {
             Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
@@ -1623,41 +1632,17 @@ impl Client {
             payload: Some(payload),
         };
 
-        let network = Arc::clone(&self.network);
-        let message_store_url = self.message_store_url.clone();
-        let message_store_http = self.message_store_http.clone();
-
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            tokio::task::block_in_place(|| {
-                handle.block_on(async move {
-                    if let Err(e) = Client::deliver_message_with(
-                        network,
-                        to_peer_id,
-                        proto_message,
-                        "reaction",
-                        message_store_url,
-                        message_store_http,
-                    )
-                    .await
-                    {
-                        tracing::warn!("Failed to broadcast reaction: {}", e);
-                    }
-                });
-            });
-        } else {
-            if let Err(e) = futures::executor::block_on(async move {
-                Client::deliver_message_with(
-                    network,
-                    to_peer_id,
-                    proto_message,
-                    "reaction",
-                    message_store_url,
-                    message_store_http,
-                )
-                .await
-            }) {
-                tracing::warn!("Failed to broadcast reaction: {}", e);
-            }
+        if let Err(e) = Client::deliver_message_with(
+            Arc::clone(&self.network),
+            to_peer_id,
+            proto_message,
+            "reaction",
+            self.message_store_url.clone(),
+            self.message_store_http.clone(),
+        )
+        .await
+        {
+            tracing::warn!("Failed to broadcast reaction: {}", e);
         }
 
         Ok(())
@@ -2109,6 +2094,8 @@ impl Client {
 struct DeliveryOutcome {
     sent: bool,
     stored: bool,
+    /// Message persisted to the local outbound retry queue (peer offline)
+    queued: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -2147,32 +2134,45 @@ mod tests {
     use crate::api::ClientBuilder;
     use tempfile::TempDir;
 
+    // build() spawna workers com spawn_local, então precisa rodar em LocalSet
+    // (igual ao caminho FFI de produção)
+
     #[tokio::test]
     async fn test_create_client() {
-        let temp_dir = TempDir::new().unwrap();
-        let data_dir = temp_dir.path().to_path_buf();
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let temp_dir = TempDir::new().unwrap();
+                let data_dir = temp_dir.path().to_path_buf();
 
-        let client = ClientBuilder::new()
-            .data_dir(data_dir)
-            .build()
-            .await
-            .unwrap();
+                let client = ClientBuilder::new()
+                    .data_dir(data_dir)
+                    .build()
+                    .await
+                    .unwrap();
 
-        assert!(client.local_peer_id().to_string().len() > 0);
+                assert!(client.local_peer_id().to_string().len() > 0);
+            })
+            .await;
     }
 
     #[tokio::test]
     async fn test_list_conversations() {
-        let temp_dir = TempDir::new().unwrap();
-        let data_dir = temp_dir.path().to_path_buf();
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let temp_dir = TempDir::new().unwrap();
+                let data_dir = temp_dir.path().to_path_buf();
 
-        let client = ClientBuilder::new()
-            .data_dir(data_dir)
-            .build()
-            .await
-            .unwrap();
+                let client = ClientBuilder::new()
+                    .data_dir(data_dir)
+                    .build()
+                    .await
+                    .unwrap();
 
-        let conversations = client.list_conversations().unwrap();
-        assert_eq!(conversations.len(), 0);
+                let conversations = client.list_conversations().unwrap();
+                assert_eq!(conversations.len(), 0);
+            })
+            .await;
     }
 }

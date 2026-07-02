@@ -183,6 +183,8 @@ fn create_square_thumbnail(img: DynamicImage, size: u32) -> DynamicImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::ImageFormat;
+    use std::io::Cursor;
 
     // Helper: Create a test image (100x100 red square PNG)
     fn create_test_image() -> Vec<u8> {

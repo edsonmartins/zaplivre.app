@@ -818,6 +818,7 @@ async fn run_client_task_arc(
             } => {
                 let result = client
                     .add_reaction(&message_id, &emoji)
+                    .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }
@@ -828,6 +829,7 @@ async fn run_client_task_arc(
             } => {
                 let result = client
                     .remove_reaction(&message_id, &emoji)
+                    .await
                     .map_err(|e| e.into());
                 let _ = response.send(result);
             }

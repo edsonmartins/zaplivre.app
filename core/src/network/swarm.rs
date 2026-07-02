@@ -40,6 +40,8 @@ pub struct NetworkManager {
     relay_manager: RelayManager,
     message_handler: Option<std::sync::Arc<MessageHandler>>,
     pending_kad_get: HashMap<QueryId, oneshot::Sender<Option<Multiaddr>>>,
+    /// Mensagens outbound em voo (request_id -> mensagem) para re-enfileirar em OutboundFailure
+    pending_outbound: HashMap<libp2p::request_response::OutboundRequestId, crate::protocol::Message>,
     last_published_addr: Option<Multiaddr>,
     nat_detector: NatDetector,
     prefer_relay: bool,
@@ -91,6 +93,7 @@ impl NetworkManager {
             relay_manager,
             message_handler: None,
             pending_kad_get: HashMap::new(),
+            pending_outbound: HashMap::new(),
             last_published_addr: None,
             nat_detector: NatDetector::new(),
             prefer_relay: false,
@@ -361,7 +364,19 @@ impl NetworkManager {
             .swarm
             .behaviour_mut()
             .request_response
-            .send_request(&peer_id, message);
+            .send_request(&peer_id, message.clone());
+
+        // Rastrear mensagens de conteúdo para re-enfileirar em OutboundFailure.
+        // Frames de controle (typing, read receipt, media offer/request/chunk)
+        // não são re-enfileirados - os fluxos deles têm retry próprio.
+        let msg_type = crate::protocol::pb::MessageType::try_from(message.r#type).ok();
+        if matches!(
+            msg_type,
+            Some(crate::protocol::pb::MessageType::Text)
+                | Some(crate::protocol::pb::MessageType::Encrypted)
+        ) {
+            self.pending_outbound.insert(request_id, message);
+        }
 
         tracing::info!("Sent message to {} (request_id: {:?})", peer_id, request_id);
         Ok(())
@@ -664,6 +679,9 @@ impl NetworkManager {
                                     request_id
                                 );
 
+                                // Entrega confirmada - sair do rastreio de outbound
+                                self.pending_outbound.remove(&request_id);
+
                                 // Process ACK through handler
                                 if let Some(ref handler) = self.message_handler {
                                     // Extract ACK from response payload
@@ -694,6 +712,14 @@ impl NetworkManager {
                             error,
                             request_id
                         );
+
+                        // Re-enfileirar a mensagem para retry e regredir o status
+                        // (antes o erro era apenas logado e a mensagem ficava "Sent")
+                        if let Some(message) = self.pending_outbound.remove(&request_id) {
+                            if let Some(ref handler) = self.message_handler {
+                                handler.requeue_failed_outbound(&peer, message);
+                            }
+                        }
                     }
                     libp2p::request_response::Event::InboundFailure {
                         peer,

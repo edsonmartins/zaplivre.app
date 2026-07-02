@@ -184,6 +184,45 @@ impl MessageHandler {
         Ok(())
     }
 
+    /// Re-enfileira uma mensagem cujo request outbound falhou (conexão caiu
+    /// entre o send e o ACK). O worker de retry (builder) fará a reentrega;
+    /// o status da mensagem regride para Pending em vez de ficar Sent.
+    pub fn requeue_failed_outbound(&self, peer_id: &libp2p::PeerId, message: crate::protocol::Message) {
+        use prost::Message as _;
+
+        let proto_bytes = message.encode_to_vec();
+        let next_attempt_at = chrono::Utc::now().timestamp() + 5;
+        let message_type = crate::protocol::pb::MessageType::try_from(message.r#type)
+            .map(|t| t.as_str_name().to_lowercase())
+            .unwrap_or_else(|_| "unknown".to_string());
+
+        match self.database.enqueue_outbound(
+            &message.id,
+            &peer_id.to_string(),
+            &message_type,
+            &proto_bytes,
+            next_attempt_at,
+        ) {
+            Ok(()) => {
+                let update = UpdateMessage {
+                    status: Some(MessageStatus::Pending),
+                    ..Default::default()
+                };
+                if let Err(e) = self.database.update_message(&message.id, &update) {
+                    tracing::warn!("Failed to regress message status to Pending: {}", e);
+                }
+                tracing::info!(
+                    "Outbound failure: message {} requeued for retry to {}",
+                    message.id,
+                    peer_id
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Failed to requeue message {} for retry: {}", message.id, e);
+            }
+        }
+    }
+
     /// Validate message format
     fn validate_message(&self, message: &Message) -> Result<()> {
         // Check message ID

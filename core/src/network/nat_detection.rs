@@ -96,10 +96,13 @@ impl NatDetector {
             }
         }
 
-        if ip_changed {
+        // Mapeamento externo variando (porta ou IP) entre observações é a
+        // assinatura de NAT simétrico: cada destino recebe um mapeamento
+        // diferente. Cones (restricted/port-restricted) mantêm o mesmo
+        // mapeamento externo e não são distinguíveis só por endereços
+        // observados - detecção real exige STUN/AutoNAT (NAT-01).
+        if ip_changed || port_changed {
             NatType::Symmetric
-        } else if port_changed {
-            NatType::PortRestricted
         } else {
             NatType::FullCone
         }
