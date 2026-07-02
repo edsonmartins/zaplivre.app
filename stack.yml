@@ -202,6 +202,8 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
       - SERVER_PORT=8080
       - ENABLE_TTL_CLEANUP=${ENABLE_TTL_CLEANUP:-true}
+      # PSH-02: acordar destinatários offline via push
+      - PUSH_SERVER_URL=http://push-server:8081
     ports:
       - "8080:8080"
     healthcheck:
@@ -231,7 +233,8 @@ services:
     image: mepassa-push:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - FCM_SERVER_KEY=${FCM_SERVER_KEY:-}
+      # FCM HTTP v1: JSON do service account em server/push/certs/
+      - FCM_SERVICE_ACCOUNT_PATH=/etc/push/fcm_service_account.json
       # APNs token-based auth (.p8 key) - see docs/APNS_SETUP_GUIDE.md
       - APNS_KEY_PATH=/etc/push/apns_key.p8
       - APNS_KEY_ID=${APNS_KEY_ID:-}

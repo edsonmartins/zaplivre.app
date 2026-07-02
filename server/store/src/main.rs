@@ -8,6 +8,7 @@ use std::env;
 
 mod api;
 mod auth;
+mod push_notifier;
 mod database;
 mod models;
 mod redis_client;
@@ -64,9 +65,13 @@ async fn main() -> std::io::Result<()> {
         });
     }
 
+    // Push integration (PSH-02): notificar destinatário offline
+    let push_notifier = push_notifier::PushNotifier::new(env::var("PUSH_SERVER_URL").ok());
+
     // Create shared state
     let db_data = web::Data::new(database);
     let redis_data = web::Data::new(redis);
+    let push_data = web::Data::new(push_notifier);
 
     tracing::info!("🌐 Starting HTTP server on port {}", server_port);
     tracing::info!("   POST   /api/store           - Store offline message");
@@ -84,6 +89,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             // State
             .app_data(db_data.clone())
+            .app_data(push_data.clone())
             .app_data(redis_data.clone())
             // Middleware
             .wrap(middleware::Logger::default())

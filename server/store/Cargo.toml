@@ -36,6 +36,9 @@ thiserror = { workspace = true }
 base64 = { workspace = true }
 hex = { workspace = true }
 
+# Push integration (PSH-02): notificar destinatário offline via push-server
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
 # Auth (SEC-09): verificação Ed25519 com chave extraída do peer ID
 ed25519-dalek = "2.1"
 libp2p-identity = { version = "0.2", features = ["ed25519", "peerid"] }

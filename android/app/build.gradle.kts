@@ -1,7 +1,15 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    // id("com.google.gms.google-services") // Disabled for now - P2P app doesn't need Firebase
+}
+
+// AND-12: FCM só é habilitado quando google-services.json existe (obtenha no
+// Firebase Console e coloque em android/app/). Sem o arquivo o build segue
+// normalmente, apenas sem push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.warn("google-services.json ausente - push FCM desabilitado neste build")
 }
 
 android {

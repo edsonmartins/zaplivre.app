@@ -51,6 +51,11 @@ impl TtlCleanupJob {
                     tracing::error!("❌ TTL cleanup failed: {:?}", e);
                 }
             }
+
+            // PSH-05: purgar mensagens entregues antigas
+            if let Err(e) = self.db.purge_delivered_messages().await {
+                tracing::error!("❌ Delivered purge failed: {:?}", e);
+            }
         }
     }
 }

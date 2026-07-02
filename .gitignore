@@ -96,3 +96,4 @@ secrets.yaml
 .secrets/
 ios/venv/
 server/push/certs/*.p8
+server/push/certs/fcm_service_account.json

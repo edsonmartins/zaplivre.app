@@ -92,9 +92,13 @@ pub async fn handle(
 
         match platform.as_str() {
             "fcm" => {
-                // Send via FCM
-                match state
-                    .fcm_client
+                // Send via FCM (HTTP v1) - opcional como o APNs
+                let Some(fcm_client) = state.fcm_client.as_ref() else {
+                    tracing::warn!("  ⚠️ FCM not configured, skipping device {}", device_id);
+                    failed_count += 1;
+                    continue;
+                };
+                match fcm_client
                     .send(&token, &req.title, &req.body, &data)
                     .await
                 {

@@ -39,7 +39,8 @@ class MePassaFirebaseMessagingService : FirebaseMessagingService() {
         // Extract notification data
         val title = message.data["title"] ?: message.notification?.title ?: "Nova mensagem"
         val body = message.data["body"] ?: message.notification?.body ?: "Você recebeu uma mensagem"
-        val peerId = message.data["peer_id"]
+        // sender_peer_id abre a conversa certa (peer_id é o destinatário - nós)
+        val peerId = message.data["sender_peer_id"] ?: message.data["peer_id"]
 
         Log.d(TAG, "Notification - Title: $title, Body: $body, PeerId: $peerId")
 

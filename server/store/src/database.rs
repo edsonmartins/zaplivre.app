@@ -64,10 +64,23 @@ impl Database {
         .bind(&message_type)
         .bind(&req.message_id)
         .bind(payload_bytes.len() as i32)
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
 
-        let id: Uuid = row.get("id");
+        // PSH-04: duplicata (retry do cliente) é idempotente - o ON CONFLICT
+        // DO NOTHING não retorna linha; buscar o registro existente em vez de
+        // responder 500 (fetch_one falhava com RowNotFound)
+        let id: Uuid = match row {
+            Some(row) => row.get("id"),
+            None => {
+                tracing::debug!("📩 Duplicate message {} (idempotent)", req.message_id);
+                sqlx::query("SELECT id FROM offline_messages WHERE message_id = $1")
+                    .bind(&req.message_id)
+                    .fetch_one(&self.pool)
+                    .await?
+                    .get("id")
+            }
+        };
 
         tracing::info!(
             "📩 Stored message {} for {} (from: {}, size: {} bytes)",
@@ -169,6 +182,27 @@ impl Database {
 
         if deleted > 0 {
             tracing::info!("🗑️ Deleted {} expired messages", deleted);
+        }
+
+        Ok(deleted as i64)
+    }
+
+    /// PSH-05: purga mensagens já ENTREGUES com mais de 7 dias
+    /// (antes cresciam indefinidamente - só as pending expiradas eram limpas)
+    pub async fn purge_delivered_messages(&self) -> Result<i64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            DELETE FROM offline_messages
+            WHERE status = 'delivered'
+              AND delivered_at < NOW() - INTERVAL '7 days'
+            "#,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        let deleted = result.rows_affected();
+        if deleted > 0 {
+            tracing::info!("🗑️ Purged {} delivered messages (>7d)", deleted);
         }
 
         Ok(deleted as i64)

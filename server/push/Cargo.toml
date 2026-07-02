@@ -21,8 +21,8 @@ serde_json = { workspace = true }
 # Database (PostgreSQL only; workspace version to avoid compiling two sqlx trees)
 sqlx = { workspace = true, features = ["postgres", "macros"] }
 
-# Firebase Cloud Messaging
-fcm = "0.9"
+# Firebase Cloud Messaging (HTTP v1 - OAuth2 com service account)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Apple Push Notification Service
 jsonwebtoken = "9.2"

@@ -28,7 +28,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: sqlx::PgPool,
-    pub fcm_client: Arc<fcm::FcmClient>,
+    pub fcm_client: Option<Arc<fcm::FcmClient>>,
     pub apns_client: Option<Arc<apns::ApnsClient>>,
 }
 
@@ -51,8 +51,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get configuration from environment
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
-    let fcm_server_key = std::env::var("FCM_SERVER_KEY")
-        .expect("FCM_SERVER_KEY must be set");
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "8081".to_string())
         .parse::<u16>()
@@ -63,10 +61,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_pool = sqlx::PgPool::connect(&database_url).await?;
     tracing::info!("✅ Database connected");
 
-    // Initialize FCM client
-    tracing::info!("🔥 Initializing FCM client...");
-    let fcm_client = Arc::new(fcm::FcmClient::new(fcm_server_key));
-    tracing::info!("✅ FCM client ready");
+    // Initialize FCM client (HTTP v1 via service account) - opcional
+    // (PSH-01: a Legacy API com FCM_SERVER_KEY foi desligada pelo Google)
+    let fcm_client = match std::env::var("FCM_SERVICE_ACCOUNT_PATH") {
+        Ok(path) if !path.trim().is_empty() => {
+            tracing::info!("🔥 Initializing FCM v1 client...");
+            match fcm::FcmClient::from_service_account_file(&path) {
+                Ok(client) => {
+                    tracing::info!("✅ FCM v1 client ready (project: {})", client.project_id());
+                    Some(Arc::new(client))
+                }
+                Err(e) => {
+                    tracing::error!("❌ Failed to initialize FCM client: {}", e);
+                    tracing::warn!("⚠️  Continuing without FCM support");
+                    None
+                }
+            }
+        }
+        _ => {
+            tracing::info!("ℹ️  FCM not configured - Android push notifications disabled");
+            tracing::info!("   Set FCM_SERVICE_ACCOUNT_PATH to the service account JSON to enable");
+            None
+        }
+    };
 
     // Initialize APNs client (optional - only if credentials are provided)
     let apns_client = match (
