@@ -87,6 +87,17 @@ impl ClientBuilder {
         let keypair = if let Some(keypair) = self.keypair {
             keypair
         } else if let Some(env_keypair) = load_keypair_from_env()? {
+            // Identidade veio do secure storage da plataforma (Keychain/
+            // Keystore via env): garantir que nenhum identity.key legado
+            // permaneça em plaintext no disco (SEC-06)
+            let legacy_key_file = data_dir.join("identity.key");
+            if legacy_key_file.exists() {
+                if let Err(e) = std::fs::remove_file(&legacy_key_file) {
+                    tracing::warn!("Failed to remove legacy identity.key: {}", e);
+                } else {
+                    tracing::info!("🔐 Removed legacy plaintext identity.key (secure storage in use)");
+                }
+            }
             env_keypair
         } else {
             // Try to load from file, or generate new one
@@ -200,6 +211,7 @@ impl ClientBuilder {
             crate::group::GroupManager::new(
                 peer_id.to_string(),
                 Arc::new(database.clone()),
+                storage_key,
             )
             .map_err(|e| MePassaError::Other(format!("Failed to create group manager: {}", e)))?
         );

@@ -531,6 +531,36 @@ impl MessageHandler {
                 .get_media_by_hash(&chunk.media_hash)?
                 .ok_or_else(|| MePassaError::NotFound("Media record not found".to_string()))?;
 
+            // SEC-03: verificar a integridade do arquivo remontado contra o
+            // media_hash antes de aceitá-lo (o hash pode ser SHA-256(dados) ou
+            // SHA-256(dados || message_id) quando houve colisão no envio)
+            {
+                use sha2::{Digest, Sha256};
+                let data = std::fs::read(&tmp_path).map_err(|e| {
+                    MePassaError::Storage(format!("Failed to read reassembled media: {}", e))
+                })?;
+
+                let plain_hash = format!("{:x}", Sha256::new_with_prefix(&data).finalize());
+                let salted_hash = {
+                    let mut hasher = Sha256::new();
+                    hasher.update(&data);
+                    hasher.update(media.message_id.as_bytes());
+                    format!("{:x}", hasher.finalize())
+                };
+
+                if plain_hash != chunk.media_hash && salted_hash != chunk.media_hash {
+                    let _ = std::fs::remove_file(&tmp_path);
+                    tracing::error!(
+                        "🚫 Media integrity check FAILED for {} (got {})",
+                        chunk.media_hash,
+                        plain_hash
+                    );
+                    return Err(MePassaError::Crypto(
+                        "Media integrity verification failed - file discarded".to_string(),
+                    ));
+                }
+            }
+
             let extension = media
                 .file_name
                 .as_ref()
@@ -563,6 +593,28 @@ impl MessageHandler {
             .database
             .get_media_by_hash(&request.media_hash)?
             .ok_or_else(|| MePassaError::NotFound("Media not found".to_string()))?;
+
+        // SEC-02: só servir mídia a peers que participam da conversa da mídia
+        // (antes qualquer peer conectado podia baixar qualquer mídia pelo hash)
+        let requester = from_peer.to_string();
+        let authorized = self
+            .database
+            .get_message(&media.message_id)
+            .map(|msg| {
+                msg.sender_peer_id == requester
+                    || msg.recipient_peer_id.as_deref() == Some(requester.as_str())
+            })
+            .unwrap_or(false);
+        if !authorized {
+            tracing::warn!(
+                "🚫 Media request for {} from unauthorized peer {}",
+                request.media_hash,
+                from_peer
+            );
+            return Err(MePassaError::Permission(
+                "Peer not authorized for this media".to_string(),
+            ));
+        }
         let local_path = media
             .local_path
             .ok_or_else(|| MePassaError::NotFound("Media file missing".to_string()))?;

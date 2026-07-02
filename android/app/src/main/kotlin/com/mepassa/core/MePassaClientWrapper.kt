@@ -109,6 +109,14 @@ object MePassaClientWrapper {
             _localPeerId.value = peerId
             _isInitialized.value = true
 
+            // SEC-06: a identidade já foi consumida pelo core (localPeerId só
+            // responde após o build) - remover a chave privada do ambiente
+            try {
+                Os.unsetenv("MEPASSA_IDENTITY_B64")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to clear identity env var", e)
+            }
+
             // Persist identity to secure storage if still on disk
             val keyFile = File(dataDir, "identity.key")
             if (AndroidIdentityStore.loadIdentity(context).isNullOrBlank() && keyFile.exists()) {

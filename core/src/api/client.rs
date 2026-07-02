@@ -260,31 +260,9 @@ impl Client {
         label: &str,
     ) -> Result<DeliveryOutcome> {
         let timestamp = chrono::Utc::now().timestamp_millis();
-        let (message_type, payload) = match self
-            .encrypt_message_for_peer(&to, content.as_bytes())
-            .await
-        {
-            Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
-            Ok(None) => (
-                MessageType::Text,
-                Payload::Text(TextMessage {
-                    content: content.clone(),
-                    reply_to_id: String::new(),
-                    metadata: std::collections::HashMap::new(),
-                }),
-            ),
-            Err(e) => {
-                tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
-                (
-                    MessageType::Text,
-                    Payload::Text(TextMessage {
-                        content: content.clone(),
-                        reply_to_id: String::new(),
-                        metadata: std::collections::HashMap::new(),
-                    }),
-                )
-            }
-        };
+        let (message_type, payload) = self
+            .prepare_outgoing_payload(&to, &content, String::new())
+            .await?;
 
         let proto_message = Message {
             id: message_id.to_string(),
@@ -320,31 +298,9 @@ impl Client {
         let message_id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp_millis();
 
-        let (message_type, payload) = match self
-            .encrypt_message_for_peer(&to, content.as_bytes())
-            .await
-        {
-            Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
-            Ok(None) => (
-                MessageType::Text,
-                Payload::Text(TextMessage {
-                    content: content.clone(),
-                    reply_to_id: String::new(),
-                    metadata: std::collections::HashMap::new(),
-                }),
-            ),
-            Err(e) => {
-                tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
-                (
-                    MessageType::Text,
-                    Payload::Text(TextMessage {
-                        content: content.clone(),
-                        reply_to_id: String::new(),
-                        metadata: std::collections::HashMap::new(),
-                    }),
-                )
-            }
-        };
+        let (message_type, payload) = self
+            .prepare_outgoing_payload(&to, &content, String::new())
+            .await?;
 
         // Create protocol message
         let proto_message = Message {
@@ -442,6 +398,63 @@ impl Client {
             sender_device_id: encrypted.sender_device_id,
             recipient_device_id: device_id,
         }))
+    }
+
+    /// Prepara o payload de saída de uma mensagem (SEC-01):
+    /// - E2E disponível → payload cifrado
+    /// - Falha na criptografia (`Err`) → **erro, mensagem NÃO é enviada**
+    ///   (antes havia downgrade silencioso para plaintext)
+    /// - Sem sessão/bundle E2E (`Ok(None)`) → plaintext com warning, a menos
+    ///   que `MEPASSA_REQUIRE_E2E=true` (aí o envio falha)
+    async fn prepare_outgoing_payload(
+        &self,
+        to: &PeerId,
+        content: &str,
+        reply_to_id: String,
+    ) -> Result<(MessageType, Payload)> {
+        Self::prepare_payload_with(&self.database, &self.session_manager, to, content, reply_to_id)
+            .await
+    }
+
+    pub(crate) async fn prepare_payload_with(
+        database: &Database,
+        session_manager: &SignalSessionManager,
+        to: &PeerId,
+        content: &str,
+        reply_to_id: String,
+    ) -> Result<(MessageType, Payload)> {
+        match Self::encrypt_for_peer_with(database, session_manager, to, content.as_bytes()).await
+        {
+            Ok(Some(encrypted_payload)) => {
+                Ok((MessageType::Encrypted, Payload::Encrypted(encrypted_payload)))
+            }
+            Ok(None) => {
+                if e2e_required() {
+                    return Err(MePassaError::Crypto(format!(
+                        "No E2E session with {} and plaintext fallback is disabled \
+                         (MEPASSA_REQUIRE_E2E)",
+                        to
+                    )));
+                }
+                tracing::warn!(
+                    "⚠️ No E2E session with {} - sending PLAINTEXT \
+                     (set MEPASSA_REQUIRE_E2E=true to forbid)",
+                    to
+                );
+                Ok((
+                    MessageType::Text,
+                    Payload::Text(TextMessage {
+                        content: content.to_string(),
+                        reply_to_id,
+                        metadata: std::collections::HashMap::new(),
+                    }),
+                ))
+            }
+            Err(e) => Err(MePassaError::Crypto(format!(
+                "E2E encryption failed for {}: {} - message NOT sent",
+                to, e
+            ))),
+        }
     }
 
     fn encrypt_for_storage(&self, plaintext: &[u8]) -> Result<Vec<u8>> {
@@ -1457,32 +1470,13 @@ impl Client {
                 .unwrap_or_default()
         );
 
-        let (message_type, payload) =
-            match self
-                .encrypt_message_for_peer(&to_peer_id, forwarded_content.as_bytes())
-                .await
-            {
-                Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
-                Ok(None) => (
-                    MessageType::Text,
-                    Payload::Text(TextMessage {
-                        content: forwarded_content.clone(),
-                        reply_to_id: original_msg.message_id.clone(),
-                        metadata: std::collections::HashMap::new(),
-                    }),
-                ),
-                Err(e) => {
-                    tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
-                    (
-                        MessageType::Text,
-                        Payload::Text(TextMessage {
-                            content: forwarded_content.clone(),
-                            reply_to_id: original_msg.message_id.clone(),
-                            metadata: std::collections::HashMap::new(),
-                        }),
-                    )
-                }
-            };
+        let (message_type, payload) = self
+            .prepare_outgoing_payload(
+                &to_peer_id,
+                &forwarded_content,
+                original_msg.message_id.clone(),
+            )
+            .await?;
 
         let proto_message = Message {
             id: new_message_id.clone(),
@@ -1603,32 +1597,9 @@ impl Client {
         };
         let content = envelope.encode()?;
 
-        let encryption_result = self
-            .encrypt_message_for_peer(&to_peer_id, content.as_bytes())
-            .await;
-
-        let (message_type, payload) = match encryption_result {
-            Ok(Some(encrypted_payload)) => (MessageType::Encrypted, Payload::Encrypted(encrypted_payload)),
-            Ok(None) => (
-                MessageType::Text,
-                Payload::Text(TextMessage {
-                    content: content.clone(),
-                    reply_to_id: String::new(),
-                    metadata: std::collections::HashMap::new(),
-                }),
-            ),
-            Err(e) => {
-                tracing::warn!("E2E encryption failed, sending plaintext: {}", e);
-                (
-                    MessageType::Text,
-                    Payload::Text(TextMessage {
-                        content: content.clone(),
-                        reply_to_id: String::new(),
-                        metadata: std::collections::HashMap::new(),
-                    }),
-                )
-            }
-        };
+        let (message_type, payload) = self
+            .prepare_outgoing_payload(&to_peer_id, &content, String::new())
+            .await?;
 
         let proto_message = Message {
             id: uuid::Uuid::new_v4().to_string(),
@@ -1957,34 +1928,19 @@ impl Client {
     ) -> Result<()> {
         let content = envelope.encode()?;
 
-        let encryption_result =
-            Self::encrypt_for_peer_with(database, session_manager, &to, content.as_bytes()).await;
+        // Mesma política SEC-01 das mensagens: falha de criptografia aborta o
+        // envio; sem sessão E2E cai em plaintext apenas se permitido (com
+        // warning extra quando o envelope carrega uma sender key seed).
+        let (message_type, payload) =
+            Self::prepare_payload_with(database, session_manager, &to, &content, String::new())
+                .await?;
 
-        let (message_type, payload) = match encryption_result {
-            Ok(Some(encrypted_payload)) => {
-                (MessageType::Encrypted, Payload::Encrypted(encrypted_payload))
-            }
-            other => {
-                if envelope.sender_key_seed.is_some() {
-                    // Seeds trafegando sem E2E é o comportamento herdado do hack
-                    // anterior; manter funcional para o alfa mas com alerta alto.
-                    // SEC-01 vai exigir sessão estabelecida aqui.
-                    tracing::warn!(
-                        "⚠️ Group control with sender key to {} sent WITHOUT E2E (no session): {:?}",
-                        to,
-                        other.err()
-                    );
-                }
-                (
-                    MessageType::Text,
-                    Payload::Text(TextMessage {
-                        content: content.clone(),
-                        reply_to_id: String::new(),
-                        metadata: std::collections::HashMap::new(),
-                    }),
-                )
-            }
-        };
+        if message_type == MessageType::Text && envelope.sender_key_seed.is_some() {
+            tracing::warn!(
+                "⚠️ Group control with sender key seed to {} sent WITHOUT E2E (no session)",
+                to
+            );
+        }
 
         let proto_message = Message {
             id: uuid::Uuid::new_v4().to_string(),
@@ -2330,6 +2286,15 @@ impl Client {
     pub fn network_arc(&self) -> Arc<RwLock<NetworkManager>> {
         Arc::clone(&self.network)
     }
+}
+
+/// Política SEC-01: quando true, mensagens sem sessão E2E estabelecida NÃO
+/// caem em plaintext - o envio falha. Default false para o alfa (a troca de
+/// prekeys ainda não é automática nos apps).
+fn e2e_required() -> bool {
+    std::env::var("MEPASSA_REQUIRE_E2E")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Clone)]

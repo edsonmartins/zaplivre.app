@@ -257,30 +257,79 @@ pub fn update_group_metadata(
     Ok(())
 }
 
+/// Salva a seed CIFRADA com a storage key (SEC-05). Se a seed não mudou,
+/// preserva o counter existente (guarda de replay); seed nova zera o counter.
 pub fn save_sender_key_seed(
     db: &Database,
+    storage_key: &[u8; 32],
     group_id: &str,
     sender_peer_id: &str,
     sender_key_seed: &[u8; 32],
 ) -> Result<()> {
-    // Se a seed é a mesma, preservar o counter (guarda de replay); seed nova
-    // (rotação) zera o counter.
+    // A comparação precisa ser feita após decifrar (nonce aleatório torna o
+    // blob diferente a cada cifra, mesmo com a mesma seed)
+    if let Some((existing_seed, _)) =
+        load_sender_key_seed(db, storage_key, group_id, sender_peer_id)?
+    {
+        if existing_seed == *sender_key_seed {
+            return Ok(());
+        }
+    }
+
+    let blob = crate::crypto::storage::encrypt_for_storage(storage_key, sender_key_seed)
+        .map_err(|e| MePassaError::Crypto(format!("Failed to encrypt sender key seed: {}", e)))?;
+
     db.conn().execute(
         r#"
         INSERT INTO group_sender_keys (group_id, sender_peer_id, sender_key_seed, counter)
         VALUES (?1, ?2, ?3, 0)
         ON CONFLICT(group_id, sender_peer_id) DO UPDATE SET
-            counter = CASE
-                WHEN group_sender_keys.sender_key_seed = excluded.sender_key_seed
-                    THEN group_sender_keys.counter
-                ELSE 0
-            END,
-            sender_key_seed = excluded.sender_key_seed
+            sender_key_seed = excluded.sender_key_seed,
+            counter = 0
         "#,
-        rusqlite::params![group_id, sender_peer_id, sender_key_seed.as_slice()],
+        rusqlite::params![group_id, sender_peer_id, blob],
     )?;
 
     Ok(())
+}
+
+/// Carrega uma seed específica (decifrando; blobs de 32 bytes são o formato
+/// legado em plaintext)
+pub fn load_sender_key_seed(
+    db: &Database,
+    storage_key: &[u8; 32],
+    group_id: &str,
+    sender_peer_id: &str,
+) -> Result<Option<([u8; 32], u64)>> {
+    let row: Option<(Vec<u8>, i64)> = db
+        .conn()
+        .query_row(
+            r#"
+            SELECT sender_key_seed, counter FROM group_sender_keys
+            WHERE group_id = ?1 AND sender_peer_id = ?2
+            "#,
+            rusqlite::params![group_id, sender_peer_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok();
+
+    match row {
+        Some((blob, counter)) => {
+            let seed = decode_seed_blob(storage_key, blob)?;
+            Ok(Some((seed, counter.max(0) as u64)))
+        }
+        None => Ok(None),
+    }
+}
+
+fn decode_seed_blob(storage_key: &[u8; 32], blob: Vec<u8>) -> Result<[u8; 32]> {
+    if blob.len() == 32 {
+        // Formato legado: seed em plaintext
+        return seed_from_blob(blob);
+    }
+    let decrypted = crate::crypto::storage::decrypt_for_storage(storage_key, &blob)
+        .map_err(|e| MePassaError::Crypto(format!("Failed to decrypt sender key seed: {}", e)))?;
+    seed_from_blob(decrypted)
 }
 
 /// Persist the next-expected/next-to-send counter for a sender key
@@ -303,6 +352,7 @@ pub fn update_sender_key_counter(
 
 pub fn load_group_sender_keys(
     db: &Database,
+    storage_key: &[u8; 32],
     group_id: &str,
 ) -> Result<Vec<(String, [u8; 32], u64)>> {
     let conn = db.conn();
@@ -324,7 +374,7 @@ pub fn load_group_sender_keys(
     let mut result = Vec::new();
     for row in rows {
         let (sender_peer_id, seed_blob, counter) = row?;
-        let seed = seed_from_blob(seed_blob)?;
+        let seed = decode_seed_blob(storage_key, seed_blob)?;
         result.push((sender_peer_id, seed, counter.max(0) as u64));
     }
 

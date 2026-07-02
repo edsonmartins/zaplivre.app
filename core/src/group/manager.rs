@@ -37,16 +37,20 @@ pub struct GroupManager {
 
     /// Group sender-key sessions
     group_sessions: GroupSessionManager,
+
+    /// Storage key para cifrar sender key seeds em repouso (SEC-05)
+    storage_key: [u8; 32],
 }
 
 impl GroupManager {
     /// Create a new GroupManager
-    pub fn new(local_peer_id: String, db: Arc<Database>) -> Result<Self> {
+    pub fn new(local_peer_id: String, db: Arc<Database>, storage_key: [u8; 32]) -> Result<Self> {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         let manager = Self {
             local_peer_id: local_peer_id.clone(),
             db,
+            storage_key,
             groups: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
             event_rx: Arc::new(RwLock::new(Some(event_rx))),
@@ -112,7 +116,7 @@ impl GroupManager {
             .group_sessions
             .create_group(group_id.clone())
             .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
-        storage::save_sender_key_seed(&self.db, &group_id, &self.local_peer_id, &my_seed)?;
+        storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
 
         // Store in memory
         self.groups.write().await.insert(group_id.clone(), group.clone());
@@ -151,7 +155,7 @@ impl GroupManager {
             .group_sessions
             .create_group(group_id.clone())
             .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
-        storage::save_sender_key_seed(&self.db, &group_id, &self.local_peer_id, &my_seed)?;
+        storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
 
         // Store in memory
         self.groups.write().await.insert(group_id.clone(), group.clone());
@@ -313,7 +317,7 @@ impl GroupManager {
             .group_sessions
             .create_group(group_id.clone())
             .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
-        storage::save_sender_key_seed(&self.db, &group_id, &self.local_peer_id, &my_seed)?;
+        storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
 
         self.groups.write().await.insert(group_id.clone(), group.clone());
 
@@ -745,13 +749,13 @@ impl GroupManager {
 
         self.group_sessions
             .add_member_to_group(group_id, sender_peer_id.to_string(), seed)?;
-        storage::save_sender_key_seed(&self.db, group_id, sender_peer_id, &seed)?;
+        storage::save_sender_key_seed(&self.db, &self.storage_key, group_id, sender_peer_id, &seed)?;
 
         Ok(())
     }
 
     fn restore_group_session(&self, group: &Group) -> Result<()> {
-        let sender_keys = storage::load_group_sender_keys(&self.db, &group.id)?;
+        let sender_keys = storage::load_group_sender_keys(&self.db, &self.storage_key, &group.id)?;
         let mut my_key: Option<([u8; 32], u64)> = None;
         let mut member_seeds = Vec::new();
 
@@ -770,7 +774,7 @@ impl GroupManager {
                 .group_sessions
                 .create_group(group.id.clone())
                 .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
-            storage::save_sender_key_seed(&self.db, &group.id, &self.local_peer_id, &seed)?;
+            storage::save_sender_key_seed(&self.db, &self.storage_key, &group.id, &self.local_peer_id, &seed)?;
             (seed, 0)
         };
 
@@ -797,7 +801,7 @@ mod tests {
             rusqlite::params!["peer-1", vec![0u8; 32]],
         ).unwrap();
 
-        let manager = GroupManager::new("peer-1".to_string(), db).unwrap();
+        let manager = GroupManager::new("peer-1".to_string(), db, [7u8; 32]).unwrap();
         manager.init().await.unwrap();
 
         let (group, _topic) = manager
@@ -826,7 +830,7 @@ mod tests {
             rusqlite::params!["peer-2", vec![1u8; 32]],
         ).unwrap();
 
-        let manager = GroupManager::new("peer-1".to_string(), db).unwrap();
+        let manager = GroupManager::new("peer-1".to_string(), db, [7u8; 32]).unwrap();
         manager.init().await.unwrap();
 
         let (group, _) = manager
@@ -863,7 +867,7 @@ mod tests {
             rusqlite::params!["peer-2", vec![1u8; 32]],
         ).unwrap();
 
-        let manager = GroupManager::new("peer-1".to_string(), db).unwrap();
+        let manager = GroupManager::new("peer-1".to_string(), db, [7u8; 32]).unwrap();
         manager.init().await.unwrap();
 
         let (group, _) = manager
