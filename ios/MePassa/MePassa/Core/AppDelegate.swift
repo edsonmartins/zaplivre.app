@@ -10,20 +10,19 @@ import UIKit
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    var pushManager: PushNotificationManager?
+    // O pushManager é injetado pelo MePassaApp DEPOIS do didFinishLaunching,
+    // então o delegate de notificações precisa ser (re)atribuído na injeção.
+    var pushManager: PushNotificationManager? {
+        didSet {
+            UNUserNotificationCenter.current().delegate = pushManager
+        }
+    }
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         print("📱 MePassa AppDelegate - didFinishLaunching")
-
-        // Request push notification permissions
-        pushManager?.requestAuthorization()
-
-        // Set notification delegate
-        UNUserNotificationCenter.current().delegate = pushManager
-
         return true
     }
 

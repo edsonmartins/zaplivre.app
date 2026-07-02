@@ -105,9 +105,13 @@ export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
             </div>
           </div>
 
-          {/* Get Started Button */}
-          <button onClick={handleGetStarted} className="btn-primary w-full">
-            Get Started
+          {/* Get Started Button - desabilitado enquanto o client não inicializou */}
+          <button
+            onClick={handleGetStarted}
+            disabled={!localPeerId}
+            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {localPeerId ? 'Get Started' : 'Initializing...'}
           </button>
         </div>
       </div>

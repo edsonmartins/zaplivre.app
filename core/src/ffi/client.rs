@@ -917,7 +917,16 @@ impl MePassaClient {
                         }
                     }
 
-                    let client = std::sync::Arc::new(builder.build().await.expect("Failed to build client"));
+                    // On build failure, exit this thread gracefully instead of panicking:
+                    // the command receiver is dropped, so every subsequent FFI call gets a
+                    // controlled "Failed to send command" error instead of a process abort.
+                    let client = match builder.build().await {
+                        Ok(client) => std::sync::Arc::new(client),
+                        Err(e) => {
+                            tracing::error!("Failed to build client: {e:?}");
+                            return;
+                        }
+                    };
                     let client_for_network = std::sync::Arc::clone(&client);
 
                     // Spawn network event loop task using non-blocking polling

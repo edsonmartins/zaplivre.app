@@ -838,6 +838,24 @@ pub async fn toggle_speakerphone(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn switch_camera(
+    state: State<'_, ClientState>,
+    call_id: String,
+) -> Result<(), String> {
+    tracing::info!("Switching camera for call: {}", call_id);
+
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    client.switch_camera(call_id).await.map_err(|e| e.to_string())
+}
+
 // ============================================================================
 // VoIP Video Commands (FASE 14)
 // ============================================================================

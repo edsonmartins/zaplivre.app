@@ -253,7 +253,8 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   }
 
   const formatTime = (timestamp: number): string => {
-    const date = new Date(timestamp)
+    // created_at vem do SQLite em SEGUNDOS (unixepoch)
+    const date = new Date(timestamp * 1000)
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 

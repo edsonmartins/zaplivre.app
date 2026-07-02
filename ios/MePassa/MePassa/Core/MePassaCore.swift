@@ -304,36 +304,62 @@ class MePassaCore: ObservableObject {
         return messages.map { FfiMessageWrapper(ffi: $0) }
     }
 
-    /// Get message reactions (stub for now)
+    /// Get message reactions
     func getMessageReactions(messageId: String) async throws -> [FfiReaction] {
-        // TODO: Implement when reaction support is added to FFI
-        return []
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        return try client.getMessageReactions(messageId: messageId)
     }
 
-    /// Add reaction (stub for now)
+    /// Add reaction
     func addReaction(messageId: String, emoji: String) async throws {
-        // TODO: Implement when reaction support is added to FFI
-        print("⚠️ addReaction not yet implemented")
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try client.addReaction(messageId: messageId, emoji: emoji)
     }
 
-    /// Remove reaction (stub for now)
+    /// Remove reaction
     func removeReaction(messageId: String, emoji: String) async throws {
-        // TODO: Implement when reaction support is added to FFI
-        print("⚠️ removeReaction not yet implemented")
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try client.removeReaction(messageId: messageId, emoji: emoji)
     }
 
-    /// Send document message (stub for now)
+    /// Send document message
     func sendDocumentMessage(to peerId: String, fileData: Data, fileName: String, mimeType: String) async throws -> String {
-        // TODO: Implement when document support is added to FFI
-        print("⚠️ sendDocumentMessage not yet implemented")
-        return UUID().uuidString
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        return try await client.sendDocumentMessage(
+            toPeerId: peerId,
+            fileData: [UInt8](fileData),
+            fileName: fileName,
+            mimeType: mimeType
+        )
     }
 
-    /// Send video message (stub for now)
+    /// Send video message
     func sendVideoMessage(toPeerId peerId: String, videoData: Data, fileName: String, width: Int32, height: Int32, durationSeconds: Int32, thumbnailData: Data?) async throws -> String {
-        // TODO: Implement when video message support is added to FFI
-        print("⚠️ sendVideoMessage not yet implemented")
-        return UUID().uuidString
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        return try await client.sendVideoMessage(
+            toPeerId: peerId,
+            videoData: [UInt8](videoData),
+            fileName: fileName,
+            width: width,
+            height: height,
+            durationSeconds: durationSeconds,
+            thumbnailData: thumbnailData.map { [UInt8]($0) }
+        )
     }
 
     // MARK: - VoIP Calls

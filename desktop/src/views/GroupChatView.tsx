@@ -28,7 +28,9 @@ export default function GroupChatView() {
   const [isLoading, setIsLoading] = useState(true)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [localPeerId, setLocalPeerId] = useState<string>('')
+  // Ref (não state) para evitar closure obsoleta no setInterval: o intervalo
+  // captura o loadMessages criado quando o peer id ainda estava vazio
+  const localPeerIdRef = useRef<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const groupSenderKeyPrefix = 'mepassa-group-key:v1:'
@@ -68,7 +70,7 @@ export default function GroupChatView() {
   const loadLocalPeerId = async () => {
     try {
       const peerId = await invoke<string>('get_local_peer_id')
-      setLocalPeerId(peerId)
+      localPeerIdRef.current = peerId
       if (groupId) {
         await loadMessages()
       }
@@ -91,7 +93,7 @@ export default function GroupChatView() {
         sender_peer_id: msg.sender_peer_id,
         content: msg.content_plaintext ?? '',
         created_at: msg.created_at,
-        is_own_message: msg.sender_peer_id === localPeerId,
+        is_own_message: msg.sender_peer_id === localPeerIdRef.current,
       }))
 
       setMessages(mapped.reverse())

@@ -65,6 +65,7 @@ fn main() {
             commands::hangup_call,
             commands::toggle_mute,
             commands::toggle_speakerphone,
+            commands::switch_camera,
             commands::enable_video,
             commands::disable_video,
             commands::register_video_frame_callback,

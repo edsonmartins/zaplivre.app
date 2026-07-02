@@ -6,8 +6,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import android.system.Os
-import com.mepassa.BuildConfig
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import com.mepassa.R
@@ -64,22 +62,8 @@ class MePassaService : Service() {
         serviceScope.launch {
             if (!MePassaClientWrapper.isClientReady()) {
                 Log.i(TAG, "Initializing MePassaClient from service")
-                val storeUrl = BuildConfig.MESSAGE_STORE_URL
-                if (storeUrl.isNotBlank()) {
-                    try {
-                        Os.setenv("MESSAGE_STORE_URL", storeUrl, true)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to set MESSAGE_STORE_URL env", e)
-                    }
-                }
-                val signalingUrl = BuildConfig.SIGNALING_SERVER_URL
-                if (signalingUrl.isNotBlank()) {
-                    try {
-                        Os.setenv("SIGNALING_SERVER_URL", signalingUrl, true)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to set SIGNALING_SERVER_URL env", e)
-                    }
-                }
+                // MESSAGE_STORE_URL/SIGNALING_SERVER_URL são configuradas em
+                // MePassaApplication.onCreate, antes de qualquer initialize()
                 val success = MePassaClientWrapper.initialize(applicationContext)
                 if (!success) {
                     Log.e(TAG, "Failed to initialize client, stopping service")
@@ -147,7 +131,8 @@ class MePassaService : Service() {
      */
     private fun createNotification(connectedPeers: UInt): Notification {
         // TODO: Adicionar PendingIntent para abrir MainActivity quando clicar
-        val contentText = getString(R.string.service_notification_text, connectedPeers)
+        // UInt não é aceito por String.format("%d") - converter para Int
+        val contentText = getString(R.string.service_notification_text, connectedPeers.toInt())
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.service_notification_title))
