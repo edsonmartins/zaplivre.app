@@ -797,6 +797,87 @@ pub async fn add_group_sender_key(
         .map_err(|e| e.to_string())
 }
 
+/// UX-02: reações e forward
+#[tauri::command]
+pub async fn add_reaction(
+    state: State<'_, ClientState>,
+    message_id: String,
+    emoji: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+    client.add_reaction(message_id, emoji).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn remove_reaction(
+    state: State<'_, ClientState>,
+    message_id: String,
+    emoji: String,
+) -> Result<(), String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+    client.remove_reaction(message_id, emoji).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_message_reactions(
+    state: State<'_, ClientState>,
+    message_id: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+    let reactions = client
+        .get_message_reactions(message_id)
+        .map_err(|e| e.to_string())?;
+    Ok(reactions
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "reaction_id": r.reaction_id,
+                "message_id": r.message_id,
+                "peer_id": r.peer_id,
+                "emoji": r.emoji,
+                "created_at": r.created_at,
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn forward_message(
+    state: State<'_, ClientState>,
+    message_id: String,
+    to_peer_id: String,
+) -> Result<String, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+    client
+        .forward_message(message_id, to_peer_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// DSK-09: exporta o backup Base64 da identidade guardada no keychain
 #[tauri::command]
 pub fn export_identity_backup() -> Result<String, String> {

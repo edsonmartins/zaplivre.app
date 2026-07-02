@@ -38,6 +38,72 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [mediaIndex, setMediaIndex] = useState<Record<string, MediaItem>>({})
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({})
+  const [reactions, setReactions] = useState<Record<string, { emoji: string; peer_id: string }[]>>({})
+  const [forwardMessageId, setForwardMessageId] = useState<string | null>(null)
+  const [forwardTargets, setForwardTargets] = useState<{ peer_id: string; display_name: string | null }[]>([])
+
+  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮']
+
+  const loadReactions = async (msgs: Message[]) => {
+    try {
+      const entries = await Promise.all(
+        msgs.map(async (m) => {
+          const r = await invoke<{ emoji: string; peer_id: string }[]>(
+            'get_message_reactions',
+            { messageId: m.id }
+          )
+          return [m.id, r] as const
+        })
+      )
+      setReactions(Object.fromEntries(entries.filter(([, r]) => r.length > 0)))
+    } catch (error) {
+      console.error('Failed to load reactions:', error)
+    }
+  }
+
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    const mine = (reactions[messageId] ?? []).some(
+      (r) => r.emoji === emoji && r.peer_id === localPeerId
+    )
+    try {
+      await invoke(mine ? 'remove_reaction' : 'add_reaction', { messageId, emoji })
+      const updated = await invoke<{ emoji: string; peer_id: string }[]>(
+        'get_message_reactions',
+        { messageId }
+      )
+      setReactions((prev) => ({ ...prev, [messageId]: updated }))
+    } catch (error) {
+      console.error('Failed to toggle reaction:', error)
+    }
+  }
+
+  const openForward = async (messageId: string) => {
+    try {
+      const convs = await invoke<{ peer_id: string | null; display_name: string | null }[]>(
+        'list_conversations'
+      )
+      setForwardTargets(
+        convs
+          .filter((c): c is { peer_id: string; display_name: string | null } =>
+            Boolean(c.peer_id) && c.peer_id !== peerId
+          )
+      )
+      setForwardMessageId(messageId)
+    } catch (error) {
+      console.error('Failed to load forward targets:', error)
+    }
+  }
+
+  const handleForward = async (toPeerId: string) => {
+    if (!forwardMessageId) return
+    try {
+      await invoke('forward_message', { messageId: forwardMessageId, toPeerId })
+    } catch (error) {
+      console.error('Failed to forward:', error)
+    } finally {
+      setForwardMessageId(null)
+    }
+  }
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -128,6 +194,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
       }
 
       const ordered = [...filtered].sort((a, b) => a.created_at - b.created_at)
+      loadReactions(ordered)
       previousMessageCount.current = ordered.length
       setMessages(ordered)
     } catch (error) {
@@ -352,8 +419,34 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${isSentByMe(msg) ? 'justify-end' : 'justify-start'}`}
+                className={`group flex ${isSentByMe(msg) ? 'justify-end' : 'justify-start'}`}
               >
+                {/* Ações no hover (UX-02): reações rápidas + encaminhar */}
+                <div
+                  className={`hidden group-hover:flex items-center gap-1 self-center mx-2 ${
+                    isSentByMe(msg) ? 'order-first' : 'order-last'
+                  }`}
+                >
+                  {QUICK_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => toggleReaction(msg.id, emoji)}
+                      className="text-sm hover:scale-125 transition-transform"
+                      title={`Reagir ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => openForward(msg.id)}
+                    className="text-gray-400 hover:text-gray-600 ml-1"
+                    title="Encaminhar"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
                 <div className={isSentByMe(msg) ? 'message-sent' : 'message-received'}>
                   {msg.message_type === 'image' && mediaIndex[msg.id] ? (
                     mediaUrls[mediaIndex[msg.id].media_hash] ? (
@@ -377,6 +470,24 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
                   >
                     {formatTime(msg.created_at)}
                   </p>
+                  {(reactions[msg.id]?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {Object.entries(
+                        (reactions[msg.id] ?? []).reduce<Record<string, number>>(
+                          (acc, r) => ({ ...acc, [r.emoji]: (acc[r.emoji] ?? 0) + 1 }),
+                          {}
+                        )
+                      ).map(([emoji, count]) => (
+                        <button
+                          key={emoji}
+                          onClick={() => toggleReaction(msg.id, emoji)}
+                          className="text-xs bg-white bg-opacity-70 rounded-full px-2 py-0.5 border border-gray-200"
+                        >
+                          {emoji} {count > 1 ? count : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -384,6 +495,37 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
           </>
         )}
       </div>
+
+      {/* Forward modal (UX-02) */}
+      {forwardMessageId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[70vh] flex flex-col">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Encaminhar para...</h2>
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+              {forwardTargets.length === 0 && (
+                <p className="text-sm text-gray-500 py-4">Nenhuma outra conversa disponível.</p>
+              )}
+              {forwardTargets.map((t) => (
+                <button
+                  key={t.peer_id}
+                  onClick={() => handleForward(t.peer_id)}
+                  className="w-full text-left px-2 py-3 hover:bg-gray-50"
+                >
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {t.display_name || `${t.peer_id.slice(0, 20)}...`}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setForwardMessageId(null)}
+              className="btn-secondary mt-4"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Input */}
       <div className="bg-white border-t border-gray-200 px-6 py-4">

@@ -38,7 +38,12 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var userName by remember { mutableStateOf("Usuário MePassa") }
+    val profilePrefs = remember {
+        context.getSharedPreferences("mepassa_profile", android.content.Context.MODE_PRIVATE)
+    }
+    var userName by remember {
+        mutableStateOf(profilePrefs.getString("display_name", null) ?: "Usuário MePassa")
+    }
     var isEditingName by remember { mutableStateOf(false) }
     val localPeerId by MePassaClientWrapper.localPeerId.collectAsState()
     var showExportDialog by remember { mutableStateOf(false) }
@@ -139,7 +144,9 @@ fun ProfileScreen(
 
                     Button(
                         onClick = {
-                            // TODO: Save name
+                            // UX-06: nome local do dispositivo (sem protocolo
+                            // de perfil sincronizado ainda)
+                            profilePrefs.edit().putString("display_name", userName.trim()).apply()
                             isEditingName = false
                         }
                     ) {

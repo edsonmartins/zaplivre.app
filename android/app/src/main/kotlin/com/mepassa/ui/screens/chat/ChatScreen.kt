@@ -398,8 +398,50 @@ fun ChatScreen(
                             }
                         }
                     },
-                    onVideoPicked = { _ ->
-                        // TODO: Implement video sending
+                    onVideoPicked = { uri ->
+                        scope.launch {
+                            isSending = true
+                            try {
+                                val videoBytes = context.contentResolver
+                                    .openInputStream(uri)?.use { it.readBytes() }
+                                if (videoBytes == null) {
+                                    android.util.Log.e("ChatScreen", "Could not read video: $uri")
+                                } else if (videoBytes.size > 100 * 1024 * 1024) {
+                                    android.util.Log.e("ChatScreen", "Video too large (>100MB)")
+                                } else {
+                                    val fileName = uri.lastPathSegment
+                                        ?.substringAfterLast('/') ?: "video.mp4"
+
+                                    // Duração via MediaMetadataRetriever
+                                    val duration = try {
+                                        android.media.MediaMetadataRetriever().use { mmr ->
+                                            mmr.setDataSource(context, uri)
+                                            (mmr.extractMetadata(
+                                                android.media.MediaMetadataRetriever.METADATA_KEY_DURATION
+                                            )?.toLongOrNull() ?: 0L) / 1000L
+                                        }
+                                    } catch (e: Exception) {
+                                        0L
+                                    }
+
+                                    MePassaClientWrapper.sendVideoMessage(
+                                        toPeerId = peerId,
+                                        videoData = videoBytes.toUByteArray().toList(),
+                                        fileName = fileName,
+                                        durationSeconds = duration.toInt()
+                                    )
+
+                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                    if (messages.isNotEmpty()) {
+                                        listState.animateScrollToItem(messages.lastIndex)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("ChatScreen", "Error sending video", e)
+                            } finally {
+                                isSending = false
+                            }
+                        }
                     },
                     voiceRecorderViewModel = voiceRecorderViewModel,
                     isSending = isSending

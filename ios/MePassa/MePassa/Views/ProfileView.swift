@@ -12,7 +12,7 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
 
-    @State private var userName = "Usuário MePassa"
+    @AppStorage("display_name") private var userName = "Usuário MePassa"
     @State private var isEditingName = false
     @State private var localPeerId = ""
     @State private var showCopiedAlert = false
@@ -66,7 +66,8 @@ struct ProfileView: View {
                                 .buttonStyle(.bordered)
 
                                 Button("Salvar") {
-                                    // TODO: Save name
+                                    // UX-06: @AppStorage persiste em UserDefaults
+                                    userName = userName.trimmingCharacters(in: .whitespaces)
                                     isEditingName = false
                                 }
                                 .buttonStyle(.borderedProminent)
