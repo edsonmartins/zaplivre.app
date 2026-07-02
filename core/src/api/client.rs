@@ -400,7 +400,18 @@ impl Client {
         to: &PeerId,
         plaintext: &[u8],
     ) -> Result<Option<ProtoEncryptedMessage>> {
-        let contact = match self.database.get_contact_by_peer_id(&to.to_string()) {
+        Self::encrypt_for_peer_with(&self.database, &self.session_manager, to, plaintext).await
+    }
+
+    /// Versão associada do encrypt E2E (usada também pela task de orquestração
+    /// de grupo no builder, que não tem `&self` do Client)
+    pub(crate) async fn encrypt_for_peer_with(
+        database: &Database,
+        session_manager: &SignalSessionManager,
+        to: &PeerId,
+        plaintext: &[u8],
+    ) -> Result<Option<ProtoEncryptedMessage>> {
+        let contact = match database.get_contact_by_peer_id(&to.to_string()) {
             Ok(contact) => contact,
             Err(_) => return Ok(None),
         };
@@ -415,13 +426,9 @@ impl Client {
 
         let peer_id = to.to_string();
         let device_id = bundle.signal_device_id.unwrap_or(1);
-        let has_session = self
-            .session_manager
-            .has_session(&peer_id, device_id)
-            .await?;
+        let has_session = session_manager.has_session(&peer_id, device_id).await?;
         let bundle_ref = if has_session { None } else { Some(&bundle) };
-        let encrypted = self
-            .session_manager
+        let encrypted = session_manager
             .encrypt_for(&peer_id, device_id, bundle_ref, plaintext)
             .await?;
 
@@ -1916,6 +1923,89 @@ impl Client {
         Ok(FfiGroup::from_group(&group, &self.local_peer_id().to_string()))
     }
 
+    /// Envia um envelope de controle de grupo para um peer (E2E quando há sessão)
+    async fn send_group_control(
+        &self,
+        to: PeerId,
+        envelope: &crate::group::GroupControlEnvelope,
+    ) -> Result<()> {
+        Self::send_group_control_with(
+            &self.database,
+            &self.session_manager,
+            Arc::clone(&self.network),
+            self.message_store_url.clone(),
+            self.message_store_http.clone(),
+            &self.local_peer_id().to_string(),
+            to,
+            envelope,
+        )
+        .await
+    }
+
+    /// Versão associada do envio de controle de grupo (usada também pela task
+    /// de orquestração no builder)
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn send_group_control_with(
+        database: &Database,
+        session_manager: &SignalSessionManager,
+        network: Arc<RwLock<NetworkManager>>,
+        message_store_url: Option<String>,
+        message_store_http: reqwest::Client,
+        local_peer_id: &str,
+        to: PeerId,
+        envelope: &crate::group::GroupControlEnvelope,
+    ) -> Result<()> {
+        let content = envelope.encode()?;
+
+        let encryption_result =
+            Self::encrypt_for_peer_with(database, session_manager, &to, content.as_bytes()).await;
+
+        let (message_type, payload) = match encryption_result {
+            Ok(Some(encrypted_payload)) => {
+                (MessageType::Encrypted, Payload::Encrypted(encrypted_payload))
+            }
+            other => {
+                if envelope.sender_key_seed.is_some() {
+                    // Seeds trafegando sem E2E é o comportamento herdado do hack
+                    // anterior; manter funcional para o alfa mas com alerta alto.
+                    // SEC-01 vai exigir sessão estabelecida aqui.
+                    tracing::warn!(
+                        "⚠️ Group control with sender key to {} sent WITHOUT E2E (no session): {:?}",
+                        to,
+                        other.err()
+                    );
+                }
+                (
+                    MessageType::Text,
+                    Payload::Text(TextMessage {
+                        content: content.clone(),
+                        reply_to_id: String::new(),
+                        metadata: std::collections::HashMap::new(),
+                    }),
+                )
+            }
+        };
+
+        let proto_message = Message {
+            id: uuid::Uuid::new_v4().to_string(),
+            sender_peer_id: local_peer_id.to_string(),
+            recipient_peer_id: to.to_string(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            r#type: message_type as i32,
+            payload: Some(payload),
+        };
+
+        Client::deliver_message_with(
+            network,
+            to,
+            proto_message,
+            "group_control",
+            message_store_url,
+            message_store_http,
+        )
+        .await
+    }
+
     /// Join an existing group
     pub async fn join_group(&self, group_id: String, group_name: String) -> Result<()> {
         let topic = self.group_manager
@@ -1931,7 +2021,31 @@ impl Client {
 
     /// Leave a group
     pub async fn leave_group(&self, group_id: String) -> Result<()> {
+        // Avisar os demais membros antes de sair (protocolo in-band)
         if let Some(group) = self.group_manager.get_group(&group_id).await {
+            let envelope = crate::group::GroupControlEnvelope {
+                version: 1,
+                action: crate::group::envelope::actions::LEAVE.to_string(),
+                group_id: group_id.clone(),
+                group_name: None,
+                group_description: None,
+                creator_peer_id: None,
+                members: None,
+                member_peer_id: None,
+                sender_key_seed: None,
+            };
+            let my_id = self.local_peer_id().to_string();
+            for member in &group.members {
+                if *member == my_id {
+                    continue;
+                }
+                if let Ok(peer) = PeerId::from_str(member) {
+                    if let Err(e) = self.send_group_control(peer, &envelope).await {
+                        tracing::warn!("Failed to notify {} about leave: {}", member, e);
+                    }
+                }
+            }
+
             let topic = libp2p::gossipsub::IdentTopic::new(&group.topic);
             let mut network = self.network.write().await;
             if let Err(e) = network.unsubscribe_gossipsub(&topic) {
@@ -1945,19 +2059,114 @@ impl Client {
     }
 
     /// Add a member to a group (admin only)
+    ///
+    /// Protocolo in-band (CORE-16): além do estado local, envia
+    /// - `invite` para o novo membro (metadados + membership + minha seed)
+    /// - `member_added` para os demais membros
     pub async fn add_group_member(&self, group_id: String, peer_id: String) -> Result<()> {
         self.group_manager
             .add_member(&group_id, &peer_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to add member: {}", e)))
+            .map_err(|e| MePassaError::Other(format!("Failed to add member: {}", e)))?;
+
+        let group = self
+            .group_manager
+            .get_group(&group_id)
+            .await
+            .ok_or_else(|| MePassaError::NotFound("Group not found after add".to_string()))?;
+
+        let my_id = self.local_peer_id().to_string();
+        let my_seed = self
+            .group_manager
+            .get_group_sender_key_seed(&group_id)
+            .ok()
+            .map(|seed| general_purpose::STANDARD.encode(&seed));
+
+        let members: Vec<String> = group.members.iter().cloned().collect();
+
+        // 1) Invite para o novo membro
+        if let Ok(new_peer) = PeerId::from_str(&peer_id) {
+            let invite = crate::group::GroupControlEnvelope {
+                version: 1,
+                action: crate::group::envelope::actions::INVITE.to_string(),
+                group_id: group_id.clone(),
+                group_name: Some(group.name.clone()),
+                group_description: group.description.clone(),
+                creator_peer_id: Some(group.creator_peer_id.clone()),
+                members: Some(members.clone()),
+                member_peer_id: None,
+                sender_key_seed: my_seed.clone(),
+            };
+            if let Err(e) = self.send_group_control(new_peer, &invite).await {
+                tracing::warn!("Failed to send group invite to {}: {}", peer_id, e);
+            }
+        }
+
+        // 2) member_added para os demais membros
+        let member_added = crate::group::GroupControlEnvelope {
+            version: 1,
+            action: crate::group::envelope::actions::MEMBER_ADDED.to_string(),
+            group_id: group_id.clone(),
+            group_name: None,
+            group_description: None,
+            creator_peer_id: None,
+            members: None,
+            member_peer_id: Some(peer_id.clone()),
+            sender_key_seed: None,
+        };
+        for member in &members {
+            if *member == my_id || *member == peer_id {
+                continue;
+            }
+            if let Ok(peer) = PeerId::from_str(member) {
+                if let Err(e) = self.send_group_control(peer, &member_added).await {
+                    tracing::warn!("Failed to notify {} about member_added: {}", member, e);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Remove a member from a group (admin only)
     pub async fn remove_group_member(&self, group_id: String, peer_id: String) -> Result<()> {
+        // Snapshot dos membros ANTES da remoção (para notificar o removido também)
+        let members: Vec<String> = self
+            .group_manager
+            .get_group(&group_id)
+            .await
+            .map(|g| g.members.iter().cloned().collect())
+            .unwrap_or_default();
+
         self.group_manager
             .remove_member(&group_id, &peer_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to remove member: {}", e)))
+            .map_err(|e| MePassaError::Other(format!("Failed to remove member: {}", e)))?;
+
+        let my_id = self.local_peer_id().to_string();
+        let envelope = crate::group::GroupControlEnvelope {
+            version: 1,
+            action: crate::group::envelope::actions::MEMBER_REMOVED.to_string(),
+            group_id: group_id.clone(),
+            group_name: None,
+            group_description: None,
+            creator_peer_id: None,
+            members: None,
+            member_peer_id: Some(peer_id.clone()),
+            sender_key_seed: None,
+        };
+        for member in &members {
+            if *member == my_id {
+                continue;
+            }
+            if let Ok(peer) = PeerId::from_str(member) {
+                if let Err(e) = self.send_group_control(peer, &envelope).await {
+                    tracing::warn!("Failed to notify {} about member_removed: {}", member, e);
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Get all groups

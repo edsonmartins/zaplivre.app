@@ -38,11 +38,11 @@ fun ConversationsScreen(
     var isLoading by remember { mutableStateOf(true) }
     var showNewConversationDialog by remember { mutableStateOf(false) }
 
-    // Carregar conversas
+    // Carregar conversas (sender keys de grupo agora são distribuídas
+    // pelo core via protocolo in-band - sem varredura manual)
     LaunchedEffect(Unit) {
         scope.launch {
             conversations = MePassaClientWrapper.listConversations()
-            MePassaClientWrapper.scanGroupSenderKeyMessages(conversations)
             isLoading = false
         }
     }
@@ -53,7 +53,6 @@ fun ConversationsScreen(
             kotlinx.coroutines.delay(5000) // A cada 5 segundos
             scope.launch {
                 conversations = MePassaClientWrapper.listConversations()
-                MePassaClientWrapper.scanGroupSenderKeyMessages(conversations)
             }
         }
     }

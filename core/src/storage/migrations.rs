@@ -39,6 +39,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "Add outbound_queue table for offline message retry",
         up: migrate_to_v5,
     },
+    Migration {
+        version: 6,
+        description: "Add counter column to group_sender_keys (stateless group crypto)",
+        up: migrate_to_v6,
+    },
 ];
 
 /// Migrate database to latest version
@@ -197,6 +202,28 @@ fn migrate_to_v5(db: &Database) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_outbound_queue_peer ON outbound_queue(peer_id);
         "#,
     )?;
+
+    Ok(())
+}
+
+fn migrate_to_v6(db: &Database) -> Result<()> {
+    // SQLite não tem ADD COLUMN IF NOT EXISTS; em DBs frescos o init_schema
+    // (v1) já cria a coluna, então checar antes de alterar.
+    let has_column: bool = db
+        .conn()
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('group_sender_keys') WHERE name = 'counter'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false);
+
+    if !has_column {
+        db.execute_batch(
+            "ALTER TABLE group_sender_keys ADD COLUMN counter INTEGER NOT NULL DEFAULT 0;",
+        )?;
+    }
 
     Ok(())
 }

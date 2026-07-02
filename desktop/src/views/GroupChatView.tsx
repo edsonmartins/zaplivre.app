@@ -33,7 +33,6 @@ export default function GroupChatView() {
   const localPeerIdRef = useRef<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
-  const groupSenderKeyPrefix = 'mepassa-group-key:v1:'
 
   useEffect(() => {
     if (!groupId) return
@@ -122,11 +121,6 @@ export default function GroupChatView() {
     }
   }
 
-  const buildGroupSenderKeyPayload = (groupId: string, seed: number[]): string => {
-    const seedBase64 = btoa(String.fromCharCode(...seed))
-    return `${groupSenderKeyPrefix}${groupId}:${seedBase64}`
-  }
-
   const handleAddMember = async () => {
     if (!groupId) return
 
@@ -136,13 +130,8 @@ export default function GroupChatView() {
     }
 
     try {
+      // O core envia invite + sender keys automaticamente (protocolo in-band)
       await invoke('add_group_member', { groupId, peerId: peerId.trim() })
-      const seed = await invoke<number[]>('get_group_sender_key_seed', { groupId })
-      const payload = buildGroupSenderKeyPayload(groupId, seed)
-      await invoke('send_text_message', {
-        toPeerId: peerId.trim(),
-        content: payload,
-      })
       setErrorMessage(null)
     } catch (error) {
       console.error('Failed to add member:', error)

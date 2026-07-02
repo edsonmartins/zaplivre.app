@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 5;
+pub const SCHEMA_VERSION: i32 = 6;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -109,6 +109,7 @@ pub fn init_schema(db: &Database) -> Result<()> {
             group_id TEXT NOT NULL,
             sender_peer_id TEXT NOT NULL,
             sender_key_seed BLOB NOT NULL,
+            counter INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL DEFAULT (unixepoch()),
             UNIQUE(group_id, sender_peer_id),
             FOREIGN KEY (group_id) REFERENCES groups(id)
@@ -116,6 +117,21 @@ pub fn init_schema(db: &Database) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_group_sender_keys_group ON group_sender_keys(group_id);
         CREATE INDEX IF NOT EXISTS idx_group_sender_keys_sender ON group_sender_keys(sender_peer_id);
+
+        -- Outbound retry queue: messages pending delivery (peer offline)
+        CREATE TABLE IF NOT EXISTS outbound_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id TEXT NOT NULL UNIQUE,
+            peer_id TEXT NOT NULL,
+            message_type TEXT NOT NULL,
+            proto_bytes BLOB NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            next_attempt_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outbound_queue_next ON outbound_queue(next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_outbound_queue_peer ON outbound_queue(peer_id);
 
         -- Media table: attachments (images, videos, files)
         CREATE TABLE IF NOT EXISTS media (

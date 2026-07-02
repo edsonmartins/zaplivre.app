@@ -79,18 +79,12 @@ fun ChatScreen(
     var showReactionPicker by remember { mutableStateOf(false) }
     var reactionPickerMessageId by remember { mutableStateOf<String?>(null) }
 
-    // Carregar mensagens
+    // Carregar mensagens (filtrando mensagens legadas do hack de sender key -
+    // a distribuição agora é in-band no core e não gera mensagens de chat)
     LaunchedEffect(peerId) {
         scope.launch {
             val fetched = MePassaClientWrapper.getConversationMessages(peerId)
-            val filtered = mutableListOf<FfiMessage>()
-            for (message in fetched) {
-                val consumed = MePassaClientWrapper.consumeGroupSenderKeyMessage(message)
-                if (!consumed) {
-                    filtered.add(message)
-                }
-            }
-            messages = filtered
+            messages = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
             // Scroll para última mensagem
             if (messages.isNotEmpty()) {
                 listState.animateScrollToItem(messages.lastIndex)
@@ -104,13 +98,7 @@ fun ChatScreen(
             kotlinx.coroutines.delay(2000) // A cada 2 segundos
             scope.launch {
                 val fetched = MePassaClientWrapper.getConversationMessages(peerId)
-                val filtered = mutableListOf<FfiMessage>()
-                for (message in fetched) {
-                    val consumed = MePassaClientWrapper.consumeGroupSenderKeyMessage(message)
-                    if (!consumed) {
-                        filtered.add(message)
-                    }
-                }
+                val filtered = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
                 if (filtered.size > messages.size) {
                     messages = filtered
                     // Auto-scroll se nova mensagem

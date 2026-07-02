@@ -15,11 +15,13 @@
 //! - Admin-only operations via signed messages
 //! - Optimistic UI updates with eventual consistency
 
+pub mod envelope;
 pub mod manager;
 pub mod sender_keys;
 pub mod storage;
 pub mod types;
 
 // Re-exports
+pub use envelope::{GroupControlEnvelope, GROUP_CONTROL_PREFIX};
 pub use manager::GroupManager;
 pub use types::{Group, GroupMember, GroupMessage, GroupRole, GroupEvent};

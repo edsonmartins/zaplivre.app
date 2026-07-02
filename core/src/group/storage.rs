@@ -263,12 +263,39 @@ pub fn save_sender_key_seed(
     sender_peer_id: &str,
     sender_key_seed: &[u8; 32],
 ) -> Result<()> {
+    // Se a seed é a mesma, preservar o counter (guarda de replay); seed nova
+    // (rotação) zera o counter.
     db.conn().execute(
         r#"
-        INSERT OR REPLACE INTO group_sender_keys (group_id, sender_peer_id, sender_key_seed)
-        VALUES (?1, ?2, ?3)
+        INSERT INTO group_sender_keys (group_id, sender_peer_id, sender_key_seed, counter)
+        VALUES (?1, ?2, ?3, 0)
+        ON CONFLICT(group_id, sender_peer_id) DO UPDATE SET
+            counter = CASE
+                WHEN group_sender_keys.sender_key_seed = excluded.sender_key_seed
+                    THEN group_sender_keys.counter
+                ELSE 0
+            END,
+            sender_key_seed = excluded.sender_key_seed
         "#,
         rusqlite::params![group_id, sender_peer_id, sender_key_seed.as_slice()],
+    )?;
+
+    Ok(())
+}
+
+/// Persist the next-expected/next-to-send counter for a sender key
+pub fn update_sender_key_counter(
+    db: &Database,
+    group_id: &str,
+    sender_peer_id: &str,
+    counter: u64,
+) -> Result<()> {
+    db.conn().execute(
+        r#"
+        UPDATE group_sender_keys SET counter = ?3
+        WHERE group_id = ?1 AND sender_peer_id = ?2 AND counter < ?3
+        "#,
+        rusqlite::params![group_id, sender_peer_id, counter as i64],
     )?;
 
     Ok(())
@@ -277,11 +304,11 @@ pub fn save_sender_key_seed(
 pub fn load_group_sender_keys(
     db: &Database,
     group_id: &str,
-) -> Result<Vec<(String, [u8; 32])>> {
+) -> Result<Vec<(String, [u8; 32], u64)>> {
     let conn = db.conn();
     let mut stmt = conn.prepare(
         r#"
-        SELECT sender_peer_id, sender_key_seed
+        SELECT sender_peer_id, sender_key_seed, counter
         FROM group_sender_keys
         WHERE group_id = ?1
         "#,
@@ -290,14 +317,15 @@ pub fn load_group_sender_keys(
     let rows = stmt.query_map([group_id], |row| {
         let sender_peer_id: String = row.get(0)?;
         let seed_blob: Vec<u8> = row.get(1)?;
-        Ok((sender_peer_id, seed_blob))
+        let counter: i64 = row.get(2)?;
+        Ok((sender_peer_id, seed_blob, counter))
     })?;
 
     let mut result = Vec::new();
     for row in rows {
-        let (sender_peer_id, seed_blob) = row?;
+        let (sender_peer_id, seed_blob, counter) = row?;
         let seed = seed_from_blob(seed_blob)?;
-        result.push((sender_peer_id, seed));
+        result.push((sender_peer_id, seed, counter.max(0) as u64));
     }
 
     Ok(result)

@@ -261,6 +261,194 @@ impl GroupManager {
         Ok(())
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    // Operações remotas (protocolo in-band de grupo - CORE-16)
+    // Validam o ATOR REMOTO, não o peer local.
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Entra num grupo a partir de um convite recebido (metadados + membership)
+    pub async fn join_group_from_invite(
+        &self,
+        group_id: String,
+        group_name: String,
+        description: Option<String>,
+        creator_peer_id: String,
+        members: Vec<String>,
+    ) -> Result<IdentTopic> {
+        // Já sou membro? Apenas garantir metadados/membership atualizados
+        if self.groups.read().await.contains_key(&group_id) {
+            let groups = self.groups.read().await;
+            let group = groups.get(&group_id).cloned();
+            drop(groups);
+            if let Some(group) = group {
+                return Ok(IdentTopic::new(&group.topic));
+            }
+        }
+
+        let mut group = Group::new(
+            group_id.clone(),
+            group_name,
+            description,
+            creator_peer_id.clone(),
+        );
+
+        // Aplicar snapshot de membership do convite (inclui a mim)
+        for member in &members {
+            group.members.insert(member.clone());
+        }
+        group.members.insert(self.local_peer_id.clone());
+
+        storage::save_group(&self.db, &group)?;
+        for member in &group.members {
+            let role = if *member == creator_peer_id {
+                GroupRole::Admin
+            } else {
+                GroupRole::Member
+            };
+            let _ = storage::add_member(&self.db, &group_id, member, role);
+        }
+        self.ensure_group_conversation(&group)?;
+
+        let my_seed = self
+            .group_sessions
+            .create_group(group_id.clone())
+            .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+        storage::save_sender_key_seed(&self.db, &group_id, &self.local_peer_id, &my_seed)?;
+
+        self.groups.write().await.insert(group_id.clone(), group.clone());
+
+        let topic = IdentTopic::new(&group.topic);
+        self.subscribed_topics
+            .write()
+            .await
+            .insert(group_id.clone(), topic.hash());
+
+        self.emit_event(GroupEvent::GroupJoined { group_id });
+
+        Ok(topic)
+    }
+
+    /// Um admin remoto adicionou um membro ao grupo
+    pub async fn remote_add_member(
+        &self,
+        group_id: &str,
+        new_peer_id: &str,
+        actor_peer_id: &str,
+    ) -> Result<()> {
+        let mut groups = self.groups.write().await;
+        let group = groups
+            .get_mut(group_id)
+            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+
+        if !group.is_admin(actor_peer_id) {
+            return Err(MePassaError::Permission(
+                "Remote member_added from non-admin".to_string(),
+            ));
+        }
+
+        if group.is_member(new_peer_id) {
+            return Ok(());
+        }
+
+        group.members.insert(new_peer_id.to_string());
+        storage::add_member(&self.db, group_id, new_peer_id, GroupRole::Member)?;
+
+        self.emit_event(GroupEvent::MemberAdded {
+            group_id: group_id.to_string(),
+            peer_id: new_peer_id.to_string(),
+        });
+
+        Ok(())
+    }
+
+    /// Um admin remoto removeu um membro (possivelmente eu)
+    pub async fn remote_remove_member(
+        &self,
+        group_id: &str,
+        removed_peer_id: &str,
+        actor_peer_id: &str,
+    ) -> Result<bool> {
+        let mut groups = self.groups.write().await;
+        let group = groups
+            .get_mut(group_id)
+            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+
+        if !group.is_admin(actor_peer_id) {
+            return Err(MePassaError::Permission(
+                "Remote member_removed from non-admin".to_string(),
+            ));
+        }
+
+        let removed_me = removed_peer_id == self.local_peer_id;
+
+        group.members.remove(removed_peer_id);
+        group.admins.remove(removed_peer_id);
+        drop(groups);
+
+        let _ = self
+            .group_sessions
+            .remove_member_from_group(group_id, removed_peer_id);
+        let _ = storage::remove_sender_key(&self.db, group_id, removed_peer_id);
+        storage::remove_member(&self.db, group_id, removed_peer_id)?;
+
+        if removed_me {
+            // Fui removido: sair do grupo localmente
+            storage::mark_group_left(&self.db, group_id)?;
+            let _ = self.group_sessions.remove_group(group_id);
+            self.groups.write().await.remove(group_id);
+            self.subscribed_topics.write().await.remove(group_id);
+            self.emit_event(GroupEvent::GroupLeft {
+                group_id: group_id.to_string(),
+            });
+        } else {
+            self.emit_event(GroupEvent::MemberRemoved {
+                group_id: group_id.to_string(),
+                peer_id: removed_peer_id.to_string(),
+            });
+        }
+
+        Ok(removed_me)
+    }
+
+    /// Um membro remoto saiu do grupo por conta própria
+    pub async fn remote_member_left(&self, group_id: &str, actor_peer_id: &str) -> Result<()> {
+        let mut groups = self.groups.write().await;
+        let group = groups
+            .get_mut(group_id)
+            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+
+        if !group.is_member(actor_peer_id) {
+            return Ok(());
+        }
+
+        group.members.remove(actor_peer_id);
+        group.admins.remove(actor_peer_id);
+        drop(groups);
+
+        let _ = self
+            .group_sessions
+            .remove_member_from_group(group_id, actor_peer_id);
+        let _ = storage::remove_sender_key(&self.db, group_id, actor_peer_id);
+        storage::remove_member(&self.db, group_id, actor_peer_id)?;
+
+        self.emit_event(GroupEvent::MemberRemoved {
+            group_id: group_id.to_string(),
+            peer_id: actor_peer_id.to_string(),
+        });
+
+        Ok(())
+    }
+
+    /// Verifica se um peer é membro do grupo
+    pub async fn is_group_member(&self, group_id: &str, peer_id: &str) -> bool {
+        self.groups
+            .read()
+            .await
+            .get(group_id)
+            .map(|g| g.is_member(peer_id))
+            .unwrap_or(false)
+    }
+
     /// Promote member to admin (admin only)
     pub async fn promote_to_admin(&self, group_id: &str, peer_id: &str) -> Result<()> {
         let mut groups = self.groups.write().await;
@@ -431,11 +619,20 @@ impl GroupManager {
 
     /// Encrypt a group message payload using sender keys
     pub fn encrypt_group_message(&self, group_id: &str, plaintext: &[u8]) -> Result<Vec<u8>> {
-        let encrypted = self
+        let (_, encrypted) = self
             .group_sessions
             .encrypt_to_group(group_id, plaintext)?;
 
-        serde_json::to_vec(&encrypted.1)
+        // Persistir o próximo counter de envio (sobrevive a restart sem
+        // reutilizar counters - reutilização seria dropada como replay)
+        let _ = storage::update_sender_key_counter(
+            &self.db,
+            group_id,
+            &self.local_peer_id,
+            encrypted.counter + 1,
+        );
+
+        serde_json::to_vec(&encrypted)
             .map_err(|e| MePassaError::Protocol(format!("Failed to encode group payload: {}", e)))
     }
 
@@ -450,8 +647,19 @@ impl GroupManager {
             MePassaError::Protocol(format!("Invalid group payload encoding: {}", e))
         })?;
 
-        self.group_sessions
-            .decrypt_from_group(group_id, sender_peer_id, &encrypted)
+        let plaintext = self
+            .group_sessions
+            .decrypt_from_group(group_id, sender_peer_id, &encrypted)?;
+
+        // Persistir o próximo counter esperado deste remetente (guarda de replay)
+        let _ = storage::update_sender_key_counter(
+            &self.db,
+            group_id,
+            sender_peer_id,
+            encrypted.counter + 1,
+        );
+
+        Ok(plaintext)
     }
 
     /// Emit a group event
@@ -544,30 +752,30 @@ impl GroupManager {
 
     fn restore_group_session(&self, group: &Group) -> Result<()> {
         let sender_keys = storage::load_group_sender_keys(&self.db, &group.id)?;
-        let mut my_seed: Option<[u8; 32]> = None;
+        let mut my_key: Option<([u8; 32], u64)> = None;
         let mut member_seeds = Vec::new();
 
-        for (sender_peer_id, seed) in sender_keys {
+        for (sender_peer_id, seed, counter) in sender_keys {
             if sender_peer_id == self.local_peer_id {
-                my_seed = Some(seed);
+                my_key = Some((seed, counter));
             } else {
-                member_seeds.push((sender_peer_id, seed));
+                member_seeds.push((sender_peer_id, seed, counter));
             }
         }
 
-        let my_seed = if let Some(seed) = my_seed {
-            seed
+        let (my_seed, my_counter) = if let Some(key) = my_key {
+            key
         } else {
             let seed = self
                 .group_sessions
                 .create_group(group.id.clone())
                 .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
             storage::save_sender_key_seed(&self.db, &group.id, &self.local_peer_id, &seed)?;
-            seed
+            (seed, 0)
         };
 
         self.group_sessions
-            .init_group_with_seed(group.id.clone(), my_seed, member_seeds)?;
+            .init_group_with_seed(group.id.clone(), my_seed, my_counter, member_seeds)?;
 
         Ok(())
     }

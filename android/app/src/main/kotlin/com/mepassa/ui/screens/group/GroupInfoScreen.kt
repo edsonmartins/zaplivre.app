@@ -493,8 +493,9 @@ fun AddMemberDialog(
                         isAdding = true
                         errorMessage = null
                         try {
+                            // O core envia invite + sender keys automaticamente
+                            // (protocolo in-band de grupo)
                             MePassaClientWrapper.addGroupMember(groupId, peerIdInput.trim())
-                            MePassaClientWrapper.sendGroupSenderKey(groupId, peerIdInput.trim())
                             onSuccess()
                         } catch (e: Exception) {
                             errorMessage = "Erro ao adicionar: ${e.message}"

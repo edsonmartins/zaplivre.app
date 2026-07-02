@@ -25,10 +25,6 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
   const [peerCount, setPeerCount] = useState(0)
   const navigate = useNavigate()
   const previousConversations = useRef<Conversation[]>([])
-  const processedGroupKeyMessageIds = useRef<Set<string>>(new Set())
-  const lastGroupKeyScanAt = useRef<number>(0)
-  const groupSenderKeyPrefix = 'mepassa-group-key:v1:'
-
   useEffect(() => {
     loadConversations()
     loadPeerCount()
@@ -70,87 +66,12 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
       // Update state
       previousConversations.current = convs
       setConversations(convs)
-      await scanGroupSenderKeyMessages(convs)
+      // Sender keys de grupo agora são distribuídas pelo core (protocolo
+      // in-band) - a varredura manual de mensagens foi removida
     } catch (error) {
       console.error('Failed to load conversations:', error)
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const parseGroupSenderKeyPayload = (payload: string): { groupId: string; seed: number[] } | null => {
-    if (!payload.startsWith(groupSenderKeyPrefix)) {
-      return null
-    }
-
-    const trimmed = payload.slice(groupSenderKeyPrefix.length)
-    const parts = trimmed.split(':', 2)
-    if (parts.length !== 2) {
-      return null
-    }
-
-    const [groupId, seedBase64] = parts
-    try {
-      const decoded = atob(seedBase64)
-      const seed = Array.from(decoded, (char) => char.charCodeAt(0))
-      return { groupId, seed }
-    } catch (error) {
-      console.error('Failed to decode group sender key payload:', error)
-      return null
-    }
-  }
-
-  const scanGroupSenderKeyMessages = async (convs: Conversation[]) => {
-    const now = Date.now()
-    if (now - lastGroupKeyScanAt.current < 30000) {
-      return
-    }
-    lastGroupKeyScanAt.current = now
-
-    for (const conv of convs) {
-      if (!conv.peer_id) {
-        continue
-      }
-
-      try {
-        const messages = await invoke<Array<{
-          id: string
-          sender_peer_id: string
-          content: string | null
-        }>>('get_conversation_messages', {
-          peerId: conv.peer_id,
-          limit: 50,
-          offset: 0,
-        })
-
-        for (const message of messages) {
-          if (processedGroupKeyMessageIds.current.has(message.id)) {
-            continue
-          }
-
-          if (!message.content || !message.content.startsWith(groupSenderKeyPrefix)) {
-            continue
-          }
-
-          const parsed = parseGroupSenderKeyPayload(message.content)
-          if (!parsed) {
-            continue
-          }
-
-          try {
-            await invoke('add_group_sender_key', {
-              groupId: parsed.groupId,
-              senderPeerId: message.sender_peer_id,
-              senderKeySeed: parsed.seed,
-            })
-            processedGroupKeyMessageIds.current.add(message.id)
-          } catch (error) {
-            console.error('Failed to store group sender key:', error)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to scan conversation messages:', error)
-      }
     }
   }
 

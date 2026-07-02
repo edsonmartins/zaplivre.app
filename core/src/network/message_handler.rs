@@ -269,6 +269,14 @@ impl MessageHandler {
             return self.handle_media_envelope(message, envelope).await;
         }
 
+        if let Some(envelope) = crate::group::GroupControlEnvelope::decode(&text.content) {
+            self.emit_event(MessageEvent::GroupControl {
+                from_peer_id: message.sender_peer_id.clone(),
+                envelope,
+            });
+            return Ok(());
+        }
+
         // Get or create conversation (Database has internal Mutex for thread-safety)
         let conversation_id = self.database.get_or_create_conversation(&message.sender_peer_id)?;
 
@@ -345,6 +353,14 @@ impl MessageHandler {
 
         if let Some(envelope) = MediaEnvelope::decode(&text) {
             return self.handle_media_envelope(message, envelope).await;
+        }
+
+        if let Some(envelope) = crate::group::GroupControlEnvelope::decode(&text) {
+            self.emit_event(MessageEvent::GroupControl {
+                from_peer_id: message.sender_peer_id.clone(),
+                envelope,
+            });
+            return Ok(());
         }
 
         let conversation_id = self.database.get_or_create_conversation(&peer_id)?;
@@ -788,6 +804,13 @@ pub enum MessageEvent {
     TypingIndicator {
         from_peer_id: String,
         is_typing: bool,
+    },
+
+    /// Group control envelope received (invite/sender_key/membership)
+    /// Processado pela task de orquestração no builder (tem acesso a rede)
+    GroupControl {
+        from_peer_id: String,
+        envelope: crate::group::GroupControlEnvelope,
     },
 }
 

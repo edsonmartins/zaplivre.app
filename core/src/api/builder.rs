@@ -223,6 +223,14 @@ impl ClientBuilder {
         let retry_db = database.clone();
         let retry_network = Arc::clone(&network_arc);
 
+        // Handles para a orquestração do protocolo de grupo (CORE-16)
+        let gc_group_manager = Arc::clone(&group_manager);
+        let gc_database = database.clone();
+        let gc_session_manager = session_manager.clone();
+        let gc_network = Arc::clone(&network_arc);
+        let gc_store_url = self.message_store_url.clone();
+        let gc_local_peer_id = peer_id.to_string();
+
         // Create client (keep network as Arc since it's shared with VoIPIntegration)
         // Note: database.clone() shares the same SQLite connection with MessageHandler
         let client = Client::new(
@@ -243,8 +251,33 @@ impl ClientBuilder {
             message_handler,
         );
 
-        tokio::spawn(async move {
+        // spawn_local: o processamento de GroupControl acessa o NetworkManager
+        // (!Sync). build() já exige LocalSet (ver worker de retry abaixo).
+        let gc_http = reqwest::Client::new();
+        tokio::task::spawn_local(async move {
             while let Some(event) = event_rx.recv().await {
+                // Protocolo in-band de grupo: orquestrado aqui, onde há acesso
+                // a rede/sessões/DB (o MessageHandler apenas detecta o envelope)
+                if let MessageEvent::GroupControl {
+                    ref from_peer_id,
+                    ref envelope,
+                } = event
+                {
+                    handle_group_control(
+                        from_peer_id.clone(),
+                        envelope.clone(),
+                        &gc_group_manager,
+                        &gc_database,
+                        &gc_session_manager,
+                        &gc_network,
+                        &gc_store_url,
+                        &gc_http,
+                        &gc_local_peer_id,
+                    )
+                    .await;
+                    continue;
+                }
+
                 if let Some(client_event) = map_message_event(event) {
                     let callbacks = callbacks_for_events.read().await;
                     for callback in callbacks.iter() {
@@ -348,6 +381,202 @@ impl ClientBuilder {
     }
 }
 
+/// Orquestra o protocolo in-band de grupo (CORE-16).
+///
+/// - `invite`: cria o grupo local, subscreve o topic, guarda a seed do
+///   convidante e responde `sender_key` (minha seed) a todos os membros
+/// - `sender_key`: só aceita de membros do grupo (anti-spoofing)
+/// - `member_added`/`member_removed`: só aceitos de admins
+/// - `leave`: remove o remetente do grupo
+#[allow(clippy::too_many_arguments)]
+async fn handle_group_control(
+    from_peer_id: String,
+    envelope: crate::group::GroupControlEnvelope,
+    group_manager: &Arc<crate::group::GroupManager>,
+    database: &crate::storage::Database,
+    session_manager: &crate::crypto::SignalSessionManager,
+    network: &Arc<RwLock<NetworkManager>>,
+    message_store_url: &Option<String>,
+    http: &reqwest::Client,
+    local_peer_id: &str,
+) {
+    use crate::group::envelope::actions;
+    use base64::{engine::general_purpose, Engine as _};
+
+    let group_id = envelope.group_id.clone();
+    tracing::info!(
+        "👥 Group control '{}' for {} from {}",
+        envelope.action,
+        group_id,
+        from_peer_id
+    );
+
+    match envelope.action.as_str() {
+        actions::INVITE => {
+            let name = envelope
+                .group_name
+                .clone()
+                .unwrap_or_else(|| "Grupo".to_string());
+            let creator = envelope
+                .creator_peer_id
+                .clone()
+                .unwrap_or_else(|| from_peer_id.clone());
+            let members = envelope.members.clone().unwrap_or_default();
+
+            let topic = match group_manager
+                .join_group_from_invite(
+                    group_id.clone(),
+                    name,
+                    envelope.group_description.clone(),
+                    creator,
+                    members.clone(),
+                )
+                .await
+            {
+                Ok(topic) => topic,
+                Err(e) => {
+                    tracing::warn!("Failed to join group {} from invite: {}", group_id, e);
+                    return;
+                }
+            };
+
+            {
+                let mut network = network.write().await;
+                if let Err(e) = network.subscribe_gossipsub(&topic) {
+                    tracing::warn!("Failed to subscribe to group topic: {}", e);
+                }
+            }
+
+            // Seed do convidante
+            if let Some(seed_b64) = &envelope.sender_key_seed {
+                match general_purpose::STANDARD.decode(seed_b64) {
+                    Ok(seed) => {
+                        if let Err(e) =
+                            group_manager.add_group_sender_key(&group_id, &from_peer_id, &seed)
+                        {
+                            tracing::warn!("Failed to store inviter sender key: {}", e);
+                        }
+                    }
+                    Err(e) => tracing::warn!("Invalid sender key seed in invite: {}", e),
+                }
+            }
+
+            // Responder com a MINHA seed para todos os membros do snapshot
+            let my_seed = match group_manager.get_group_sender_key_seed(&group_id) {
+                Ok(seed) => seed,
+                Err(e) => {
+                    tracing::warn!("Missing own sender key after join: {}", e);
+                    return;
+                }
+            };
+            let reply = crate::group::GroupControlEnvelope {
+                version: 1,
+                action: actions::SENDER_KEY.to_string(),
+                group_id: group_id.clone(),
+                group_name: None,
+                group_description: None,
+                creator_peer_id: None,
+                members: None,
+                member_peer_id: None,
+                sender_key_seed: Some(general_purpose::STANDARD.encode(&my_seed)),
+            };
+
+            for member in members.iter().filter(|m| m.as_str() != local_peer_id) {
+                let Ok(peer) = member.parse::<libp2p::PeerId>() else {
+                    continue;
+                };
+                if let Err(e) = Client::send_group_control_with(
+                    database,
+                    session_manager,
+                    Arc::clone(network),
+                    message_store_url.clone(),
+                    http.clone(),
+                    local_peer_id,
+                    peer,
+                    &reply,
+                )
+                .await
+                {
+                    tracing::warn!("Failed to send sender_key to {}: {}", member, e);
+                }
+            }
+        }
+
+        actions::SENDER_KEY => {
+            // Anti-spoofing: só membros do grupo podem registrar sender key
+            if !group_manager.is_group_member(&group_id, &from_peer_id).await {
+                tracing::warn!(
+                    "Rejected sender_key for {} from non-member {}",
+                    group_id,
+                    from_peer_id
+                );
+                return;
+            }
+            if let Some(seed_b64) = &envelope.sender_key_seed {
+                match general_purpose::STANDARD.decode(seed_b64) {
+                    Ok(seed) => {
+                        if let Err(e) =
+                            group_manager.add_group_sender_key(&group_id, &from_peer_id, &seed)
+                        {
+                            tracing::warn!("Failed to store sender key: {}", e);
+                        }
+                    }
+                    Err(e) => tracing::warn!("Invalid sender key seed: {}", e),
+                }
+            }
+        }
+
+        actions::MEMBER_ADDED => {
+            if let Some(new_member) = &envelope.member_peer_id {
+                if let Err(e) = group_manager
+                    .remote_add_member(&group_id, new_member, &from_peer_id)
+                    .await
+                {
+                    tracing::warn!("Rejected remote member_added: {}", e);
+                }
+            }
+        }
+
+        actions::MEMBER_REMOVED => {
+            if let Some(removed) = &envelope.member_peer_id {
+                // Capturar o topic antes (se EU for o removido, o grupo some do manager)
+                let topic = group_manager
+                    .get_group(&group_id)
+                    .await
+                    .map(|g| libp2p::gossipsub::IdentTopic::new(&g.topic));
+
+                match group_manager
+                    .remote_remove_member(&group_id, removed, &from_peer_id)
+                    .await
+                {
+                    Ok(true) => {
+                        // Fui removido: sair do topic
+                        if let Some(topic) = topic {
+                            let mut network = network.write().await;
+                            let _ = network.unsubscribe_gossipsub(&topic);
+                        }
+                    }
+                    Ok(false) => {}
+                    Err(e) => tracing::warn!("Rejected remote member_removed: {}", e),
+                }
+            }
+        }
+
+        actions::LEAVE => {
+            if let Err(e) = group_manager
+                .remote_member_left(&group_id, &from_peer_id)
+                .await
+            {
+                tracing::warn!("Failed to process member leave: {}", e);
+            }
+        }
+
+        other => {
+            tracing::warn!("Unknown group control action: {}", other);
+        }
+    }
+}
+
 fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> {
     match event {
         MessageEvent::MessageReceived { message_id, message, .. } => {
@@ -390,6 +619,8 @@ fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> 
                 super::events::ClientEvent::TypingStopped { peer_id }
             })
         }
+        // Tratado antes do mapeamento (handle_group_control); nunca vira ClientEvent
+        MessageEvent::GroupControl { .. } => None,
     }
 }
 

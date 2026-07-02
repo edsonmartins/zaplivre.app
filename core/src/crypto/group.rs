@@ -11,7 +11,15 @@
 //!
 //! **Simplified Implementation:**
 //! - Each sender key is derived from a random seed
-//! - Sender keys ratchet forward with each message (like Double Ratchet)
+//! - Message keys são derivadas de (seed, counter) de forma STATELESS e o
+//!   counter é transmitido no wire: perda, reordenação e restart de qualquer
+//!   lado não dessincronizam a descriptografia (o esquema lock-step anterior
+//!   quebrava permanentemente com uma única mensagem perdida)
+//! - O counter também serve de guarda de replay (mensagens com counter já
+//!   consumido são rejeitadas); counters são persistidos por sender
+//! - Trade-off consciente: sem ratchet encadeada não há forward secrecy por
+//!   mensagem dentro de uma mesma sender key - FS real virá com rotação de
+//!   seed na troca de membership (e a seed já é distribuída via sessão 1:1 E2E)
 //! - Group state is managed locally (no central coordinator)
 
 use std::collections::HashMap;
@@ -33,9 +41,13 @@ use serde::{Deserialize, Serialize};
 pub struct EncryptedMessage {
     pub nonce: [u8; 12],
     pub ciphertext: Vec<u8>,
+    /// Índice da mensagem na cadeia do remetente. Transmitido no wire para
+    /// que o receptor derive a chave certa mesmo com perda/reordenação.
+    #[serde(default)]
+    pub counter: u64,
 }
 
-fn encrypt_message(plaintext: &[u8], key: &[u8; 32]) -> Result<EncryptedMessage> {
+fn encrypt_message(plaintext: &[u8], key: &[u8; 32], counter: u64) -> Result<EncryptedMessage> {
     let cipher = Aes256Gcm::new(key.into());
     let mut nonce_bytes = [0u8; 12];
     let mut rng = rand::rng();
@@ -47,6 +59,7 @@ fn encrypt_message(plaintext: &[u8], key: &[u8; 32]) -> Result<EncryptedMessage>
     Ok(EncryptedMessage {
         nonce: nonce_bytes,
         ciphertext,
+        counter,
     })
 }
 
@@ -73,10 +86,11 @@ pub struct SenderKey {
     /// Sender ID (peer_id)
     pub sender_id: SenderId,
 
-    /// Current chain key (32 bytes) - ratchets forward
-    pub chain_key: [u8; 32],
+    /// Immutable sender key seed - message keys derive from (seed, counter)
+    pub seed: [u8; 32],
 
-    /// Message counter
+    /// Next message index: on send, the next counter to use; on receive, the
+    /// next expected counter (replay guard - lower counters are rejected)
     pub counter: u64,
 
     /// Timestamp of last use
@@ -97,7 +111,7 @@ impl SenderKey {
 
         Ok(Self {
             sender_id,
-            chain_key: seed,
+            seed,
             counter: 0,
             last_used_at: now,
         })
@@ -105,6 +119,11 @@ impl SenderKey {
 
     /// Create sender key from existing seed (for distribution)
     pub fn from_seed(sender_id: SenderId, seed: [u8; 32]) -> Self {
+        Self::from_seed_with_counter(sender_id, seed, 0)
+    }
+
+    /// Restore sender key from persisted seed + counter
+    pub fn from_seed_with_counter(sender_id: SenderId, seed: [u8; 32], counter: u64) -> Self {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -112,74 +131,67 @@ impl SenderKey {
 
         Self {
             sender_id,
-            chain_key: seed,
-            counter: 0,
+            seed,
+            counter,
             last_used_at: now,
         }
     }
 
-    /// Derive a message key from the current chain key
-    fn derive_message_key(&self) -> Result<[u8; 32]> {
-        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-sender-key-v1"), &self.chain_key);
+    /// Derive the message key for a given counter (stateless: seed + counter)
+    fn derive_message_key(&self, counter: u64) -> Result<[u8; 32]> {
+        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-sender-key-v2"), &self.seed);
 
         let mut message_key = [0u8; 32];
-        let info = format!("message-{}-{}", self.sender_id, self.counter);
+        let info = format!("message-{}-{}", self.sender_id, counter);
         hkdf.expand(info.as_bytes(), &mut message_key)
             .map_err(|e| MePassaError::Crypto(format!("HKDF expand failed: {}", e)))?;
 
         Ok(message_key)
     }
 
-    /// Ratchet forward the chain key
-    fn ratchet_forward(&mut self) -> Result<()> {
-        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-sender-chain-v1"), &self.chain_key);
-
-        let mut new_chain_key = [0u8; 32];
-        hkdf.expand(b"next-chain", &mut new_chain_key)
-            .map_err(|e| MePassaError::Crypto(format!("HKDF expand failed: {}", e)))?;
-
-        self.chain_key = new_chain_key;
-        self.counter += 1;
-
+    fn touch(&mut self) {
         self.last_used_at = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-
-        Ok(())
     }
 
     /// Encrypt a message using this sender key
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Result<EncryptedMessage> {
-        // Derive message key
-        let message_key = self.derive_message_key()?;
+        let message_key = self.derive_message_key(self.counter)?;
+        let encrypted = encrypt_message(plaintext, &message_key, self.counter)?;
 
-        // Encrypt
-        let encrypted = encrypt_message(plaintext, &message_key)?;
-
-        // Ratchet forward
-        self.ratchet_forward()?;
+        self.counter += 1;
+        self.touch();
 
         Ok(encrypted)
     }
 
     /// Decrypt a message using this sender key
+    ///
+    /// A chave é derivada do counter TRANSMITIDO, então mensagens perdidas ou
+    /// fora de ordem (para frente) não quebram a cadeia. Counters já
+    /// consumidos são rejeitados (replay/duplicata).
     pub fn decrypt(&mut self, encrypted: &EncryptedMessage) -> Result<Vec<u8>> {
-        // Derive message key
-        let message_key = self.derive_message_key()?;
+        if encrypted.counter < self.counter {
+            return Err(MePassaError::Crypto(format!(
+                "Group message replayed or out of window (counter {} < expected {})",
+                encrypted.counter, self.counter
+            )));
+        }
 
-        // Decrypt
+        let message_key = self.derive_message_key(encrypted.counter)?;
         let plaintext = decrypt_message(encrypted, &message_key)?;
 
-        // Ratchet forward
-        self.ratchet_forward()?;
+        self.counter = encrypted.counter + 1;
+        self.touch();
 
         Ok(plaintext)
     }
 
     /// Get the seed for distribution to other members
     pub fn seed(&self) -> [u8; 32] {
-        self.chain_key
+        self.seed
     }
 }
 
@@ -222,7 +234,17 @@ impl GroupSession {
 
     /// Restore a group session from an existing sender key seed
     pub fn from_seed(group_id: GroupId, my_sender_id: SenderId, seed: [u8; 32]) -> Self {
-        let my_sender_key = SenderKey::from_seed(my_sender_id, seed);
+        Self::from_seed_with_counter(group_id, my_sender_id, seed, 0)
+    }
+
+    /// Restore a group session from persisted seed + counter
+    pub fn from_seed_with_counter(
+        group_id: GroupId,
+        my_sender_id: SenderId,
+        seed: [u8; 32],
+        counter: u64,
+    ) -> Self {
+        let my_sender_key = SenderKey::from_seed_with_counter(my_sender_id, seed, counter);
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -239,7 +261,26 @@ impl GroupSession {
 
     /// Add a member's sender key to the group
     pub fn add_member(&mut self, sender_id: SenderId, sender_key_seed: [u8; 32]) {
-        let sender_key = SenderKey::from_seed(sender_id.clone(), sender_key_seed);
+        self.add_member_with_counter(sender_id, sender_key_seed, 0);
+    }
+
+    /// Add/restore a member's sender key with a known counter.
+    ///
+    /// Se o membro já existe com a MESMA seed, o counter em memória é
+    /// preservado (re-receber a mesma seed não pode reabrir a janela de replay).
+    pub fn add_member_with_counter(
+        &mut self,
+        sender_id: SenderId,
+        sender_key_seed: [u8; 32],
+        counter: u64,
+    ) {
+        if let Some(existing) = self.member_sender_keys.get(&sender_id) {
+            if existing.seed == sender_key_seed {
+                return;
+            }
+        }
+        let sender_key =
+            SenderKey::from_seed_with_counter(sender_id.clone(), sender_key_seed, counter);
         self.member_sender_keys.insert(sender_id, sender_key);
     }
 
@@ -307,22 +348,24 @@ impl GroupSessionManager {
         }
     }
 
-    /// Initialize a group session from an existing sender key seed
+    /// Initialize a group session from persisted seeds + counters
     pub fn init_group_with_seed(
         &self,
         group_id: GroupId,
         my_seed: [u8; 32],
-        members: Vec<(SenderId, [u8; 32])>,
+        my_counter: u64,
+        members: Vec<(SenderId, [u8; 32], u64)>,
     ) -> Result<()> {
-        let mut session = GroupSession::from_seed(
+        let mut session = GroupSession::from_seed_with_counter(
             group_id.clone(),
             self.my_sender_id.clone(),
             my_seed,
+            my_counter,
         );
 
-        for (sender_id, seed) in members {
+        for (sender_id, seed, counter) in members {
             if sender_id != self.my_sender_id {
-                session.add_member(sender_id, seed);
+                session.add_member_with_counter(sender_id, seed, counter);
             }
         }
 
@@ -526,7 +569,7 @@ mod tests {
 
         assert_eq!(sender_key.sender_id, "alice");
         assert_eq!(sender_key.counter, 0);
-        assert_ne!(sender_key.chain_key, [0u8; 32]); // Should be random
+        assert_ne!(sender_key.seed, [0u8; 32]); // Should be random
     }
 
     #[test]
@@ -721,29 +764,84 @@ mod tests {
     }
 
     #[test]
-    fn test_sender_key_forward_secrecy() {
+    fn test_message_keys_differ_per_counter() {
         let mut sender_key = SenderKey::generate("alice".to_string()).unwrap();
 
-        // Save initial chain key
-        let initial_chain_key = sender_key.chain_key;
+        let enc1 = sender_key.encrypt(b"First message").unwrap();
+        let enc2 = sender_key.encrypt(b"Second message").unwrap();
 
-        // Encrypt first message
-        let msg1 = b"First message";
-        let _encrypted1 = sender_key.encrypt(msg1).unwrap();
-
-        // Chain key should have changed (forward secrecy)
-        assert_ne!(sender_key.chain_key, initial_chain_key);
-        assert_eq!(sender_key.counter, 1);
-
-        // Save second chain key
-        let second_chain_key = sender_key.chain_key;
-
-        // Encrypt second message
-        let msg2 = b"Second message";
-        let _encrypted2 = sender_key.encrypt(msg2).unwrap();
-
-        // Chain key should have changed again
-        assert_ne!(sender_key.chain_key, second_chain_key);
+        assert_eq!(enc1.counter, 0);
+        assert_eq!(enc2.counter, 1);
         assert_eq!(sender_key.counter, 2);
+        assert_ne!(enc1.ciphertext, enc2.ciphertext);
+    }
+
+    #[test]
+    fn test_decrypt_survives_message_loss() {
+        // Cenário que quebrava o esquema lock-step: mensagem 2 se perde no
+        // gossipsub e o receptor precisa decifrar a 3 mesmo assim.
+        let mut alice = SenderKey::generate("alice".to_string()).unwrap();
+        let seed = alice.seed();
+
+        let enc0 = alice.encrypt(b"msg 0").unwrap();
+        let _enc1_lost = alice.encrypt(b"msg 1 (lost)").unwrap();
+        let enc2 = alice.encrypt(b"msg 2").unwrap();
+
+        let mut bob_view = SenderKey::from_seed("alice".to_string(), seed);
+        assert_eq!(bob_view.decrypt(&enc0).unwrap(), b"msg 0");
+        // Pula a mensagem 1 perdida - decifra a 2 direto
+        assert_eq!(bob_view.decrypt(&enc2).unwrap(), b"msg 2");
+        assert_eq!(bob_view.counter, 3);
+    }
+
+    #[test]
+    fn test_decrypt_rejects_replay() {
+        let mut alice = SenderKey::generate("alice".to_string()).unwrap();
+        let seed = alice.seed();
+
+        let enc0 = alice.encrypt(b"msg 0").unwrap();
+        let enc1 = alice.encrypt(b"msg 1").unwrap();
+
+        let mut bob_view = SenderKey::from_seed("alice".to_string(), seed);
+        bob_view.decrypt(&enc0).unwrap();
+        bob_view.decrypt(&enc1).unwrap();
+
+        // Replay da mensagem 0 deve ser rejeitado
+        assert!(bob_view.decrypt(&enc0).is_err());
+    }
+
+    #[test]
+    fn test_decrypt_survives_receiver_restart() {
+        // Receptor "reinicia" (restaura da seed com counter persistido) e
+        // continua decifrando mensagens novas.
+        let mut alice = SenderKey::generate("alice".to_string()).unwrap();
+        let seed = alice.seed();
+
+        let enc0 = alice.encrypt(b"msg 0").unwrap();
+        let mut bob_view = SenderKey::from_seed("alice".to_string(), seed);
+        bob_view.decrypt(&enc0).unwrap();
+        let persisted_counter = bob_view.counter;
+
+        // Restart: restaura com counter persistido
+        let mut bob_restored =
+            SenderKey::from_seed_with_counter("alice".to_string(), seed, persisted_counter);
+
+        let enc1 = alice.encrypt(b"msg 1 after restart").unwrap();
+        assert_eq!(bob_restored.decrypt(&enc1).unwrap(), b"msg 1 after restart");
+    }
+
+    #[test]
+    fn test_add_member_same_seed_preserves_counter() {
+        let mut session = GroupSession::new("g1".to_string(), "alice".to_string()).unwrap();
+        let bob_seed = [7u8; 32];
+
+        session.add_member_with_counter("bob".to_string(), bob_seed, 5);
+        // Re-receber a mesma seed não pode resetar o counter (janela de replay)
+        session.add_member("bob".to_string(), bob_seed);
+        assert_eq!(session.member_sender_keys.get("bob").unwrap().counter, 5);
+
+        // Seed diferente (rotação) reseta
+        session.add_member("bob".to_string(), [8u8; 32]);
+        assert_eq!(session.member_sender_keys.get("bob").unwrap().counter, 0);
     }
 }
