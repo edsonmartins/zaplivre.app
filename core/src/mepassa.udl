@@ -81,6 +81,15 @@ callback interface FfiCallEventCallback {
     void on_call_state_changed(string call_id, FfiCallState state);
     void on_call_ended(string call_id, FfiCallEndReason reason);
 };
+
+// Message events callback (core -> apps; substitui polling de mensagens)
+// Eventos são "thin": carregam IDs; o app busca os dados via
+// get_conversation_messages/list_conversations como já faz hoje.
+callback interface FfiMessageEventCallback {
+    void on_message_received(string message_id, string from_peer_id);
+    void on_message_status_changed(string message_id, MessageStatus status, string? peer_id);
+    void on_typing(string peer_id, boolean is_typing);
+};
 // Message record
 dictionary FfiMessage {
     string message_id;
@@ -288,6 +297,9 @@ interface MePassaClient {
 
     [Throws=MePassaFfiError]
     void register_call_event_callback(FfiCallEventCallback callback);
+
+    [Throws=MePassaFfiError]
+    void register_message_event_callback(FfiMessageEventCallback callback);
 
     // Group methods (FASE 15)
     [Throws=MePassaFfiError, Async]

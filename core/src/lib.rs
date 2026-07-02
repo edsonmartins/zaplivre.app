@@ -84,6 +84,18 @@ pub trait FfiCallEventCallback: Send + Sync {
     fn on_call_ended(&self, call_id: String, reason: crate::ffi::FfiCallEndReason);
 }
 
+// Message events callback (core -> apps; substitui polling de mensagens)
+pub trait FfiMessageEventCallback: Send + Sync {
+    fn on_message_received(&self, message_id: String, from_peer_id: String);
+    fn on_message_status_changed(
+        &self,
+        message_id: String,
+        status: crate::ffi::MessageStatus,
+        peer_id: Option<String>,
+    );
+    fn on_typing(&self, peer_id: String, is_typing: bool);
+}
+
 // Include UniFFI scaffolding (after all module declarations)
 uniffi::include_scaffolding!("mepassa");
 

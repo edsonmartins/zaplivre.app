@@ -11,7 +11,55 @@ use tokio::sync::{mpsc, oneshot};
 use super::types::{
     self as types, FfiConversation, FfiGroup, FfiMessage, FfiReaction, MePassaFfiError,
 };
+use crate::api::events::{ClientEvent, EventCallback};
 use crate::api::{Client, ClientBuilder};
+
+/// Adapta o callback FFI de eventos de mensagem ao event bus interno do Client.
+/// Eventos são "thin" (IDs); o app busca os dados via APIs existentes.
+struct MessageEventCallbackAdapter {
+    callback: Box<dyn crate::FfiMessageEventCallback>,
+}
+
+impl EventCallback for MessageEventCallbackAdapter {
+    fn on_event(&self, event: ClientEvent) {
+        match event {
+            ClientEvent::MessageReceived {
+                message_id, from, ..
+            } => {
+                self.callback
+                    .on_message_received(message_id, from.to_string());
+            }
+            ClientEvent::MessageSent { message_id, to } => {
+                self.callback.on_message_status_changed(
+                    message_id,
+                    types::MessageStatus::Sent,
+                    Some(to.to_string()),
+                );
+            }
+            ClientEvent::MessageDelivered { message_id, to } => {
+                self.callback.on_message_status_changed(
+                    message_id,
+                    types::MessageStatus::Delivered,
+                    Some(to.to_string()),
+                );
+            }
+            ClientEvent::MessageRead { message_id, by, .. } => {
+                self.callback.on_message_status_changed(
+                    message_id,
+                    types::MessageStatus::Read,
+                    Some(by.to_string()),
+                );
+            }
+            ClientEvent::TypingStarted { peer_id } => {
+                self.callback.on_typing(peer_id.to_string(), true);
+            }
+            ClientEvent::TypingStopped { peer_id } => {
+                self.callback.on_typing(peer_id.to_string(), false);
+            }
+            _ => {}
+        }
+    }
+}
 
 use std::thread;
 use tokio::task::LocalSet;
@@ -188,6 +236,9 @@ enum ClientCommand {
     #[allow(dead_code)]
     RegisterCallEventCallback {
         callback: Box<dyn crate::FfiCallEventCallback>,
+    },
+    RegisterMessageEventCallback {
+        callback: Box<dyn crate::FfiMessageEventCallback>,
     },
     // Group commands (FASE 15)
     CreateGroup {
@@ -544,6 +595,12 @@ async fn run_client_task_arc(
                     let _ = callback;
                     tracing::warn!("VoIP/video feature disabled; ignoring call event callback");
                 }
+            }
+            ClientCommand::RegisterMessageEventCallback { callback } => {
+                client
+                    .register_callback(MessageEventCallbackAdapter { callback })
+                    .await;
+                tracing::info!("📨 Message event callback registered");
             }
             // Group command handlers (FASE 15)
             ClientCommand::CreateGroup {
@@ -1595,6 +1652,20 @@ impl MePassaClient {
                 details: "VoIP/video feature disabled".to_string(),
             });
         }
+    }
+
+    /// Registra callback de eventos de mensagem (recebida/status/typing).
+    /// Substitui o polling de get_conversation_messages nos apps.
+    pub fn register_message_event_callback(
+        &self,
+        callback: Box<dyn crate::FfiMessageEventCallback>,
+    ) -> Result<(), MePassaFfiError> {
+        self.handle()
+            .sender
+            .send(ClientCommand::RegisterMessageEventCallback { callback })
+            .map_err(|_| MePassaFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })
     }
 
     // ========== VoIP Method Stubs (when feature is disabled) ==========

@@ -2069,9 +2069,16 @@ impl Client {
     /// Run network event loop (blocking)
     ///
     /// This should be spawned as a separate task to process incoming P2P messages.
+    /// Implementado como loop de poll para NÃO segurar o write-lock do
+    /// NetworkManager para sempre (a versão anterior deadlockava qualquer
+    /// outra operação de rede se fosse chamada).
     pub async fn run_network(&self) -> Result<()> {
-        let mut network = self.network.write().await;
-        network.run().await
+        loop {
+            let processed = self.poll_network_once().await?;
+            if !processed {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
     }
 
     /// Poll network for one event (non-blocking)

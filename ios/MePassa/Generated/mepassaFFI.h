@@ -271,6 +271,27 @@ typedef void (*UniffiCallbackInterfaceFfiCallEventCallbackMethod2)(uint64_t, Rus
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK_METHOD0
+typedef void (*UniffiCallbackInterfaceFfiMessageEventCallbackMethod0)(uint64_t, RustBuffer, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK_METHOD1
+typedef void (*UniffiCallbackInterfaceFfiMessageEventCallbackMethod1)(uint64_t, RustBuffer, RustBuffer, RustBuffer, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK_METHOD2
+typedef void (*UniffiCallbackInterfaceFfiMessageEventCallbackMethod2)(uint64_t, RustBuffer, int8_t, void* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK_METHOD0
 typedef void (*UniffiCallbackInterfaceFfiVideoFrameCallbackMethod0)(uint64_t, RustBuffer, RustBuffer, uint32_t, uint32_t, void* _Nonnull, 
@@ -317,6 +338,17 @@ typedef struct UniffiVTableCallbackInterfaceFfiCallEventCallback {
     UniffiCallbackInterfaceFfiCallEventCallbackMethod1 _Nonnull onCallStateChanged;
     UniffiCallbackInterfaceFfiCallEventCallbackMethod2 _Nonnull onCallEnded;
 } UniffiVTableCallbackInterfaceFfiCallEventCallback;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_MESSAGE_EVENT_CALLBACK
+typedef struct UniffiVTableCallbackInterfaceFfiMessageEventCallback {
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+    UniffiCallbackInterfaceClone _Nonnull uniffiClone;
+    UniffiCallbackInterfaceFfiMessageEventCallbackMethod0 _Nonnull onMessageReceived;
+    UniffiCallbackInterfaceFfiMessageEventCallbackMethod1 _Nonnull onMessageStatusChanged;
+    UniffiCallbackInterfaceFfiMessageEventCallbackMethod2 _Nonnull onTyping;
+} UniffiVTableCallbackInterfaceFfiMessageEventCallback;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_FFI_VIDEO_FRAME_CALLBACK
@@ -504,6 +536,11 @@ void uniffi_mepassa_core_fn_method_mepassaclient_register_audio_frame_callback(u
 void uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_MESSAGE_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_MESSAGE_EVENT_CALLBACK
+void uniffi_mepassa_core_fn_method_mepassaclient_register_message_event_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 void uniffi_mepassa_core_fn_method_mepassaclient_register_video_frame_callback(uint64_t ptr, uint64_t callback, RustCallStatus *_Nonnull out_status
@@ -607,6 +644,11 @@ void uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(const Uni
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFICALLEVENTCALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFICALLEVENTCALLBACK
 void uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(const UniffiVTableCallbackInterfaceFfiCallEventCallback* _Nonnull vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIMESSAGEEVENTCALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIMESSAGEEVENTCALLBACK
+void uniffi_mepassa_core_fn_init_callback_vtable_ffimessageeventcallback(const UniffiVTableCallbackInterfaceFfiMessageEventCallback* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_FN_INIT_CALLBACK_VTABLE_FFIVIDEOFRAMECALLBACK
@@ -1059,6 +1101,12 @@ uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_c
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_MESSAGE_EVENT_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_MESSAGE_EVENT_CALLBACK
+uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_message_event_callback(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_MEPASSACLIENT_REGISTER_VIDEO_FRAME_CALLBACK
 uint16_t uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback(void
@@ -1200,6 +1248,24 @@ uint16_t uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_state_
 #ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_CALL_ENDED
 #define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFICALLEVENTCALLBACK_ON_CALL_ENDED
 uint16_t uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_ended(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIMESSAGEEVENTCALLBACK_ON_MESSAGE_RECEIVED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIMESSAGEEVENTCALLBACK_ON_MESSAGE_RECEIVED
+uint16_t uniffi_mepassa_core_checksum_method_ffimessageeventcallback_on_message_received(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIMESSAGEEVENTCALLBACK_ON_MESSAGE_STATUS_CHANGED
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIMESSAGEEVENTCALLBACK_ON_MESSAGE_STATUS_CHANGED
+uint16_t uniffi_mepassa_core_checksum_method_ffimessageeventcallback_on_message_status_changed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIMESSAGEEVENTCALLBACK_ON_TYPING
+#define UNIFFI_FFIDEF_UNIFFI_MEPASSA_CORE_CHECKSUM_METHOD_FFIMESSAGEEVENTCALLBACK_ON_TYPING
+uint16_t uniffi_mepassa_core_checksum_method_ffimessageeventcallback_on_typing(void
     
 );
 #endif

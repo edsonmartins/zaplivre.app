@@ -541,7 +541,11 @@ fileprivate struct FfiConverterString: FfiConverter {
             return String()
         }
         let bytes = UnsafeBufferPointer<UInt8>(start: value.data!, count: Int(value.len))
-        return String(bytes: bytes, encoding: String.Encoding.utf8)!
+        // Use Swift's native UTF-8 decoder; `String(bytes:encoding:.utf8)` goes
+        // through Foundation's NSString and silently strips a leading U+FEFF BOM.
+        // Invalid UTF-8 substitutes U+FFFD instead of trapping (unreachable
+        // given Rust's `String` invariant).
+        return String(decoding: bytes, as: UTF8.self)
     }
 
     public static func lower(_ value: String) -> RustBuffer {
@@ -557,7 +561,8 @@ fileprivate struct FfiConverterString: FfiConverter {
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> String {
         let len: Int32 = try readInt(&buf)
-        return String(bytes: try readBytes(&buf, count: Int(len)), encoding: String.Encoding.utf8)!
+        // See `lift` above for why we avoid Foundation's NSString-backed decoder here.
+        return String(decoding: try readBytes(&buf, count: Int(len)), as: UTF8.self)
     }
 
     public static func write(_ value: String, into buf: inout [UInt8]) {
@@ -631,6 +636,8 @@ public protocol MePassaClientProtocol: AnyObject, Sendable {
     func registerAudioFrameCallback(callback: FfiAudioFrameCallback) throws 
     
     func registerCallEventCallback(callback: FfiCallEventCallback) throws 
+    
+    func registerMessageEventCallback(callback: FfiMessageEventCallback) throws 
     
     func registerVideoFrameCallback(callback: FfiVideoFrameCallback) throws 
     
@@ -1150,6 +1157,14 @@ open func registerCallEventCallback(callback: FfiCallEventCallback)throws   {try
     uniffi_mepassa_core_fn_method_mepassaclient_register_call_event_callback(
             self.uniffiCloneHandle(),
         FfiConverterCallbackInterfaceFfiCallEventCallback_lower(callback),$0
+    )
+}
+}
+    
+open func registerMessageEventCallback(callback: FfiMessageEventCallback)throws   {try rustCallWithError(FfiConverterTypeMePassaFfiError_lift) {
+    uniffi_mepassa_core_fn_method_mepassaclient_register_message_event_callback(
+            self.uniffiCloneHandle(),
+        FfiConverterCallbackInterfaceFfiMessageEventCallback_lower(callback),$0
     )
 }
 }
@@ -2927,9 +2942,8 @@ fileprivate struct UniffiCallbackInterfaceFfiAudioFrameCallback {
     // Create the VTable using a series of closures.
     // Swift automatically converts these into C callback functions.
     //
-    // This creates 1-element array, since this seems to be the only way to construct a const
-    // pointer that we can pass to the Rust code.
-    static let vtable: [UniffiVTableCallbackInterfaceFfiAudioFrameCallback] = [UniffiVTableCallbackInterfaceFfiAudioFrameCallback(
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceFfiAudioFrameCallback = UniffiVTableCallbackInterfaceFfiAudioFrameCallback(
         uniffiFree: { (uniffiHandle: UInt64) -> () in
             do {
                 try FfiConverterCallbackInterfaceFfiAudioFrameCallback.handleMap.remove(handle: uniffiHandle)
@@ -2974,11 +2988,23 @@ fileprivate struct UniffiCallbackInterfaceFfiAudioFrameCallback {
                 writeReturn: writeReturn
             )
         }
-    )]
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceFfiAudioFrameCallback> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceFfiAudioFrameCallback>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
 }
 
 private func uniffiCallbackInitFfiAudioFrameCallback() {
-    uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(UniffiCallbackInterfaceFfiAudioFrameCallback.vtable)
+    uniffi_mepassa_core_fn_init_callback_vtable_ffiaudioframecallback(UniffiCallbackInterfaceFfiAudioFrameCallback.vtablePtr)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -3061,9 +3087,8 @@ fileprivate struct UniffiCallbackInterfaceFfiCallEventCallback {
     // Create the VTable using a series of closures.
     // Swift automatically converts these into C callback functions.
     //
-    // This creates 1-element array, since this seems to be the only way to construct a const
-    // pointer that we can pass to the Rust code.
-    static let vtable: [UniffiVTableCallbackInterfaceFfiCallEventCallback] = [UniffiVTableCallbackInterfaceFfiCallEventCallback(
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceFfiCallEventCallback = UniffiVTableCallbackInterfaceFfiCallEventCallback(
         uniffiFree: { (uniffiHandle: UInt64) -> () in
             do {
                 try FfiConverterCallbackInterfaceFfiCallEventCallback.handleMap.remove(handle: uniffiHandle)
@@ -3156,11 +3181,23 @@ fileprivate struct UniffiCallbackInterfaceFfiCallEventCallback {
                 writeReturn: writeReturn
             )
         }
-    )]
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceFfiCallEventCallback> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceFfiCallEventCallback>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
 }
 
 private func uniffiCallbackInitFfiCallEventCallback() {
-    uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(UniffiCallbackInterfaceFfiCallEventCallback.vtable)
+    uniffi_mepassa_core_fn_init_callback_vtable_fficalleventcallback(UniffiCallbackInterfaceFfiCallEventCallback.vtablePtr)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -3226,6 +3263,201 @@ public func FfiConverterCallbackInterfaceFfiCallEventCallback_lower(_ v: FfiCall
 
 
 
+public protocol FfiMessageEventCallback: AnyObject, Sendable {
+    
+    func onMessageReceived(messageId: String, fromPeerId: String) 
+    
+    func onMessageStatusChanged(messageId: String, status: MessageStatus, peerId: String?) 
+    
+    func onTyping(peerId: String, isTyping: Bool) 
+    
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceFfiMessageEventCallback {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceFfiMessageEventCallback = UniffiVTableCallbackInterfaceFfiMessageEventCallback(
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            do {
+                try FfiConverterCallbackInterfaceFfiMessageEventCallback.handleMap.remove(handle: uniffiHandle)
+            } catch {
+                print("Uniffi callback interface FfiMessageEventCallback: handle missing in uniffiFree")
+            }
+        },
+        uniffiClone: { (uniffiHandle: UInt64) -> UInt64 in
+            do {
+                return try FfiConverterCallbackInterfaceFfiMessageEventCallback.handleMap.clone(handle: uniffiHandle)
+            } catch {
+                fatalError("Uniffi callback interface FfiMessageEventCallback: handle missing in uniffiClone")
+            }
+        },
+        onMessageReceived: { (
+            uniffiHandle: UInt64,
+            messageId: RustBuffer,
+            fromPeerId: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiMessageEventCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onMessageReceived(
+                     messageId: try FfiConverterString.lift(messageId),
+                     fromPeerId: try FfiConverterString.lift(fromPeerId)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onMessageStatusChanged: { (
+            uniffiHandle: UInt64,
+            messageId: RustBuffer,
+            status: RustBuffer,
+            peerId: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiMessageEventCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onMessageStatusChanged(
+                     messageId: try FfiConverterString.lift(messageId),
+                     status: try FfiConverterTypeMessageStatus_lift(status),
+                     peerId: try FfiConverterOptionString.lift(peerId)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onTyping: { (
+            uniffiHandle: UInt64,
+            peerId: RustBuffer,
+            isTyping: Int8,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceFfiMessageEventCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onTyping(
+                     peerId: try FfiConverterString.lift(peerId),
+                     isTyping: try FfiConverterBool.lift(isTyping)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        }
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceFfiMessageEventCallback> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceFfiMessageEventCallback>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
+}
+
+private func uniffiCallbackInitFfiMessageEventCallback() {
+    uniffi_mepassa_core_fn_init_callback_vtable_ffimessageeventcallback(UniffiCallbackInterfaceFfiMessageEventCallback.vtablePtr)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceFfiMessageEventCallback {
+    fileprivate static let handleMap = UniffiHandleMap<FfiMessageEventCallback>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceFfiMessageEventCallback : FfiConverter {
+    typealias SwiftType = FfiMessageEventCallback
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceFfiMessageEventCallback_lift(_ handle: UInt64) throws -> FfiMessageEventCallback {
+    return try FfiConverterCallbackInterfaceFfiMessageEventCallback.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceFfiMessageEventCallback_lower(_ v: FfiMessageEventCallback) -> UInt64 {
+    return FfiConverterCallbackInterfaceFfiMessageEventCallback.lower(v)
+}
+
+
+
+
 public protocol FfiVideoFrameCallback: AnyObject, Sendable {
     
     func onVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32) 
@@ -3239,9 +3471,8 @@ fileprivate struct UniffiCallbackInterfaceFfiVideoFrameCallback {
     // Create the VTable using a series of closures.
     // Swift automatically converts these into C callback functions.
     //
-    // This creates 1-element array, since this seems to be the only way to construct a const
-    // pointer that we can pass to the Rust code.
-    static let vtable: [UniffiVTableCallbackInterfaceFfiVideoFrameCallback] = [UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceFfiVideoFrameCallback = UniffiVTableCallbackInterfaceFfiVideoFrameCallback(
         uniffiFree: { (uniffiHandle: UInt64) -> () in
             do {
                 try FfiConverterCallbackInterfaceFfiVideoFrameCallback.handleMap.remove(handle: uniffiHandle)
@@ -3286,11 +3517,23 @@ fileprivate struct UniffiCallbackInterfaceFfiVideoFrameCallback {
                 writeReturn: writeReturn
             )
         }
-    )]
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceFfiVideoFrameCallback> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceFfiVideoFrameCallback>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
 }
 
 private func uniffiCallbackInitFfiVideoFrameCallback() {
-    uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(UniffiCallbackInterfaceFfiVideoFrameCallback.vtable)
+    uniffi_mepassa_core_fn_init_callback_vtable_ffivideoframecallback(UniffiCallbackInterfaceFfiVideoFrameCallback.vtablePtr)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -3373,9 +3616,8 @@ fileprivate struct UniffiCallbackInterfaceFfiVoipEventCallback {
     // Create the VTable using a series of closures.
     // Swift automatically converts these into C callback functions.
     //
-    // This creates 1-element array, since this seems to be the only way to construct a const
-    // pointer that we can pass to the Rust code.
-    static let vtable: [UniffiVTableCallbackInterfaceFfiVoipEventCallback] = [UniffiVTableCallbackInterfaceFfiVoipEventCallback(
+    // Store the vtable directly.
+    static let vtable: UniffiVTableCallbackInterfaceFfiVoipEventCallback = UniffiVTableCallbackInterfaceFfiVoipEventCallback(
         uniffiFree: { (uniffiHandle: UInt64) -> () in
             do {
                 try FfiConverterCallbackInterfaceFfiVoipEventCallback.handleMap.remove(handle: uniffiHandle)
@@ -3466,11 +3708,23 @@ fileprivate struct UniffiCallbackInterfaceFfiVoipEventCallback {
                 writeReturn: writeReturn
             )
         }
-    )]
+    )
+
+    // Rust stores this pointer for future callback invocations, so it must live
+    // for the process lifetime (not just for the init function call).
+    //
+    // `nonisolated(unsafe)` is needed under Swift 6 strict concurrency.
+    // This is safe because the pointee is initialized once during static init
+    // and never mutated by either side of the FFI.  Its fields are C function pointers.
+    nonisolated(unsafe) static let vtablePtr: UnsafePointer<UniffiVTableCallbackInterfaceFfiVoipEventCallback> = {
+        let ptr = UnsafeMutablePointer<UniffiVTableCallbackInterfaceFfiVoipEventCallback>.allocate(capacity: 1)
+        ptr.initialize(to: vtable)
+        return UnsafePointer(ptr)
+    }()
 }
 
 private func uniffiCallbackInitFfiVoipEventCallback() {
-    uniffi_mepassa_core_fn_init_callback_vtable_ffivoipeventcallback(UniffiCallbackInterfaceFfiVoipEventCallback.vtable)
+    uniffi_mepassa_core_fn_init_callback_vtable_ffivoipeventcallback(UniffiCallbackInterfaceFfiVoipEventCallback.vtablePtr)
 }
 
 // FfiConverter protocol for callback interfaces
@@ -4029,6 +4283,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_mepassaclient_register_call_event_callback() != 13494) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_mepassaclient_register_message_event_callback() != 44583) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_mepassaclient_register_video_frame_callback() != 55584) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4101,6 +4358,15 @@ private let initializationResult: InitializationResult = {
     if (uniffi_mepassa_core_checksum_method_fficalleventcallback_on_call_ended() != 21771) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_mepassa_core_checksum_method_ffimessageeventcallback_on_message_received() != 19490) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_ffimessageeventcallback_on_message_status_changed() != 11620) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mepassa_core_checksum_method_ffimessageeventcallback_on_typing() != 14680) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_mepassa_core_checksum_method_ffivideoframecallback_on_video_frame() != 37913) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4116,6 +4382,7 @@ private let initializationResult: InitializationResult = {
 
     uniffiCallbackInitFfiAudioFrameCallback()
     uniffiCallbackInitFfiCallEventCallback()
+    uniffiCallbackInitFfiMessageEventCallback()
     uniffiCallbackInitFfiVideoFrameCallback()
     uniffiCallbackInitFfiVoipEventCallback()
     return InitializationResult.ok
