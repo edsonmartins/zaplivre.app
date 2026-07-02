@@ -56,6 +56,11 @@ services:
   # coturn - TURN/STUN Server
   coturn:
     image: coturn/coturn:latest
+    # Segredo e IP externo via env (o conf não interpola variáveis) - SEC-12/13
+    command: >-
+      -c /etc/coturn/turnserver.conf
+      --static-auth-secret=${TURN_STATIC_SECRET:?TURN_STATIC_SECRET obrigatório em produção}
+      --external-ip=${TURN_EXTERNAL_IP:?TURN_EXTERNAL_IP obrigatório em produção}
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
@@ -65,9 +70,6 @@ services:
     volumes:
       - ./server/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
       - ./server/coturn/healthcheck.sh:/healthcheck.sh:ro
-    environment:
-      - TURN_USERNAME=${TURN_USERNAME:-mepassa}
-      - TURN_PASSWORD=${TURN_PASSWORD:-mepassa_turn_dev}
     healthcheck:
       test: ["/bin/sh", "/healthcheck.sh"]
       interval: 30s

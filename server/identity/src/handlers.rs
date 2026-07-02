@@ -23,10 +23,16 @@ pub async fn register_handler(
     // Decode public key from base64
     let public_key = general_purpose::STANDARD
         .decode(&req.public_key)
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid base64: {}", e)))?;
+        .map_err(|_| AppError::InvalidSignature)?;
 
-    // Verify signature
-    verify_signature(&public_key, &req.signature, &req.timestamp, &req.username)?;
+    // SEC-14: a assinatura cobre username + peer_id + public_key + timestamp,
+    // impedindo o replay da mesma assinatura com outro peer_id/bundle
+    check_timestamp(req.timestamp)?;
+    let message = format!(
+        "register:{}:{}:{}:{}",
+        req.username, req.peer_id, req.public_key, req.timestamp
+    );
+    verify_signature(&public_key, &req.signature, &message)?;
 
     // Register username
     let response = db::register_username(
@@ -61,10 +67,17 @@ pub async fn update_prekeys_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<UpdatePrekeysRequest>,
 ) -> Result<Json<UpdatePrekeysResponse>> {
-    // For now, we skip signature verification (would need to lookup public key first)
-    // In production, you'd:
-    // 1. Lookup peer_id to get public_key
-    // 2. Verify signature with that public_key
+    // SEC-10: verificar a assinatura contra a chave pública REGISTRADA do
+    // peer - sem isso qualquer um substituía o prekey bundle de qualquer
+    // usuário (vetor de MITM no X3DH)
+    check_timestamp(req.timestamp)?;
+
+    let public_key = db::get_public_key_by_peer_id(&state.db, &req.peer_id)
+        .await?
+        .ok_or_else(|| AppError::UsernameNotFound(req.peer_id.clone()))?;
+
+    let message = format!("update_prekeys:{}:{}", req.peer_id, req.timestamp);
+    verify_signature(&public_key, &req.signature, &message)?;
 
     let response = db::update_prekeys(&state.db, &req.peer_id, &req.prekey_bundle).await?;
     Ok(Json(response))
@@ -98,51 +111,41 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> Result<Json<H
     }))
 }
 
-/// Verify Ed25519 signature
-fn verify_signature(
-    public_key: &[u8],
-    signature_b64: &str,
-    timestamp: &i64,
-    username: &str,
-) -> Result<()> {
+/// Check request timestamp freshness (anti-replay window of 5 minutes).
+/// Roda ANTES da verificação de assinatura (barato primeiro).
+fn check_timestamp(timestamp: i64) -> Result<()> {
+    let now = chrono::Utc::now().timestamp();
+    if (now - timestamp).abs() > 300 {
+        return Err(AppError::InvalidSignature);
+    }
+    Ok(())
+}
+
+/// Verify Ed25519 signature over a canonical message.
+/// Erros de decodificação/verificação retornam 400 (InvalidSignature), não 500.
+fn verify_signature(public_key: &[u8], signature_b64: &str, message: &str) -> Result<()> {
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
-    // Decode signature
     let signature_bytes = general_purpose::STANDARD
         .decode(signature_b64)
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid signature base64: {}", e)))?;
+        .map_err(|_| AppError::InvalidSignature)?;
 
-    let signature_array: [u8; 64] = signature_bytes.try_into().map_err(|_| {
-        AppError::Internal(anyhow::anyhow!("Invalid signature length"))
-    })?;
+    let signature_array: [u8; 64] = signature_bytes
+        .try_into()
+        .map_err(|_| AppError::InvalidSignature)?;
 
     let signature = Signature::from_bytes(&signature_array);
 
-    // Parse public key
     let public_key_array: [u8; 32] = public_key
         .try_into()
-        .map_err(|_| AppError::Internal(anyhow::anyhow!("Invalid public key length")))?;
+        .map_err(|_| AppError::InvalidSignature)?;
 
-    let verifying_key = VerifyingKey::from_bytes(&public_key_array)
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid public key: {}", e)))?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&public_key_array).map_err(|_| AppError::InvalidSignature)?;
 
-    // Message format: "register:{username}:{timestamp}"
-    let message = format!("register:{}:{}", username, timestamp);
-
-    // Verify signature
     verifying_key
         .verify(message.as_bytes(), &signature)
         .map_err(|_| AppError::InvalidSignature)?;
-
-    // Check timestamp (must be within 5 minutes)
-    let now = chrono::Utc::now().timestamp();
-    let diff = (now - timestamp).abs();
-    if diff > 300 {
-        // 5 minutes
-        return Err(AppError::Internal(anyhow::anyhow!(
-            "Timestamp too old or in future"
-        )));
-    }
 
     Ok(())
 }

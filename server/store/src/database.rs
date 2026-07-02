@@ -126,18 +126,25 @@ impl Database {
         Ok(messages)
     }
 
-    /// Delete (acknowledge) messages by message IDs
-    pub async fn delete_messages(&self, message_ids: &[String]) -> Result<i64, sqlx::Error> {
+    /// Marca mensagens como entregues - apenas as endereçadas ao peer
+    /// autenticado (SEC-09: um peer não pode dar ack em mensagens alheias)
+    pub async fn delete_messages(
+        &self,
+        message_ids: &[String],
+        recipient_peer_id: &str,
+    ) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             r#"
             UPDATE offline_messages
             SET status = 'delivered',
                 delivered_at = NOW()
             WHERE message_id = ANY($1)
+              AND recipient_peer_id = $2
               AND status = 'pending'
             "#,
         )
         .bind(message_ids)
+        .bind(recipient_peer_id)
         .execute(&self.pool)
         .await?;
 

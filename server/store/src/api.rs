@@ -1,7 +1,18 @@
 //! REST API handlers
 
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde_json::json;
+
+use crate::auth;
+
+/// Autentica a requisição (SEC-09); retorna o peer autenticado ou uma
+/// resposta 401 pronta.
+fn authenticate(http_req: &HttpRequest) -> Result<String, HttpResponse> {
+    auth::verify_request(http_req).map_err(|e| {
+        tracing::warn!("🚫 Unauthorized store request: {}", e.0);
+        HttpResponse::Unauthorized().json(json!({ "error": e.0 }))
+    })
+}
 
 use crate::database::Database;
 use crate::models::{
@@ -14,10 +25,22 @@ use crate::redis_client::RedisClient;
 ///
 /// POST /api/store
 pub async fn store_message(
+    http_req: HttpRequest,
     db: web::Data<Database>,
     redis: web::Data<RedisClient>,
     req: web::Json<StoreMessageRequest>,
 ) -> impl Responder {
+    // SEC-09: só o próprio remetente pode armazenar em seu nome
+    let auth_peer = match authenticate(&http_req) {
+        Ok(peer) => peer,
+        Err(resp) => return resp,
+    };
+    if auth_peer != req.sender_peer_id {
+        return HttpResponse::Forbidden().json(json!({
+            "error": "sender_peer_id does not match authenticated peer"
+        }));
+    }
+
     // Validate request
     if let Err(e) = req.validate() {
         return HttpResponse::BadRequest().json(json!({
@@ -59,9 +82,21 @@ pub async fn store_message(
 ///
 /// GET /api/store?peer_id={peer_id}&limit={limit}
 pub async fn retrieve_messages(
+    http_req: HttpRequest,
     db: web::Data<Database>,
     query: web::Query<RetrieveMessagesRequest>,
 ) -> impl Responder {
+    // SEC-09: um peer só lê as PRÓPRIAS mensagens pendentes
+    let auth_peer = match authenticate(&http_req) {
+        Ok(peer) => peer,
+        Err(resp) => return resp,
+    };
+    if auth_peer != query.peer_id {
+        return HttpResponse::Forbidden().json(json!({
+            "error": "peer_id does not match authenticated peer"
+        }));
+    }
+
     if query.peer_id.is_empty() {
         return HttpResponse::BadRequest().json(json!({
             "error": "peer_id is required"
@@ -92,16 +127,23 @@ pub async fn retrieve_messages(
 ///
 /// DELETE /api/store
 pub async fn delete_messages(
+    http_req: HttpRequest,
     db: web::Data<Database>,
     req: web::Json<DeleteMessagesRequest>,
 ) -> impl Responder {
+    // SEC-09: ack restrito a mensagens endereçadas ao peer autenticado
+    let auth_peer = match authenticate(&http_req) {
+        Ok(peer) => peer,
+        Err(resp) => return resp,
+    };
+
     if req.message_ids.is_empty() {
         return HttpResponse::BadRequest().json(json!({
             "error": "message_ids is required"
         }));
     }
 
-    match db.delete_messages(&req.message_ids).await {
+    match db.delete_messages(&req.message_ids, &auth_peer).await {
         Ok(deleted_count) => HttpResponse::Ok().json(DeleteMessagesResponse { deleted_count }),
         Err(e) => {
             tracing::error!("Failed to delete messages: {:?}", e);

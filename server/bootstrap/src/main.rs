@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
     info!("   Data Dir: {:?}", config.data_dir);
 
     // 3. Generate deterministic keypair
-    let keypair = generate_keypair(&config.peer_id_seed)?;
+    let keypair = load_or_generate_keypair(&config)?;
     let local_peer_id = PeerId::from(keypair.public());
     let local_public_key = keypair.public();
     info!("   Peer ID: {}", local_peer_id);
@@ -252,11 +252,51 @@ async fn handle_behaviour_event(
     }
 }
 
-/// Generate deterministic keypair from seed string
-///
-/// Uses SHA256 to hash the seed into a 32-byte private key,
-/// ensuring the same peer ID is generated on every restart.
-fn generate_keypair(seed: &str) -> Result<Keypair> {
+/// Load the node keypair, preferindo uma chave ALEATÓRIA persistida em disco
+/// (SEC-12). A derivação por seed (SHA256 do PEER_ID_SEED) continua suportada
+/// para compatibilidade, mas é insegura quando a seed é pública (qualquer um
+/// derivava a chave privada do bootstrap - ex.: seed "bootstrap-1" no compose).
+fn load_or_generate_keypair(config: &config::Config) -> Result<Keypair> {
+    use libp2p::identity::ed25519;
+
+    let key_path = config.data_dir.join("node_key");
+
+    // 1) Chave persistida tem prioridade (aleatória, gerada na primeira execução)
+    if key_path.exists() {
+        let mut bytes = std::fs::read(&key_path)?;
+        let secret_key = ed25519::SecretKey::try_from_bytes(&mut bytes)?;
+        info!("🔐 Loaded persisted node key from {:?}", key_path);
+        return Ok(Keypair::from(ed25519::Keypair::from(secret_key)));
+    }
+
+    // 2) Compatibilidade: PEER_ID_SEED explícita mantém a identidade de
+    //    deploys existentes (os peer IDs estão hardcoded nos clients).
+    //    Para migrar para chave aleatória segura, remova PEER_ID_SEED do env.
+    if let Ok(seed) = std::env::var("PEER_ID_SEED") {
+        if !seed.trim().is_empty() {
+            tracing::warn!(
+                "⚠️ INSECURE: node key derived from PEER_ID_SEED - anyone knowing \
+                 the seed can impersonate this bootstrap node. Remove PEER_ID_SEED \
+                 from the environment to switch to a random persisted key."
+            );
+            return generate_keypair_from_seed(&seed);
+        }
+    }
+
+    // 3) Gerar chave aleatória e persistir
+    let keypair = ed25519::Keypair::generate();
+    std::fs::write(&key_path, keypair.secret().as_ref())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600));
+    }
+    info!("🔐 Generated new random node key, persisted to {:?}", key_path);
+    Ok(Keypair::from(keypair))
+}
+
+/// Generate deterministic keypair from seed string (INSEGURO com seed pública)
+fn generate_keypair_from_seed(seed: &str) -> Result<Keypair> {
     use libp2p::identity::ed25519;
     use sha2::{Sha256, Digest};
 

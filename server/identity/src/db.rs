@@ -90,6 +90,16 @@ pub async fn lookup_username(pool: &PgPool, username: &str) -> Result<LookupResp
     }
 }
 
+/// Lookup the registered public key for a peer (signature verification)
+pub async fn get_public_key_by_peer_id(pool: &PgPool, peer_id: &str) -> Result<Option<Vec<u8>>> {
+    let row = sqlx::query("SELECT public_key FROM usernames WHERE peer_id = $1")
+        .bind(peer_id)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(row.map(|r| r.get::<Vec<u8>, _>("public_key")))
+}
+
 /// Update prekeys for a username
 pub async fn update_prekeys(
     pool: &PgPool,

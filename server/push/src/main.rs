@@ -19,7 +19,7 @@ use axum::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::{
-    cors::{Any, CorsLayer},
+    cors::CorsLayer,
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -109,10 +109,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Setup CORS
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    // SEC-16: sem CORS permissivo - clientes nativos não usam CORS
+    let cors = CorsLayer::new();
 
     // Build router
     let app = Router::new()

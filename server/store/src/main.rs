@@ -7,6 +7,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use std::env;
 
 mod api;
+mod auth;
 mod database;
 mod models;
 mod redis_client;
@@ -28,13 +29,12 @@ async fn main() -> std::io::Result<()> {
 
     tracing::info!("🚀 MePassa Message Store starting...");
 
-    // Load configuration from environment
-    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
-        "postgresql://mepassa:mepassa_dev_password@postgres:5432/mepassa".to_string()
-    });
+    // Load configuration from environment (SEC-12: sem credenciais default
+    // embutidas no binário - falhar cedo com mensagem clara)
+    let database_url =
+        env::var("DATABASE_URL").expect("DATABASE_URL must be set (see .env.example)");
 
-    let redis_url = env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://:mepassa_redis_dev@redis:6379".to_string());
+    let redis_url = env::var("REDIS_URL").expect("REDIS_URL must be set (see .env.example)");
 
     let server_port: u16 = env::var("SERVER_PORT")
         .unwrap_or_else(|_| "8080".to_string())
@@ -77,12 +77,9 @@ async fn main() -> std::io::Result<()> {
 
     // Start HTTP server
     HttpServer::new(move || {
-        // Configure CORS
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .max_age(3600);
+        // SEC-16: sem CORS permissivo - clientes nativos não usam CORS e
+        // browsers não devem chamar esta API diretamente
+        let cors = Cors::default();
 
         App::new()
             // State

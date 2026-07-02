@@ -239,6 +239,7 @@ impl ClientBuilder {
         let gc_group_manager = Arc::clone(&group_manager);
         let gc_database = database.clone();
         let gc_session_manager = session_manager.clone();
+        let gc_identity = Arc::clone(&identity);
         let gc_network = Arc::clone(&network_arc);
         let gc_store_url = self.message_store_url.clone();
         let gc_local_peer_id = peer_id.to_string();
@@ -281,6 +282,7 @@ impl ClientBuilder {
                         &gc_group_manager,
                         &gc_database,
                         &gc_session_manager,
+                        &gc_identity,
                         &gc_network,
                         &gc_store_url,
                         &gc_http,
@@ -407,6 +409,7 @@ async fn handle_group_control(
     group_manager: &Arc<crate::group::GroupManager>,
     database: &crate::storage::Database,
     session_manager: &crate::crypto::SignalSessionManager,
+    identity: &Arc<RwLock<Identity>>,
     network: &Arc<RwLock<NetworkManager>>,
     message_store_url: &Option<String>,
     http: &reqwest::Client,
@@ -501,6 +504,7 @@ async fn handle_group_control(
                     database,
                     session_manager,
                     Arc::clone(network),
+                    Arc::clone(identity),
                     message_store_url.clone(),
                     http.clone(),
                     local_peer_id,

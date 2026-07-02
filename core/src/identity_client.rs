@@ -204,16 +204,21 @@ impl IdentityClient {
             .get_bundle()
             .map_err(|e| anyhow!(e.to_string()))?;
 
-        // Create signature
+        // Create signature (SEC-14: cobre username + peer_id + public_key +
+        // timestamp para impedir replay com outro peer_id/bundle)
         let timestamp = Utc::now().timestamp();
-        let message = format!("register:{}:{}", username, timestamp);
+        let public_key_b64 = general_purpose::STANDARD.encode(identity.keypair().public_key_bytes());
+        let message = format!(
+            "register:{}:{}:{}:{}",
+            username, peer_id, public_key_b64, timestamp
+        );
         let signature = identity.keypair().sign(message.as_bytes());
 
         // Build request
         let request = RegisterRequest {
             username: username.to_string(),
             peer_id: peer_id.to_string(),
-            public_key: general_purpose::STANDARD.encode(identity.keypair().public_key_bytes()),
+            public_key: public_key_b64,
             prekey_bundle: PreKeyBundle::from_core(&prekey_bundle),
             signature: general_purpose::STANDARD.encode(signature),
             timestamp,

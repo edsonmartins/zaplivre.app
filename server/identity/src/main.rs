@@ -65,14 +65,21 @@ async fn main() -> anyhow::Result<()> {
         // Shared state
         .with_state(state)
         // Middleware
-        .layer(CorsLayer::permissive())
+        // SEC-16: sem CORS permissivo - clientes nativos não precisam de CORS;
+        // browsers não devem chamar esta API diretamente
+        .layer(CorsLayer::new())
         .layer(TraceLayer::new_for_http());
 
     // Start server
     let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
     tracing::info!("Identity Server listening on {}", bind_addr);
 
-    axum::serve(listener, app).await?;
+    // with_connect_info: o rate limit usa o IP real da conexão (SEC-15)
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

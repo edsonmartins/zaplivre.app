@@ -8,7 +8,7 @@ use axum::{
     Router,
 };
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 mod auth;
 mod config;
@@ -35,10 +35,8 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("   Server port: {}", config.server_port);
 
     // Create CORS layer (allow all origins in development)
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    // SEC-16: sem CORS permissivo - clientes nativos não usam CORS
+    let cors = CorsLayer::new();
 
     // Build router
     let app = Router::new()

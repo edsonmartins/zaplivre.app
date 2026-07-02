@@ -1,11 +1,12 @@
 //! Rate limiting middleware using Redis
 
 use axum::{
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
+use std::net::SocketAddr;
 use redis::AsyncCommands;
 use std::sync::Arc;
 
@@ -44,15 +45,38 @@ impl RateLimitConfig {
     }
 }
 
-/// Extract client identifier (IP address for now)
+/// Extract client identifier: IP real da conexão como base (não forjável);
+/// x-forwarded-for só é considerado se a conexão vier de rede privada
+/// (proxy reverso confiável) - SEC-15
 fn get_client_id(req: &Request) -> String {
-    // In production, you'd extract from X-Forwarded-For or X-Real-IP headers
-    // For now, we use a placeholder
-    req.headers()
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("unknown")
-        .to_string()
+    let socket_ip = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ci| ci.0.ip());
+
+    let is_trusted_proxy = socket_ip
+        .map(|ip| match ip {
+            std::net::IpAddr::V4(v4) => {
+                v4.is_private() || v4.is_loopback()
+            }
+            std::net::IpAddr::V6(v6) => v6.is_loopback(),
+        })
+        .unwrap_or(false);
+
+    if is_trusted_proxy {
+        if let Some(forwarded) = req
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(',').next())
+        {
+            return forwarded.trim().to_string();
+        }
+    }
+
+    socket_ip
+        .map(|ip| ip.to_string())
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 /// Rate limiting middleware

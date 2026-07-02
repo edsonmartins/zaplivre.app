@@ -568,6 +568,7 @@ impl Client {
 
     async fn deliver_message_with(
         network: Arc<RwLock<NetworkManager>>,
+        identity: Arc<RwLock<Identity>>,
         to: PeerId,
         proto_message: Message,
         message_type: &str,
@@ -600,8 +601,17 @@ impl Client {
         };
 
         let url = format!("{}/api/store", base_url);
+        let (peer, ts, sig) = Self::store_auth_headers_with(
+            &identity,
+            &proto_message.sender_peer_id,
+            "POST",
+        )
+        .await;
         let resp = message_store_http
             .post(url)
+            .header("x-mepassa-peer", peer)
+            .header("x-mepassa-ts", ts)
+            .header("x-mepassa-sig", sig)
             .json(&request)
             .send()
             .await
@@ -623,6 +633,26 @@ impl Client {
             .map(|url| url.trim_end_matches('/').to_string())
     }
 
+    /// Headers de autenticação do message store (SEC-09):
+    /// assinatura Ed25519 sobre "{METHOD}:/api/store:{timestamp}"
+    async fn store_auth_headers_with(
+        identity: &Arc<RwLock<Identity>>,
+        peer_id: &str,
+        method: &str,
+    ) -> (String, String, String) {
+        let ts = chrono::Utc::now().timestamp();
+        let message = format!("{}:/api/store:{}", method, ts);
+        let signature = {
+            let identity = identity.read().await;
+            identity.keypair().sign(message.as_bytes())
+        };
+        (
+            peer_id.to_string(),
+            ts.to_string(),
+            general_purpose::STANDARD.encode(signature),
+        )
+    }
+
     async fn store_offline_message(
         &self,
         proto_message: &Message,
@@ -639,9 +669,15 @@ impl Client {
         };
 
         let url = format!("{}/api/store", base_url);
+        let local_peer = self.local_peer_id().to_string();
+        let (peer, ts, sig) =
+            Self::store_auth_headers_with(&self.identity, &local_peer, "POST").await;
         let resp = self
             .message_store_http
             .post(url)
+            .header("x-mepassa-peer", peer)
+            .header("x-mepassa-ts", ts)
+            .header("x-mepassa-sig", sig)
             .json(&request)
             .send()
             .await
@@ -665,9 +701,15 @@ impl Client {
             self.local_peer_id()
         );
 
+        let local_peer = self.local_peer_id().to_string();
+        let (peer, ts, sig) =
+            Self::store_auth_headers_with(&self.identity, &local_peer, "GET").await;
         let resp = self
             .message_store_http
             .get(url)
+            .header("x-mepassa-peer", peer)
+            .header("x-mepassa-ts", ts)
+            .header("x-mepassa-sig", sig)
             .send()
             .await
             .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
@@ -728,9 +770,14 @@ impl Client {
         }
 
         let delete_url = format!("{}/api/store", base_url);
+        let (peer, ts, sig) =
+            Self::store_auth_headers_with(&self.identity, &local_peer, "DELETE").await;
         let _ = self
             .message_store_http
             .delete(delete_url)
+            .header("x-mepassa-peer", peer)
+            .header("x-mepassa-ts", ts)
+            .header("x-mepassa-sig", sig)
             .json(&DeleteMessagesRequest {
                 message_ids: processed_ids,
             })
@@ -1612,6 +1659,7 @@ impl Client {
 
         if let Err(e) = Client::deliver_message_with(
             Arc::clone(&self.network),
+            Arc::clone(&self.identity),
             to_peer_id,
             proto_message,
             "reaction",
@@ -1904,6 +1952,7 @@ impl Client {
             &self.database,
             &self.session_manager,
             Arc::clone(&self.network),
+            Arc::clone(&self.identity),
             self.message_store_url.clone(),
             self.message_store_http.clone(),
             &self.local_peer_id().to_string(),
@@ -1920,6 +1969,7 @@ impl Client {
         database: &Database,
         session_manager: &SignalSessionManager,
         network: Arc<RwLock<NetworkManager>>,
+        identity: Arc<RwLock<Identity>>,
         message_store_url: Option<String>,
         message_store_http: reqwest::Client,
         local_peer_id: &str,
@@ -1953,6 +2003,7 @@ impl Client {
 
         Client::deliver_message_with(
             network,
+            identity,
             to,
             proto_message,
             "group_control",
