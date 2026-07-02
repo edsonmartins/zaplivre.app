@@ -169,14 +169,14 @@ Objetivo: apto a testes com dados reais. Nada de plaintext silencioso; backend n
 
 ## FASE 7 — Push e entrega offline (M6)
 
-- [ ] **PSH-01** (P1) Migrar FCM para HTTP v1 (OAuth2/service account) — a Legacy API (`fcm 0.9`, `fcm.rs:48`) foi desligada pelo Google. Falhar o startup se credencial ausente (hoje sobe com chave vazia e falha silenciosamente). — 1,5d
-- [ ] **AND-12** (P1) Android: reativar plugin google-services (`build.gradle.kts:4`), adicionar `google-services.json` (e documentar como obter — `FIREBASE_SETUP.md`). *Aceite:* token FCM registrado no push-server.* — 0,5d
-- [ ] **PSH-02** (P1) Integração store→push: quando mensagem entra no store e destinatário offline, disparar push (consumir o canal Redis já publicado em `store/api.rs:38-40`, ou chamada HTTP direta store→push). — 1d
-- [ ] **PSH-03** (P1) iOS: implementar PushKit (`PKPushRegistry`) + report via CallKit para chamadas com app morto — obrigatório com background mode `voip` (risco de rejeição na App Store). — 1,5d
-- [ ] **PSH-04** (P2) Store: resposta idempotente para duplicata (`database.rs:57-67` — `ON CONFLICT ... RETURNING` com `fetch_optional` + SELECT). — 0,25d
-- [ ] **PSH-05** (P2) Purgar mensagens `delivered` antigas (hoje só `pending` expiradas — `database.rs:150-159`). — 0,25d
-- [ ] **PSH-06** (P2) Navegação por push (abrir conversa/chamada ao tocar a notificação) — iOS `PushNotificationManager.swift:163-187` (depende de IOS-06), Android PendingIntent (`MePassaService.kt:149`). — 1d
-- [ ] **PSH-07** (P3) Push: healthcheck no compose; env `PORT` vs `SERVER_PORT` unificada. — 0,25d
+- [x] **PSH-01** (P1) ✅ 2026-07-02 — FCM HTTP v1 (OAuth2/service account, JWT RS256, cache de token); crate `fcm 0.9` removido; FCM opcional como o APNs (sem chave vazia silenciosa); `FCM_SERVICE_ACCOUNT_PATH` no compose/stack.
+- [x] **AND-12** (P1) ✅ 2026-07-02 — plugin google-services aplicado **condicionalmente** (build funciona sem `google-services.json`, com warning); basta colocar o arquivo em `android/app/` para habilitar. *Validar token registrado no push-server no primeiro teste em device.*
+- [x] **PSH-02** (P1) ✅ 2026-07-02 — `PushNotifier` no store dispara push via push-server ao armazenar mensagem offline (fire-and-forget; conteúdo nunca vai no push); `PUSH_SERVER_URL` no compose.
+- [ ] **PSH-03** (P1) iOS PushKit + report CallKit — **pendente de campo**: exige credenciais APNs voip (.p8 + entitlement), extensão do push-server para push type `voip` (token separado, plataforma nova no schema) e device físico para validar. Fazer junto do primeiro ciclo de testes iOS.
+- [x] **PSH-04** (P2) ✅ 2026-07-02 — duplicata idempotente (fetch_optional + SELECT do registro existente).
+- [x] **PSH-05** (P2) ✅ 2026-07-02 — purge de mensagens `delivered` >7 dias no job de TTL.
+- [x] **PSH-06** (P2) ✅ 2026-07-02 (Android) — o fluxo PendingIntent→MainActivity→NavHost já existia; corrigido para abrir a conversa do REMETENTE (`sender_peer_id`). iOS: delegate corrigido na Fase 2; navegação ao tocar depende do teste em device (mesmo ciclo do PSH-03).
+- [x] **PSH-07** (P3) ✅ 2026-07-02 (feito na Fase 1) — healthcheck no compose e `PORT` unificada.
 
 **Milestone M6:** device offline recebe push, abre o app e a mensagem chega via store; checklist `docs/guides/push-checklist.md` verde.
 
