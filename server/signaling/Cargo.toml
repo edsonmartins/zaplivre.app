@@ -15,3 +15,7 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 futures = { workspace = true }
+base64 = { workspace = true }
+chrono = { workspace = true }
+ed25519-dalek = "2.1"
+libp2p-identity = { version = "0.2", features = ["ed25519", "peerid"] }

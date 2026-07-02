@@ -17,6 +17,10 @@ use super::{signaling::SignalingMessage, Result, VoipError};
 enum SignalingWireMessage {
     Register {
         peer_id: String,
+        /// SEC-11: prova de posse do peer ID (assinatura Ed25519 sobre
+        /// "signaling-register:{peer_id}:{ts}")
+        ts: i64,
+        sig: String,
     },
     Signal {
         from_peer_id: String,
@@ -37,6 +41,7 @@ impl SignalingServerClient {
     pub async fn connect(
         url: String,
         local_peer_id: PeerId,
+        identity: std::sync::Arc<tokio::sync::RwLock<crate::identity::Identity>>,
         inbound_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
     ) -> Result<Self> {
         let ws_url = normalize_ws_url(&url);
@@ -46,8 +51,18 @@ impl SignalingServerClient {
 
         let (mut write, mut read) = ws_stream.split();
 
+        // SEC-11: registro assinado - prova de posse do peer ID
+        let ts = chrono::Utc::now().timestamp();
+        let message = format!("signaling-register:{}:{}", local_peer_id, ts);
+        let sig = {
+            use base64::{engine::general_purpose, Engine as _};
+            let identity = identity.read().await;
+            general_purpose::STANDARD.encode(identity.keypair().sign(message.as_bytes()))
+        };
         let register = SignalingWireMessage::Register {
             peer_id: local_peer_id.to_string(),
+            ts,
+            sig,
         };
         let register_json = serde_json::to_string(&register)
             .map_err(|e| VoipError::NetworkError(format!("Failed to serialize register: {}", e)))?;

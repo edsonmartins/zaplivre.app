@@ -62,6 +62,7 @@ impl VoIPIntegration {
         call_manager: Arc<CallManager>,
         signaling_server_url: Option<String>,
         local_peer_id: PeerId,
+        identity: Arc<tokio::sync::RwLock<crate::identity::Identity>>,
     ) -> Self {
         let (signaling_tx, signaling_rx) = mpsc::unbounded_channel();
         let (fallback_tx, fallback_rx) = mpsc::unbounded_channel();
@@ -70,7 +71,14 @@ impl VoIPIntegration {
         let call_event_rx = call_manager.subscribe_events();
 
         let signaling_server = if let Some(url) = signaling_server_url {
-            match SignalingServerClient::connect(url, local_peer_id, signaling_tx.clone()).await {
+            match SignalingServerClient::connect(
+                url,
+                local_peer_id,
+                Arc::clone(&identity),
+                signaling_tx.clone(),
+            )
+            .await
+            {
                 Ok(client) => Some(client),
                 Err(err) => {
                     tracing::warn!("⚠️ Failed to connect signaling server: {}", err);

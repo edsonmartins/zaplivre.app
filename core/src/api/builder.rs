@@ -202,6 +202,7 @@ impl ClientBuilder {
                 Arc::clone(&call_manager),
                 self.signaling_server_url.clone(),
                 peer_id,
+                Arc::clone(&identity),
             )
             .await,
         );
