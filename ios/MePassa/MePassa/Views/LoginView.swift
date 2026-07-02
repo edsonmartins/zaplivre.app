@@ -164,6 +164,7 @@ struct LoginView: View {
                     await MainActor.run {
                         appState.login(peerId: realPeerId)
                         isGeneratingId = false
+                        NotificationCenter.default.post(name: .mePassaCoreStarted, object: nil)
                     }
                 } else {
                     await MainActor.run {
@@ -200,6 +201,7 @@ struct LoginView: View {
                     await MainActor.run {
                         appState.login(peerId: id)
                         isGeneratingId = false
+                        NotificationCenter.default.post(name: .mePassaCoreStarted, object: nil)
                     }
                 }
             } catch {

@@ -43,6 +43,9 @@ fun OnboardingScreen(
     LaunchedEffect(isInitialized) {
         if (isInitialized) {
             localPeerId = clientPeerId
+            // Iniciar o foreground service (na primeira execução ele parou
+            // aguardando o onboarding decidir criar/restaurar identidade)
+            com.mepassa.service.MePassaService.start(context)
             // Pequeno delay para usuário ver o peer ID
             kotlinx.coroutines.delay(1500)
             onOnboardingComplete()

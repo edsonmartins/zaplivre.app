@@ -61,6 +61,19 @@ class MePassaService : Service() {
         // Inicializar client se ainda não foi
         serviceScope.launch {
             if (!MePassaClientWrapper.isClientReady()) {
+                // IDN-01: primeira execução (sem identidade) fica a cargo do
+                // Onboarding - o service não pode criar uma identidade nova
+                // enquanto o usuário decide entre criar e restaurar backup
+                val hasIdentity = !com.mepassa.core.AndroidIdentityStore
+                    .loadIdentity(applicationContext)
+                    .isNullOrBlank() ||
+                    java.io.File(filesDir, "mepassa_data/identity.key").exists()
+                if (!hasIdentity) {
+                    Log.i(TAG, "No identity yet - stopping service until onboarding completes")
+                    stopSelf()
+                    return@launch
+                }
+
                 Log.i(TAG, "Initializing MePassaClient from service")
                 // MESSAGE_STORE_URL/SIGNALING_SERVER_URL são configuradas em
                 // MePassaApplication.onCreate, antes de qualquer initialize()

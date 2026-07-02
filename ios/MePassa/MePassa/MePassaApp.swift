@@ -17,11 +17,31 @@ struct MePassaApp: App {
     @StateObject private var pushManager = PushNotificationManager()
 
     init() {
-        // Initialize MePassa Core
-        initializeMePassaCore()
+        // IDN-02: só inicializar automaticamente quando JÁ existe identidade.
+        // Na primeira execução a LoginView decide entre criar nova identidade
+        // e restaurar backup (o auto-init tornava o import impossível -
+        // "Import requires app restart").
+        if Self.hasExistingIdentity() {
+            initializeMePassaCore()
+        } else {
+            print("ℹ️ No identity yet - LoginView will handle create/restore")
+        }
 
         // Setup CallKit
         setupCallKit()
+    }
+
+    static func hasExistingIdentity() -> Bool {
+        if (try? KeychainStore.loadIdentity()) ?? nil != nil {
+            return true
+        }
+        if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let legacyKey = docs.appendingPathComponent("mepassa_data/identity.key")
+            if FileManager.default.fileExists(atPath: legacyKey.path) {
+                return true
+            }
+        }
+        return false
     }
 
     var body: some Scene {
@@ -38,9 +58,15 @@ struct MePassaApp: App {
                     // Request push notification permissions
                     pushManager.requestAuthorization()
                 }
+                // IDN-02: quando a LoginView cria/restaura a identidade
+                // (primeira execução), completar o setup (bootstrap, handlers,
+                // push) que normalmente roda no launch
+                .onReceive(NotificationCenter.default.publisher(for: .mePassaCoreStarted)) { _ in
+                    completeCoreSetup()
+                }
         }
     }
-    
+
     private func initializeMePassaCore() {
         print("📱 Initializing MePassa Core...")
 
@@ -53,15 +79,30 @@ struct MePassaApp: App {
                 try await MePassaCore.shared.startListening()
                 print("✅ MePassa Core listening for connections")
 
-                // Bootstrap DHT for address discovery
-                try await MePassaCore.shared.bootstrap()
-                print("✅ MePassa Core bootstrapped")
-
                 if let peerId = MePassaCore.shared.localPeerId {
                     await MainActor.run {
                         appState.login(peerId: peerId)
-                        pushManager.refreshRegistration()
                     }
+                }
+            } catch {
+                print("❌ Failed to initialize MePassa Core: \(error)")
+                return
+            }
+
+            completeCoreSetup()
+        }
+    }
+
+    /// Pós-init compartilhado entre o launch normal e o fluxo da LoginView:
+    /// bootstrap DHT, registro de callbacks e push
+    private func completeCoreSetup() {
+        Task {
+            do {
+                try await MePassaCore.shared.bootstrap()
+                print("✅ MePassa Core bootstrapped")
+
+                await MainActor.run {
+                    pushManager.refreshRegistration()
                 }
 
                 let handler = VoipEventHandler(callManager: callManager)
@@ -81,7 +122,7 @@ struct MePassaApp: App {
                 appState.messageEventHandler = messageHandler
                 try await MePassaCore.shared.registerMessageEventCallback(messageHandler)
             } catch {
-                print("❌ Failed to initialize MePassa Core: \(error)")
+                print("❌ Failed to complete core setup: \(error)")
             }
         }
     }

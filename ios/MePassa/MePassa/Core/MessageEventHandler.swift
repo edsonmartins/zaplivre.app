@@ -9,6 +9,9 @@
 import Foundation
 
 extension Notification.Name {
+    /// Core inicializado fora do launch (fluxo da LoginView) - dispara o
+    /// setup complementar no MePassaApp
+    static let mePassaCoreStarted = Notification.Name("mePassaCoreStarted")
     static let mePassaMessageReceived = Notification.Name("mePassaMessageReceived")
     static let mePassaMessageStatusChanged = Notification.Name("mePassaMessageStatusChanged")
     static let mePassaTyping = Notification.Name("mePassaTyping")

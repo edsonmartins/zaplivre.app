@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust (core + servers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps (protoc, cmake)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler cmake libssl-dev pkg-config libasound2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check workspace (default features)
+        run: cargo check --workspace
+
+      - name: Check core with voip feature
+        # A feature voip é opcional e já escondeu código quebrado (ENV-04);
+        # verificar sempre no CI
+        run: cargo check -p mepassa-core --features voip
+
+      - name: Unit tests (core lib)
+        run: cargo test -p mepassa-core --lib
+
+      - name: Integration tests (working suites)
+        run: cargo test -p mepassa-core --test p2p_messaging --test relay_integration
+
+      - name: Server tests
+        run: cargo test -p mepassa-store -p mepassa-push -p turn-credentials -p mepassa-signaling
+
+  desktop:
+    name: Desktop (TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit

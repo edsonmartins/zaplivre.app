@@ -57,14 +57,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Log.i(TAG, "MainActivity created")
 
-        // Inicializar MePassaClient
+        // IDN-01: só inicializar automaticamente quando JÁ existe identidade.
+        // Na primeira execução o Onboarding decide entre criar nova identidade
+        // e restaurar um backup (o auto-init tornava o import impossível).
         lifecycleScope.launch {
-            val success = MePassaClientWrapper.initialize(applicationContext)
-            if (!success) {
-                Log.e(TAG, "Failed to initialize MePassaClient")
-                // TODO: Mostrar erro para usuário
+            val hasIdentity =
+                !com.mepassa.core.AndroidIdentityStore.loadIdentity(applicationContext)
+                    .isNullOrBlank() ||
+                    java.io.File(filesDir, "mepassa_data/identity.key").exists()
+            if (hasIdentity) {
+                val success = MePassaClientWrapper.initialize(applicationContext)
+                if (!success) {
+                    Log.e(TAG, "Failed to initialize MePassaClient")
+                } else {
+                    Log.i(TAG, "MePassaClient initialized successfully")
+                }
             } else {
-                Log.i(TAG, "MePassaClient initialized successfully")
+                Log.i(TAG, "No identity yet - onboarding will handle initialization")
             }
         }
 
