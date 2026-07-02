@@ -668,6 +668,16 @@ class MePassaCore: ObservableObject {
         try await client.registerCallEventCallback(callback: callback)
         print("✅ Call event callback registered")
     }
+
+    /// EVT-02: eventos de mensagem (substitui o polling das views)
+    func registerMessageEventCallback(_ callback: FfiMessageEventCallback) async throws {
+        guard let client = client else {
+            throw MePassaCoreError.notInitialized
+        }
+
+        try client.registerMessageEventCallback(callback: callback)
+        print("✅ Message event callback registered")
+    }
 }
 
 // MARK: - Wrapper Types

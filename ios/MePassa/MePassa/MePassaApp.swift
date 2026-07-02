@@ -75,6 +75,11 @@ struct MePassaApp: App {
                 let audioHandler = AudioFrameHandler(callManager: callManager)
                 appState.audioFrameHandler = audioHandler
                 try await MePassaCore.shared.registerAudioFrameCallback(audioHandler)
+
+                // EVT-02: eventos de mensagem substituem o polling das views
+                let messageHandler = MessageEventHandler(appState: appState)
+                appState.messageEventHandler = messageHandler
+                try await MePassaCore.shared.registerMessageEventCallback(messageHandler)
             } catch {
                 print("❌ Failed to initialize MePassa Core: \(error)")
             }
@@ -98,6 +103,7 @@ class AppState: ObservableObject {
     var voipEventHandler: VoipEventHandler?
     var callEventHandler: CallEventHandler?
     var audioFrameHandler: AudioFrameHandler?
+    var messageEventHandler: MessageEventHandler?
 
     func login(peerId: String) {
         self.isAuthenticated = true
@@ -169,14 +175,14 @@ class AppState: ObservableObject {
         }
     }
 
-    /// Start auto-refresh timer (every 5 seconds)
+    /// EVT-02: atualizações chegam por eventos do core (MessageEventHandler);
+    /// o timer é apenas um safety net lento
     private func startAutoRefresh() {
         // Load immediately
         loadConversations()
 
-        // Then refresh every 5 seconds
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.loadConversations()
         }
     }

@@ -92,19 +92,33 @@ fun ChatScreen(
         }
     }
 
-    // Recarregar mensagens periodicamente
+    // EVT-01: eventos do core substituem o polling de 2s. Recarrega sempre
+    // (também em mudança de status/deleção - o filtro "size >" escondia isso)
     LaunchedEffect(peerId) {
-        while (true) {
-            kotlinx.coroutines.delay(2000) // A cada 2 segundos
-            scope.launch {
+        MePassaClientWrapper.messageEvents.collect { event ->
+            val relevant = when (event) {
+                is MePassaClientWrapper.MessageUiEvent.Received -> event.fromPeerId == peerId
+                is MePassaClientWrapper.MessageUiEvent.StatusChanged ->
+                    event.peerId == null || event.peerId == peerId
+                is MePassaClientWrapper.MessageUiEvent.Typing -> false
+            }
+            if (relevant) {
                 val fetched = MePassaClientWrapper.getConversationMessages(peerId)
-                val filtered = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
-                if (filtered.size > messages.size) {
-                    messages = filtered
-                    // Auto-scroll se nova mensagem
+                val hadNew = fetched.size > messages.size
+                messages = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
+                if (hadNew && messages.isNotEmpty()) {
                     listState.animateScrollToItem(messages.lastIndex)
                 }
             }
+        }
+    }
+
+    // Safety net: refresh lento caso algum evento se perca
+    LaunchedEffect(peerId) {
+        while (true) {
+            kotlinx.coroutines.delay(30000)
+            val fetched = MePassaClientWrapper.getConversationMessages(peerId)
+            messages = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
         }
     }
 

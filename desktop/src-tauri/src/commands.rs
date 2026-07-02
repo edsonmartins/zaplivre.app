@@ -1,5 +1,8 @@
 use mepassa_core::ffi::MePassaClient;
-use mepassa_core::{FfiCallEventCallback, FfiVideoCodec, FfiVideoFrameCallback, FfiVoipEventCallback};
+use mepassa_core::{
+    FfiCallEventCallback, FfiMessageEventCallback, FfiVideoCodec, FfiVideoFrameCallback,
+    FfiVoipEventCallback,
+};
 use std::sync::{Arc, Mutex};
 use tauri::State;
 use base64::{engine::general_purpose, Engine as _};
@@ -39,6 +42,43 @@ impl FfiVoipEventCallback for VoipEventLogger {
         let _ = self.app.emit(
             "voip:camera_switch_requested",
             serde_json::json!({ "call_id": call_id }),
+        );
+    }
+}
+
+/// EVT-03: eventos de mensagem do core -> frontend (substitui o polling de 2-5s)
+struct MessageEventEmitter {
+    app: tauri::AppHandle,
+}
+
+impl FfiMessageEventCallback for MessageEventEmitter {
+    fn on_message_received(&self, message_id: String, from_peer_id: String) {
+        let _ = self.app.emit(
+            "message:received",
+            serde_json::json!({ "message_id": message_id, "from_peer_id": from_peer_id }),
+        );
+    }
+
+    fn on_message_status_changed(
+        &self,
+        message_id: String,
+        status: mepassa_core::ffi::MessageStatus,
+        peer_id: Option<String>,
+    ) {
+        let _ = self.app.emit(
+            "message:status",
+            serde_json::json!({
+                "message_id": message_id,
+                "status": format!("{:?}", status),
+                "peer_id": peer_id,
+            }),
+        );
+    }
+
+    fn on_typing(&self, peer_id: String, is_typing: bool) {
+        let _ = self.app.emit(
+            "message:typing",
+            serde_json::json!({ "peer_id": peer_id, "is_typing": is_typing }),
         );
     }
 }
@@ -157,8 +197,15 @@ pub async fn init_client(
         {
             tracing::warn!("Failed to register VoIP event callback: {}", err);
         }
-        if let Err(err) = client.register_call_event_callback(Box::new(CallEventEmitter { app })) {
+        if let Err(err) =
+            client.register_call_event_callback(Box::new(CallEventEmitter { app: app.clone() }))
+        {
             tracing::warn!("Failed to register call event callback: {}", err);
+        }
+        if let Err(err) =
+            client.register_message_event_callback(Box::new(MessageEventEmitter { app }))
+        {
+            tracing::warn!("Failed to register message event callback: {}", err);
         }
     }
 

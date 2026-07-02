@@ -47,13 +47,20 @@ fun ConversationsScreen(
         }
     }
 
-    // Recarregar conversas periodicamente
+    // EVT-01: recarregar a lista quando o core avisa de mensagem nova
     LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(5000) // A cada 5 segundos
-            scope.launch {
+        MePassaClientWrapper.messageEvents.collect { event ->
+            if (event !is MePassaClientWrapper.MessageUiEvent.Typing) {
                 conversations = MePassaClientWrapper.listConversations()
             }
+        }
+    }
+
+    // Safety net: refresh lento caso algum evento se perca
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(30000)
+            conversations = MePassaClientWrapper.listConversations()
         }
     }
 

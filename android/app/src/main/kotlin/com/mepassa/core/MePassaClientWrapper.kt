@@ -4,8 +4,11 @@ import android.content.Context
 import android.util.Log
 import android.system.Os
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import uniffi.mepassa.*
@@ -49,6 +52,38 @@ object MePassaClientWrapper {
     /** Limpa o evento de chamada recebida após a UI navegar */
     fun consumeIncomingCall() {
         _incomingCall.value = null
+    }
+
+    // ─── Eventos de mensagem (core -> UI, substitui o polling) ─────────────
+    sealed class MessageUiEvent {
+        data class Received(val messageId: String, val fromPeerId: String) : MessageUiEvent()
+        data class StatusChanged(
+            val messageId: String,
+            val status: MessageStatus,
+            val peerId: String?
+        ) : MessageUiEvent()
+        data class Typing(val peerId: String, val isTyping: Boolean) : MessageUiEvent()
+    }
+
+    private val _messageEvents = MutableSharedFlow<MessageUiEvent>(extraBufferCapacity = 64)
+    val messageEvents: SharedFlow<MessageUiEvent> = _messageEvents.asSharedFlow()
+
+    private val messageEventCallback = object : FfiMessageEventCallback {
+        override fun onMessageReceived(messageId: String, fromPeerId: String) {
+            _messageEvents.tryEmit(MessageUiEvent.Received(messageId, fromPeerId))
+        }
+
+        override fun onMessageStatusChanged(
+            messageId: String,
+            status: MessageStatus,
+            peerId: String?
+        ) {
+            _messageEvents.tryEmit(MessageUiEvent.StatusChanged(messageId, status, peerId))
+        }
+
+        override fun onTyping(peerId: String, isTyping: Boolean) {
+            _messageEvents.tryEmit(MessageUiEvent.Typing(peerId, isTyping))
+        }
     }
 
     private val callEventCallback = object : FfiCallEventCallback {
@@ -139,6 +174,13 @@ object MePassaClientWrapper {
                 client!!.registerCallEventCallback(callEventCallback)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to register call event callback", e)
+            }
+
+            // Eventos de mensagem (EVT-01): substitui o polling das telas
+            try {
+                client!!.registerMessageEventCallback(messageEventCallback)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to register message event callback", e)
             }
 
             Log.i(TAG, "Client initialized successfully. PeerId: $peerId")

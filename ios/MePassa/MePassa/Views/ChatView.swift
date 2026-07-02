@@ -41,6 +41,7 @@ struct ChatView: View {
     // Search state
     @State private var showSearch = false
     @State private var refreshTimer: Timer?
+    @State private var messageObservers: [NSObjectProtocol] = []
 
     private var messagesList: some View {
         ScrollViewReader { proxy in
@@ -440,9 +441,30 @@ struct ChatView: View {
         }
     }
 
+    /// EVT-02: eventos do core substituem o polling de 2s; o timer é só
+    /// um safety net lento
     private func startAutoRefresh() {
+        let received = NotificationCenter.default.addObserver(
+            forName: .mePassaMessageReceived,
+            object: nil,
+            queue: .main
+        ) { notification in
+            let fromPeerId = notification.userInfo?["from_peer_id"] as? String
+            if fromPeerId == conversation.peerId {
+                loadMessages()
+            }
+        }
+        let status = NotificationCenter.default.addObserver(
+            forName: .mePassaMessageStatusChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            loadMessages()
+        }
+        messageObservers = [received, status]
+
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
             loadMessages()
         }
     }
@@ -450,6 +472,8 @@ struct ChatView: View {
     private func stopAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+        messageObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        messageObservers = []
     }
 
     private func startVoiceCall() {

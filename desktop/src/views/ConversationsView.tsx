@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import QRCodeModal from '../components/QRCodeModal'
 
 interface Conversation {
@@ -29,13 +30,25 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
     loadConversations()
     loadPeerCount()
 
-    // Auto-refresh every 5 seconds
-    const interval = setInterval(() => {
-      loadConversations()
-      loadPeerCount()
-    }, 5000)
+    // EVT-03: recarregar a lista quando o core avisa de mensagem nova
+    let unsubs: Array<() => void> = []
+    const register = async () => {
+      const received = await listen('message:received', () => loadConversations())
+      const status = await listen('message:status', () => loadConversations())
+      unsubs = [received, status]
+    }
+    register()
 
-    return () => clearInterval(interval)
+    // Contagem de peers + safety net em intervalo lento
+    const interval = setInterval(() => {
+      loadPeerCount()
+      loadConversations()
+    }, 30000)
+
+    return () => {
+      clearInterval(interval)
+      unsubs.forEach((unsub) => unsub())
+    }
   }, [])
 
   const loadConversations = async () => {

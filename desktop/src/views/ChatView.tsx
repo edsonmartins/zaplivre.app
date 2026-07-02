@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 
 interface Message {
   id: string
@@ -54,10 +55,33 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     loadMediaIndex()
     markAsRead()
 
-    // Auto-refresh every 2 seconds
-    const interval = setInterval(loadMessages, 2000)
+    // EVT-03: eventos do core substituem o polling de 2s
+    let unsubs: Array<() => void> = []
+    const register = async () => {
+      const received = await listen<{ message_id: string; from_peer_id: string }>(
+        'message:received',
+        (event) => {
+          if (event.payload.from_peer_id === peerId) {
+            loadMessages()
+            markAsRead()
+          }
+        }
+      )
+      const status = await listen<{ message_id: string; status: string }>(
+        'message:status',
+        () => loadMessages()
+      )
+      unsubs = [received, status]
+    }
+    register()
 
-    return () => clearInterval(interval)
+    // Safety net: refresh lento caso algum evento se perca
+    const interval = setInterval(loadMessages, 30000)
+
+    return () => {
+      clearInterval(interval)
+      unsubs.forEach((unsub) => unsub())
+    }
   }, [peerId])
 
   useEffect(() => {
