@@ -123,15 +123,15 @@ Objetivo: callee recebe a chamada em todas as plataformas; estados corretos.
 
 Objetivo: grupo multi-dispositivo funcional e íntegro; sem hack de chave por mensagem de texto.
 
-- [ ] **CORE-15** (P0) Transmitir contador na `EncryptedMessage` de grupo (`crypto/group.rs:32-36,139-178`): incluir `iteration`/índice da sender key; receptor avança a ratchet até o índice (com janela para out-of-order). *Aceite:* teste com perda/reordenação de mensagem no gossipsub continua decifrando.* — 1,5d
-- [ ] **CORE-16** (P0) Protocolo in-band de grupo: mensagens de protocolo tipadas (protobuf) para invite/join/leave/membership-update e **distribuição de sender key via sessão 1:1 E2E** (substituindo o hack `mepassa-group-key:v1:` sobre texto). Validar remetente contra membership antes de aceitar seed. Atualizar `group/manager.rs:137-171` para processar membership recebida. — 3d
-- [ ] **AND-09** (P1) Android: remover o parsing de `mepassa-group-key:` por string-matching (`MePassaClientWrapper.kt:589-619`) quando CORE-16 chegar; validar origem. — 0,5d
-- [ ] **DSK-07** (P1) Desktop: idem — remover aceitação de sender key de qualquer peer (`ConversationsView.tsx:103-150`, `ChatView.tsx:73-127`) e ligar `join_group` ao fluxo de convite. — 0,5d
+- [x] **CORE-15** (P0) ✅ 2026-07-02 — reestruturado além do planejado: derivação **stateless** de message keys por (seed, counter) com counter no wire; resolve perda, reordenação E restart (a seed persistida sozinha dessincronizava após restart); counter persistido por sender (migration v6, guarda de replay); mesma seed re-recebida preserva counter. Testes: perda/replay/restart/preservação. Trade-off de FS documentado no módulo.
+- [x] **CORE-16** (P0) ✅ 2026-07-02 — `GroupControlEnvelope` (invite/sender_key/member_added/member_removed/leave) via mensagens 1:1 E2E (padrão ReactionEnvelope); `add_group_member` envia invite+member_added automaticamente; convidado entra, subscreve topic e responde sender_key a todos; validações anti-spoofing (sender_key só de membros, membership só de admins — métodos `remote_*`); orquestração na task de eventos do builder. *Nota: envelope com seed sem sessão E2E ainda cai em plaintext com warning — SEC-01 endurece.*
+- [x] **AND-09** (P1) ✅ 2026-07-02 — hack removido do wrapper e telas; mantido só filtro de exibição para mensagens legadas.
+- [x] **DSK-07** (P1) ✅ 2026-07-02 — varredura/parsing/envio manuais removidos; join agora é automático via invite do core.
 - [x] **IOS-10** (P0) ✅ 2026-07-02 (antecipado) — loadGroups/createGroup/leaveGroup reais via MePassaCore (mocks removidos). *Validar com xcodebuild no primeiro build iOS.*
-- [ ] **DSK-08** (P2) Desktop: botão Leave Group com onClick (`GroupChatView.tsx:354-356`); Group Info com lista de membros real. — 0,5d
-- [ ] **AND-10** (P2) Android: lista de membros real no `GroupInfoScreen.kt:157-170`; adicionar `update_group` ao FFI (nome/descrição) e ligar edição (`:587-589`). — 1d
-- [ ] **IOS-11** (P2) iOS: edição de grupo real (`GroupInfoView.swift:321-332`) usando o mesmo `update_group`. — 0,25d
-- [ ] **CORE-17** (P2) Assinar mensagens de grupo no nível sender-key (hoje autenticação só no envelope `GroupMessage.sign`) — avaliar se o envelope basta e documentar a decisão. — 0,5d
+- [x] **DSK-08** (P2) ✅ 2026-07-02 — Leave Group funcional + lista de membros no modal (novos comandos tauri).
+- [x] **AND-10** (P2) ✅ 2026-07-02 — lista de membros real (Você/Admin) + edição via novo `update_group` no FFI.
+- [x] **IOS-11** (P2) ✅ 2026-07-02 — `saveChanges` real via `updateGroup`.
+- [x] **CORE-17** (P2) ✅ 2026-07-02 (por decisão) — a assinatura Ed25519 do envelope externo (`GroupMessage.sign`, verificada contra a chave pública do contato em `handle_gossipsub_message`) cobre autenticidade e integridade do payload cifrado; assinatura adicional no nível sender-key seria redundante para o alfa. Reavaliar se sender keys forem compartilhadas fora do gossipsub assinado.
 
 **Milestone M4:** criar grupo no device A, convidar B e C, todos trocam mensagens; perda de mensagem não quebra o grupo. Teste automatizado de dessincronização incluído.
 
