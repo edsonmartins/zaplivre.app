@@ -31,6 +31,12 @@ pub struct VoIPIntegration {
     signaling_rx: Mutex<Option<mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>>>,
     signaling_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
 
+    // Sinais cujo request P2P falhou (OutboundFailure) - reenviados via
+    // servidor de signaling (fallback). Antes, o fallback quase nunca
+    // disparava porque send_voip_signal retorna Ok antes da entrega.
+    fallback_rx: Mutex<Option<mpsc::UnboundedReceiver<(PeerId, SignalingMessage)>>>,
+    fallback_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
+
     // Call events from CallManager
     call_event_rx: Mutex<Option<broadcast::Receiver<CallEvent>>>,
 
@@ -58,6 +64,7 @@ impl VoIPIntegration {
         local_peer_id: PeerId,
     ) -> Self {
         let (signaling_tx, signaling_rx) = mpsc::unbounded_channel();
+        let (fallback_tx, fallback_rx) = mpsc::unbounded_channel();
 
         // Subscribe to call manager events
         let call_event_rx = call_manager.subscribe_events();
@@ -80,6 +87,8 @@ impl VoIPIntegration {
             signaling_server,
             signaling_rx: Mutex::new(Some(signaling_rx)),
             signaling_tx,
+            fallback_rx: Mutex::new(Some(fallback_rx)),
+            fallback_tx,
             call_event_rx: Mutex::new(Some(call_event_rx)),
             #[cfg(any(feature = "voip", feature = "video"))]
             video_frame_callback: Arc::new(RwLock::new(None)),
@@ -93,6 +102,11 @@ impl VoIPIntegration {
     /// Get a sender for signaling messages (for NetworkManager to use)
     pub fn signaling_sender(&self) -> mpsc::UnboundedSender<(PeerId, SignalingMessage)> {
         self.signaling_tx.clone()
+    }
+
+    /// Sender para sinais P2P que falharam (NetworkManager -> fallback WS)
+    pub fn fallback_sender(&self) -> mpsc::UnboundedSender<(PeerId, SignalingMessage)> {
+        self.fallback_tx.clone()
     }
 
     /// Register callback for receiving remote video frames (FASE 14)
@@ -161,6 +175,31 @@ impl VoIPIntegration {
                 return;
             }
         };
+
+        // Consumidor do fallback: sinais P2P que falharam vão para o servidor
+        // de signaling (quando configurado)
+        if let Some(mut fallback_rx) = self.fallback_rx.lock().await.take() {
+            let server = self.signaling_server.clone();
+            tokio::task::spawn_local(async move {
+                while let Some((peer_id, signal)) = fallback_rx.recv().await {
+                    match &server {
+                        Some(server) => {
+                            if let Err(e) = server.send_signal(peer_id, signal) {
+                                tracing::warn!("📞 Signaling fallback send failed: {}", e);
+                            } else {
+                                tracing::info!("📞 Signal re-sent via server fallback to {}", peer_id);
+                            }
+                        }
+                        None => {
+                            tracing::warn!(
+                                "📞 P2P signal to {} failed and no signaling server configured",
+                                peer_id
+                            );
+                        }
+                    }
+                }
+            });
+        }
 
         let this = Arc::clone(&self);
         tokio::task::spawn_local(async move {

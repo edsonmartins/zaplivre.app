@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 struct ChatView: View {
     let conversation: Conversation
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var callManager: CallManager
     @State private var messageText = ""
     @State private var messages: [Message] = []
 
@@ -452,8 +453,11 @@ struct ChatView: View {
     }
 
     private func startVoiceCall() {
-        // TODO: Initiate VoIP call via CallManager
         print("📞 Starting voice call with \(conversation.peerId)")
+        callManager.startCall(
+            to: conversation.peerId,
+            displayName: String(conversation.peerId.prefix(16))
+        )
     }
 
     private func startVideoCall() {

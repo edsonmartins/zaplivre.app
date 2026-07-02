@@ -189,6 +189,7 @@ impl ClientBuilder {
         {
             let mut network = network_arc.write().await;
             network.set_voip_signaling_sender(voip_integration.signaling_sender());
+            network.set_voip_fallback_sender(voip_integration.fallback_sender());
         }
         #[cfg(any(feature = "voip", feature = "video"))]
         voip_integration.clone().spawn().await;

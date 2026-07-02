@@ -93,6 +93,12 @@ pub struct Call {
 
     /// Is on speakerphone (mobile only)
     pub speakerphone: bool,
+
+    /// Is video enabled for this call
+    pub video_enabled: bool,
+
+    /// Negotiated video codec (when video is enabled)
+    pub video_codec: Option<crate::voip::video::VideoCodec>,
 }
 
 impl Call {
@@ -108,6 +114,8 @@ impl Call {
             ended_at: None,
             audio_muted: false,
             speakerphone: false,
+            video_enabled: false,
+            video_codec: None,
         }
     }
 
@@ -123,6 +131,8 @@ impl Call {
             ended_at: None,
             audio_muted: false,
             speakerphone: false,
+            video_enabled: false,
+            video_codec: None,
         }
     }
 

@@ -136,12 +136,17 @@ pub struct CallManager {
 
     /// TURN credentials (cached)
     turn_credentials: Arc<RwLock<Option<TurnCredentials>>>,
+
+    /// ICE candidates que chegaram antes do peer existir (race ICE-antes-do-offer)
+    pending_ice: Arc<RwLock<HashMap<String, Vec<(String, Option<String>, Option<u16>)>>>>,
 }
 
 impl CallManager {
     /// Create a new call manager
     pub fn new() -> Self {
-        let (event_tx, _event_rx) = broadcast::channel(128);
+        // 1024: sinalização + frames de evento podem acumular sob lag; 128
+        // derrubava eventos silenciosamente
+        let (event_tx, _event_rx) = broadcast::channel(1024);
 
         Self {
             calls: Arc::new(RwLock::new(HashMap::new())),
@@ -149,6 +154,7 @@ impl CallManager {
             video_enabled: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
             turn_credentials: Arc::new(RwLock::new(None)),
+            pending_ice: Arc::new(RwLock::new(HashMap::new())),
             #[cfg(feature = "voip")]
             audio_encoders: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -246,6 +252,8 @@ impl CallManager {
             let mut peers = self.peers.write().await;
             peers.insert(call_id.clone(), Arc::new(RwLock::new(peer)));
         }
+        // Aplicar ICE candidates que chegaram antes do peer existir
+        self.drain_pending_ice(&call_id).await;
 
         // Emit state change event
         let _ = self.event_tx.send(CallEvent::StateChanged {
@@ -335,6 +343,8 @@ impl CallManager {
             let mut peers = self.peers.write().await;
             peers.insert(call_id.clone(), Arc::new(RwLock::new(peer)));
         }
+        // Aplicar ICE candidates que chegaram antes do peer existir
+        self.drain_pending_ice(&call_id).await;
 
         // Emit incoming call event
         let _ = self.event_tx.send(CallEvent::IncomingCall {
@@ -423,6 +433,10 @@ impl CallManager {
     }
 
     /// Add ICE candidate
+    ///
+    /// Candidatos podem chegar antes do offer criar o peer (race normal de
+    /// signaling); nesse caso ficam bufferizados e são aplicados quando o
+    /// peer é registrado (drain_pending_ice).
     pub async fn add_ice_candidate(
         &self,
         call_id: String,
@@ -430,10 +444,27 @@ impl CallManager {
         sdp_mid: Option<String>,
         sdp_m_line_index: Option<u16>,
     ) -> Result<()> {
-        let peers = self.peers.read().await;
-        let peer_lock = peers
-            .get(&call_id)
-            .ok_or_else(|| VoipError::InvalidState("Call not found".to_string()))?;
+        let peer_lock = {
+            let peers = self.peers.read().await;
+            peers.get(&call_id).cloned()
+        };
+
+        let Some(peer_lock) = peer_lock else {
+            const MAX_PENDING_ICE: usize = 64;
+            let mut pending = self.pending_ice.write().await;
+            let entry = pending.entry(call_id.clone()).or_default();
+            if entry.len() < MAX_PENDING_ICE {
+                entry.push((candidate, sdp_mid, sdp_m_line_index));
+                tracing::debug!(
+                    "🧊 ICE candidate buffered for call {} ({} pending)",
+                    call_id,
+                    entry.len()
+                );
+            } else {
+                tracing::warn!("🧊 Pending ICE buffer full for call {}, dropping", call_id);
+            }
+            return Ok(());
+        };
 
         let peer = peer_lock.read().await;
         peer.add_ice_candidate(candidate, sdp_mid, sdp_m_line_index)
@@ -442,6 +473,35 @@ impl CallManager {
         tracing::debug!("🧊 ICE candidate added for call: {}", call_id);
 
         Ok(())
+    }
+
+    /// Aplica candidatos ICE bufferizados assim que o peer da chamada existe
+    async fn drain_pending_ice(&self, call_id: &str) {
+        let buffered = {
+            let mut pending = self.pending_ice.write().await;
+            pending.remove(call_id).unwrap_or_default()
+        };
+        if buffered.is_empty() {
+            return;
+        }
+
+        let peer_lock = {
+            let peers = self.peers.read().await;
+            peers.get(call_id).cloned()
+        };
+        let Some(peer_lock) = peer_lock else { return };
+        let peer = peer_lock.read().await;
+
+        let count = buffered.len();
+        for (candidate, sdp_mid, sdp_m_line_index) in buffered {
+            if let Err(e) = peer
+                .add_ice_candidate(candidate, sdp_mid, sdp_m_line_index)
+                .await
+            {
+                tracing::warn!("🧊 Failed to apply buffered ICE candidate: {}", e);
+            }
+        }
+        tracing::info!("🧊 Applied {} buffered ICE candidates for call {}", count, call_id);
     }
 
     /// Reject an incoming call
@@ -500,6 +560,15 @@ impl CallManager {
 
     /// Enable video for an active call
     pub async fn enable_video(&self, call_id: &str, codec: VideoCodec) -> Result<()> {
+        // A packetization VP9 ainda não é conforme com a RFC (delega a VP8);
+        // restringir a negociação a H.264/VP8 até implementar corretamente.
+        let codec = if codec == VideoCodec::VP9 {
+            tracing::warn!("📹 VP9 not fully supported yet; falling back to VP8");
+            VideoCodec::VP8
+        } else {
+            codec
+        };
+
         let peers = self.peers.read().await;
         let peer_lock = peers
             .get(call_id)
@@ -513,6 +582,13 @@ impl CallManager {
         {
             let mut video_enabled = self.video_enabled.write().await;
             video_enabled.insert(call_id.to_string(), true);
+        }
+        {
+            let mut calls = self.calls.write().await;
+            if let Some(call) = calls.get_mut(call_id) {
+                call.video_enabled = true;
+                call.video_codec = Some(codec);
+            }
         }
 
         // Emit event
@@ -541,6 +617,13 @@ impl CallManager {
         {
             let mut video_enabled = self.video_enabled.write().await;
             video_enabled.insert(call_id.to_string(), false);
+        }
+        {
+            let mut calls = self.calls.write().await;
+            if let Some(call) = calls.get_mut(call_id) {
+                call.video_enabled = false;
+                call.video_codec = None;
+            }
         }
 
         // Emit event
@@ -608,15 +691,16 @@ impl CallManager {
 
         let encoder = {
             let mut encoders = self.audio_encoders.write().await;
-            encoders
-                .entry(call_id.to_string())
-                .or_insert_with(|| {
+            match encoders.entry(call_id.to_string()) {
+                std::collections::hash_map::Entry::Occupied(entry) => entry.get().clone(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
                     let config = OpusConfig::default();
-                    let encoder = OpusEncoder::new(config)
-                        .expect("Failed to create Opus encoder");
-                    Arc::new(Mutex::new(encoder))
-                })
-                .clone()
+                    let encoder = OpusEncoder::new(config).map_err(|e| {
+                        VoipError::CallSetupFailed(format!("Failed to create Opus encoder: {}", e))
+                    })?;
+                    entry.insert(Arc::new(Mutex::new(encoder))).clone()
+                }
+            }
         };
 
         let mut samples = Vec::with_capacity(pcm_data.len() / 2);

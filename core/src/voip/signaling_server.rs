@@ -26,6 +26,7 @@ enum SignalingWireMessage {
 }
 
 /// WebSocket signaling client used as fallback when P2P signaling fails.
+#[derive(Clone)]
 pub struct SignalingServerClient {
     outbound_tx: mpsc::UnboundedSender<SignalingWireMessage>,
     local_peer_id: PeerId,

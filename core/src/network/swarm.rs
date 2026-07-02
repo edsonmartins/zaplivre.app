@@ -49,6 +49,16 @@ pub struct NetworkManager {
     #[cfg(any(feature = "voip", feature = "video"))]
     voip_signaling_sender:
         Option<mpsc::UnboundedSender<(PeerId, crate::voip::signaling::SignalingMessage)>>,
+    /// Sinais VoIP em voo (request_id -> sinal) para fallback em OutboundFailure
+    #[cfg(any(feature = "voip", feature = "video"))]
+    pending_voip_signals: HashMap<
+        libp2p::request_response::OutboundRequestId,
+        (PeerId, crate::voip::signaling::SignalingMessage),
+    >,
+    /// Canal para reenviar sinais falhos via servidor de signaling (fallback)
+    #[cfg(any(feature = "voip", feature = "video"))]
+    voip_fallback_sender:
+        Option<mpsc::UnboundedSender<(PeerId, crate::voip::signaling::SignalingMessage)>>,
 }
 
 impl NetworkManager {
@@ -100,6 +110,10 @@ impl NetworkManager {
             group_manager: None,
             #[cfg(any(feature = "voip", feature = "video"))]
             voip_signaling_sender: None,
+            #[cfg(any(feature = "voip", feature = "video"))]
+            pending_voip_signals: HashMap::new(),
+            #[cfg(any(feature = "voip", feature = "video"))]
+            voip_fallback_sender: None,
         })
     }
 
@@ -125,6 +139,15 @@ impl NetworkManager {
         sender: mpsc::UnboundedSender<(PeerId, crate::voip::signaling::SignalingMessage)>,
     ) {
         self.voip_signaling_sender = Some(sender);
+    }
+
+    /// Set sender para reenviar sinais VoIP falhos via servidor de signaling
+    #[cfg(any(feature = "voip", feature = "video"))]
+    pub fn set_voip_fallback_sender(
+        &mut self,
+        sender: mpsc::UnboundedSender<(PeerId, crate::voip::signaling::SignalingMessage)>,
+    ) {
+        self.voip_fallback_sender = Some(sender);
     }
 
     /// Start listening on a multiaddr
@@ -409,6 +432,9 @@ impl NetworkManager {
             .behaviour_mut()
             .voip_signaling
             .send_request(&peer_id, signal.clone());
+
+        // Rastrear para acionar o fallback WS se o request falhar
+        self.pending_voip_signals.insert(request_id, (peer_id, signal.clone()));
 
         tracing::info!("📞 Sent VoIP signal to {} (request_id: {:?}): {:?}", peer_id, request_id, signal);
         Ok(())
@@ -779,6 +805,9 @@ impl NetworkManager {
                                     response,
                                     request_id
                                 );
+
+                                // Sinal entregue - sair do rastreio de fallback
+                                self.pending_voip_signals.remove(&request_id);
                                 if let Some(sender) = &self.voip_signaling_sender {
                                     if let Err(err) = sender.send((peer, response)) {
                                         tracing::warn!(
@@ -801,7 +830,21 @@ impl NetworkManager {
                             error,
                             request_id
                         );
-                        tracing::warn!("📞 VoIP request to {} failed: {:?}", peer, error);
+
+                        // Acionar fallback via servidor de signaling - antes o
+                        // sinal era simplesmente perdido
+                        if let Some((to_peer, signal)) =
+                            self.pending_voip_signals.remove(&request_id)
+                        {
+                            if let Some(sender) = &self.voip_fallback_sender {
+                                if sender.send((to_peer, signal)).is_ok() {
+                                    tracing::info!(
+                                        "📞 VoIP signal to {} rerouted via signaling fallback",
+                                        peer
+                                    );
+                                }
+                            }
+                        }
                     }
                     libp2p::request_response::Event::InboundFailure {
                         peer,

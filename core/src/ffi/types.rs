@@ -307,8 +307,8 @@ impl From<Call> for FfiCall {
             ended_at: call.ended_at.map(|t| t.timestamp()),
             audio_muted: call.audio_muted,
             speakerphone: call.speakerphone,
-            video_enabled: false, // TODO: get from CallManager
-            video_codec: None,    // TODO: get from CallManager
+            video_enabled: call.video_enabled,
+            video_codec: call.video_codec.map(Into::into),
         }
     }
 }

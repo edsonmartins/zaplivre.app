@@ -3,7 +3,7 @@
 use super::Result;
 
 /// Video codecs supported
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum VideoCodec {
     /// H.264 - Primary codec (hardware accelerated on most devices)
     H264,

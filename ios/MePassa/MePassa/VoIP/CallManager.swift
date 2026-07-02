@@ -258,6 +258,11 @@ class CallManager: NSObject, ObservableObject {
             mappedState = .ended
         }
 
+        // Iniciar o áudio quando a chamada de fato conecta (transição para ACTIVE)
+        if mappedState == .connected && callState != .connected {
+            startAudio()
+        }
+
         callState = mappedState
 
         if mappedState == .ended {
@@ -287,7 +292,7 @@ class CallManager: NSObject, ObservableObject {
         audioManager.playAudio(data)
     }
 
-    // MARK: - WebRTC Integration (TODO)
+    // MARK: - WebRTC Integration
     private func initiateWebRTCConnection(peerId: String) {
         print("📞 Initiating WebRTC connection to \(peerId)...")
         Task {
@@ -298,9 +303,11 @@ class CallManager: NSObject, ObservableObject {
                         call.coreCallId = coreCallId
                         self.currentCall = call
                     }
-                    self.callState = .connected
+                    // Não marcar .connected aqui: o peer ainda nem atendeu.
+                    // O estado real (ACTIVE) chega via handleCallStateChanged,
+                    // que também inicia o áudio.
+                    self.callState = .connecting
                 }
-                self.startAudio()
             } catch {
                 DispatchQueue.main.async {
                     self.callState = .ended
@@ -365,8 +372,10 @@ extension CallManager: CXProviderDelegate {
             }
         }
 
+        // O estado .connected chega do core (ACTIVE) via handleCallStateChanged;
+        // aqui apenas ativamos o áudio junto do answer do CallKit.
         DispatchQueue.main.async {
-            self.callState = .connected
+            self.callState = .connecting
         }
 
         startAudio()
