@@ -141,8 +141,10 @@ mod tests {
     use super::*;
     use libp2p::identity;
 
-    #[test]
-    fn test_create_behaviour() {
+    // tokio::test: no Linux o mDNS (if-watch/netlink) exige reator tokio
+    // já na construção do behaviour
+    #[tokio::test]
+    async fn test_create_behaviour() {
         let keypair = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(keypair.public());
 
@@ -152,8 +154,8 @@ mod tests {
         assert!(behaviour.is_ok());
     }
 
-    #[test]
-    fn test_multiple_behaviours() {
+    #[tokio::test]
+    async fn test_multiple_behaviours() {
         let keypair1 = identity::Keypair::generate_ed25519();
         let keypair2 = identity::Keypair::generate_ed25519();
 
