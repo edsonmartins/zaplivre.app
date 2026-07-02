@@ -200,18 +200,12 @@ Depende de CORE-07 (callback de mensagens no FFI).
 
 ## FASE 9 — Higiene de testes e CI (M7, parte 2)
 
-- [ ] **TST-01** (P1) Consertar compilação dos testes:
-  - `core/src/media/image.rs:194,206` — imports `Cursor`/`ImageFormat` no módulo de teste;
-  - `core/src/identity_client.rs:337` — teste com `?` retornar `Result`;
-  - `core/tests/voip_integration.rs` + `message_integration.rs` — atualizar para a API atual do `Client`;
-  - `server/identity/tests/integration_tests.rs` — ed25519-dalek 2.x (`SigningKey`) + base64 0.22 (`Engine`);
-  - `server/bootstrap` — `tempfile` nas dev-dependencies.
-  *Aceite:* `cargo test --workspace` compila 100%.* — 1,5d
-- [ ] **TST-02** (P1) Reativar `test_end_to_end_message_exchange` (`message_integration.rs:131`) com verificação real de recepção (hoje `#[ignore]` e sem assert). — 1d
+- [x] **TST-01** (P1) ✅ 2026-07-02 — TODOS os testes compilam: lib (Fase 3), message_integration reescrita p/ API atual, voip_integration gateada por feature, identity server migrado (dalek 2.x, base64 0.22, assinatura SEC-14, porta 8083, #[ignore] p/ infra viva), tempfile no bootstrap, exemplos obsoletos removidos. **`cargo test --workspace`: 178 passed / 0 failed / 11 ignored.**
+- [x] **TST-02** (P1) ✅ 2026-07-02 — teste E2E REAL: dois Clients completos por TCP local (LocalSet + drivers de rede), assert de recepção no B e de Delivered (ACK) no A. Roda em ~5s e valida CORE-01/02/03 de quebra (a entrega passou pela fila de retry no próprio teste).
 - [ ] **TST-03** (P2) Novos testes cobrindo os P0 corrigidos: race de conexão (CORE-01), retry offline (CORE-02), grupo com perda de mensagem (CORE-15), chunks de mídia com hash (SEC-03). — 2d
 - [x] **TST-04** (P2) ✅ 2026-07-02 — `.github/workflows/ci.yml`: check workspace + `--features voip`, testes core (lib + suítes funcionais) e servers, typecheck desktop. fmt/clippy entram após TST-05.
-- [ ] **TST-05** (P3) Zerar os 55 warnings do clippy (10× conversão inútil `SignalProtocolError`, base64 deprecado no store, `Arc` não-Send/Sync, etc.). — 1d
-- [ ] **TST-06** (P3) Remover código morto: `crypto/ratchet.rs`, `crypto/session.rs` antigos (não compilam, órfãos), `group/sender_keys.rs` órfão, presença Redis não usada no store (`redis_client.rs:41-72`). — 0,5d
+- [x] **TST-05** (P3) **PARCIAL** ✅ 2026-07-02 — `clippy --fix` + base64 deprecado corrigido + allows anotados: 55 → ~15 warnings (restantes: naming `from_str`, too-many-args, `Arc` !Send intencional do FFI).
+- [x] **TST-06** (P3) ✅ 2026-07-02 — 1223 linhas de crypto órfã removidas (ratchet/session/sender_keys) + 2 exemplos obsoletos; presença Redis mantida com `#[allow(dead_code)]` anotado (integração futura com push).
 
 ---
 
