@@ -240,6 +240,11 @@ Depende de CORE-07 (callback de mensagens no FFI).
 - [ ] **NET-03** (P3) Substituir busy-poll de 10ms do swarm por waker adequado (`swarm.rs:435-441`). — 1d
 - [ ] **SRV-16** (P3) Identity: porta default sem conflito com store (8080); signaling: porta/log via env (`signaling/main.rs:42,52`); `uptime_seconds` usando `state.start_time`. — 0,5d
 
+### Cobertura de testes de UI (adicionado 2026-07-02)
+- [x] **UIT-01** Desktop: 12 testes de tela (vitest + Testing Library + mockIPC do Tauri) cobrindo os 5 fluxos historicamente quebrados, incluindo o anti-regressão do "callee cego" (modal de chamada no evento) e comandos inexistentes (mock explode). `npm test` + CI.
+- [x] **UIT-02** Mobile: flows Maestro black-box em `e2e/maestro/` (onboarding, navegação anti-órfã, enviar mensagem, backup, grupo) — rodar contra emulador/simulador com o app real (ver README).
+- [ ] **UIT-03** Fluxos de 2 dispositivos (receber mensagem/chamada no mobile): manter no roteiro manual; automatizar depois do primeiro ciclo de testes se valer o custo.
+
 ### Fora de escopo desta rodada (decidir e documentar)
 - **SYNC-01** Multi-device sync (CRDT/Automerge) — `core/src/sync/` é placeholder. Decisão: adiar para pós-beta ou cortar do roadmap.
 - **SFU-01** Chamadas em grupo (SFU vs mesh) — plano da Fase B do doc antigo. Adiar.
