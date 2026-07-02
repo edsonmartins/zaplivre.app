@@ -142,26 +142,26 @@ Objetivo: grupo multi-dispositivo funcional e íntegro; sem hack de chave por me
 Objetivo: apto a testes com dados reais. Nada de plaintext silencioso; backend não é um open relay.
 
 ### Core
-- [ ] **SEC-01** (P1) Remover downgrade silencioso para plaintext (`client.rs:276-287,336-347,1452-1463,1604-1615`): falha de E2E ⇒ erro para o caller (ou flag explícita `allow_plaintext` default false). *Aceite:* teste que força falha de sessão não gera pacote em claro.* — 1d
-- [ ] **SEC-02** (P1) Autorização de mídia: `build_media_chunks` (`message_handler.rs:502-513`) só serve chunks a peers participantes da conversa da mídia. — 0,5d
-- [ ] **SEC-03** (P1) Integridade de mídia: verificar `media_hash` após remontagem dos chunks (`message_handler.rs:456-500`); cifrar chunks com a sessão E2E (ou chave de conteúdo derivada). — 1d
-- [ ] **SEC-04** (P1) Persistir sessões Signal + identidades TOFU em SQLite cifrado (`crypto/signal.rs:182-186,366-386`). *Aceite:* restart não reseta pinning nem quebra sessões.* — 1,5d
-- [ ] **SEC-05** (P1) Cifrar sender-key seeds no SQLite (`group/storage.rs:260-300`) com a storage key. — 0,5d
-- [ ] **SEC-06** (P1) Eliminar `identity.key` plaintext: core aceitar identidade só via provider (env/callback já existe para Keychain/Keystore); não gravar arquivo na primeira execução (`builder.rs:104-110`); migração remove arquivos legados. Android: limpar `MEPASSA_IDENTITY_B64` do ambiente pós-init (`MePassaClientWrapper.kt:64`). — 1d
-- [ ] **SEC-07** (P2) Prekeys: marcar Kyber OTP como usada (`signal.rs:355-362`); `peek_one_time_prekey` não reusar sempre a mesma OPK (`prekeys.rs:221-258`); persistir prekey pool para o bundle sobreviver a restart (`identity/storage.rs:158-165`). — 1d
-- [ ] **SEC-08** (P2) Safety numbers/fingerprint para verificação de identidade (mitigar TOFU MITM) — pode ficar pós-alfa, registrar decisão. — 2d (opcional nesta fase)
-- [ ] **CORE-18** (P2) Signaling client: exigir `wss://` por default; só aceitar `ws://` com flag explícita de dev (`signaling_server.rs:117-127`). — 0,25d
+- [x] **SEC-01** (P1) ✅ 2026-07-02 — falha de criptografia E2E **aborta o envio** em todos os caminhos (texto, mídia inline, forward, reação, group control) via `prepare_outgoing_payload` unificado; sem sessão (peer sem bundle) plaintext continua com warning alto; `MEPASSA_REQUIRE_E2E=true` proíbe também esse caso (default off — troca de prekeys ainda não é automática nos apps).
+- [x] **SEC-02** (P1) ✅ 2026-07-02 — chunks só servidos a peers da conversa da mídia (sender/recipient da mensagem dona).
+- [x] **SEC-03** (P1) ✅ 2026-07-02 — hash (puro ou salted) verificado na remontagem; mismatch descarta o arquivo. *E2E dos chunks em si continua pendente (Noise de transporte cobre o wire).*
+- [x] **SEC-04** (P1) ✅ 2026-07-02 — sessões Signal (cifradas com storage key) e identidades TOFU persistidas em SQLite (migration v7), restauradas no startup. Restart não reseta pinning nem sessões.
+- [x] **SEC-05** (P1) ✅ 2026-07-02 — seeds cifradas em repouso (AES-GCM), fallback de leitura para formato legado; preservação de counter movida para Rust.
+- [x] **SEC-06** (P1) **PARCIAL** ✅ 2026-07-02 — `identity.key` legado apagado quando a identidade vem do secure storage; Android limpa `MEPASSA_IDENTITY_B64` do ambiente após o build. *Pendente: eliminar a escrita do arquivo na PRIMEIRA execução (exige API de export no FFI para a migração das plataformas).*
+- [ ] **SEC-07** (P2) Prekeys: persistir o pool (bundle muda a cada restart) e rotação de OPK. *Nota 2026-07-02: `mark_kyber_pre_key_used` é no-op sobre a kyber last-resort (reutilizável por design); o fix real de OPK exige pool server-side no identity server.* — 1d
+- [ ] **SEC-08** (P2) Safety numbers/fingerprint — **adiado para beta** (decisão 2026-07-02).
+- [x] **CORE-18** (P2) ✅ 2026-07-02 — URL sem esquema assume `wss://`; `ws://`/`http://` explícitos geram warning.
 
 ### Backend
-- [ ] **SEC-09** (P1) Autenticação por assinatura Ed25519 (peer assina payload+timestamp) em: store GET/DELETE (`store/src/api.rs:61-113`), push register/send (`push/src/api/*`), turn-credentials (`handlers.rs:40-43`). Definir formato comum (header `X-MePassa-Signature`). — 2d
-- [ ] **SEC-10** (P1) Identity: implementar verificação de assinatura no `PUT /prekeys` (`identity/handlers.rs:64-67`). — 0,5d
-- [ ] **SEC-11** (P1) Signaling: exigir prova de posse do peer_id no `Register` (challenge assinado); validar `from_peer_id` contra a conexão; rate-limit e limite de payload. — 1d
-- [ ] **SEC-12** (P1) Segredos: TURN secret via env no `turnserver.conf` (template + envsubst ou flag), remover default `mepassa_turn_dev_secret` de `config.rs:22`; chave do bootstrap de arquivo/env secreto em vez de `SHA256(seed pública)` (`bootstrap/main.rs:259-273`); remover defaults de credenciais de DB em código (`store/main.rs:32-37`). — 1d
-- [ ] **SEC-13** (P1) coturn: `external-ip` via env/template (`turnserver.conf:11`), consumindo `TURN_EXTERNAL_IP` do .env. — 0,25d
-- [ ] **SEC-14** (P2) Identity: assinatura de registro cobrir `peer_id`+`public_key` (`handlers.rs:130`); checar timestamp antes da verificação; erros de assinatura → 400, não 500. — 0,5d
-- [ ] **SEC-15** (P2) Rate limit por IP real da conexão (fallback quando sem proxy) em vez de só `x-forwarded-for` (`rate_limit.rs:48-56`). — 0,5d
-- [ ] **SEC-16** (P2) Restringir CORS nos serviços (`push`, `store`, `identity`, `turn-credentials`). — 0,25d
-- [ ] **AND-11** (P1) Android: remover `usesCleartextTraffic="true"` (`AndroidManifest.xml:41`). — 0,1d
+- [x] **SEC-09** (P1) **PARCIAL (store completo)** ✅ 2026-07-02 — message store exige Ed25519 em POST/GET/DELETE (headers `x-mepassa-peer/ts/sig`, chave extraída do peer ID); GET/DELETE restritos ao peer autenticado; core assina as 3 chamadas. *Pendente: push register/send e turn-credentials (exigem API de assinatura no FFI para os apps chamarem — os apps fazem essas chamadas, não o core).*
+- [x] **SEC-10** (P1) ✅ 2026-07-02 — `PUT /prekeys` verifica assinatura contra a chave pública registrada.
+- [x] **SEC-11** (P1) ✅ 2026-07-02 — Register assinado (prova de posse do peer ID); relay só de conexões registradas com `from_peer_id` forçado ao peer autenticado; limite de 64KB; porta via env.
+- [x] **SEC-12** (P1) ✅ 2026-07-02 — TURN secret via linha de comando do compose (fora do conf; stack exige env); bootstrap prefere chave aleatória persistida (`PEER_ID_SEED` mantém compat com warning); store sem credenciais default embutidas.
+- [x] **SEC-13** (P1) ✅ 2026-07-02 — `external-ip` via `TURN_EXTERNAL_IP` na linha de comando do coturn.
+- [x] **SEC-14** (P2) ✅ 2026-07-02 — assinatura de registro cobre username+peer_id+public_key+timestamp (core+servidor); timestamp antes; 400 em erro de assinatura.
+- [x] **SEC-15** (P2) ✅ 2026-07-02 — IP real da conexão (ConnectInfo); x-forwarded-for só de proxy em rede privada.
+- [x] **SEC-16** (P2) ✅ 2026-07-02 — CORS permissivo removido dos 4 serviços.
+- [x] **AND-11** (P1) ✅ 2026-07-02 — `usesCleartextTraffic` removido.
 
 **Milestone M5:** pentest interno básico: peer não-autorizado não lê store alheio, não registra push alheio, não baixa mídia alheia, não sobe prekeys alheias; nenhum payload em claro observável no wire.
 
