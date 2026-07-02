@@ -2317,8 +2317,89 @@ impl Client {
     /// This method acquires and releases the lock quickly, allowing other
     /// operations to proceed.
     pub async fn poll_network_once(&self) -> Result<bool> {
-        let mut network = self.network.write().await;
-        network.poll_once().await
+        // CORE-04: o poll segura o write-lock só pelo tempo do evento de
+        // swarm; o trabalho pesado (decrypt Signal, SQLite, fs) roda depois,
+        // com o lock solto, para não bloquear sends/polls concorrentes
+        let (progressed, inbound, gossip, handler) = {
+            let mut network = self.network.write().await;
+            let progressed = network.poll_once().await?;
+            let (inbound, gossip) = network.take_pending_inbound();
+            let handler = network.message_handler_arc();
+            (progressed, inbound, gossip, handler)
+        };
+
+        for item in inbound {
+            self.process_inbound_request(item, handler.as_deref()).await;
+        }
+
+        for message in gossip {
+            let topic = message.topic.clone();
+            if let Err(e) = self
+                .group_manager
+                .handle_gossipsub_message(&topic, message)
+                .await
+            {
+                tracing::warn!("Failed to handle group message: {}", e);
+            }
+        }
+
+        Ok(progressed)
+    }
+
+    /// CORE-04: processa um request inbound fora do lock e reencaixa o ACK
+    /// (e chunks de mídia) com uma reaquisição curta
+    async fn process_inbound_request(
+        &self,
+        item: crate::network::swarm::InboundRequest,
+        handler: Option<&crate::network::MessageHandler>,
+    ) {
+        use crate::protocol::pb::message::Payload;
+        use crate::protocol::MessageType;
+
+        let Some(handler) = handler else {
+            tracing::warn!("⚠️ No message handler configured, message will be dropped");
+            return;
+        };
+
+        let crate::network::swarm::InboundRequest { peer, request, channel } = item;
+
+        // MediaRequest dispara respostas em chunks
+        let message_type =
+            MessageType::try_from(request.r#type).unwrap_or(MessageType::Unspecified);
+        let mut pending_chunks = Vec::new();
+        if message_type == MessageType::MediaRequest {
+            if let Some(Payload::MediaRequest(ref media_request)) = request.payload {
+                match handler.build_media_chunks(peer, media_request).await {
+                    Ok(chunks) => pending_chunks = chunks,
+                    Err(e) => tracing::error!("❌ Failed to build media chunks: {}", e),
+                }
+            }
+        }
+
+        match handler.handle_incoming_message(peer, request).await {
+            Ok(ack) => {
+                tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
+                let response = crate::protocol::Message {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    sender_peer_id: self.local_peer_id().to_string(),
+                    recipient_peer_id: peer.to_string(),
+                    timestamp: chrono::Utc::now().timestamp_millis(),
+                    r#type: MessageType::Ack as i32,
+                    payload: Some(Payload::Ack(ack)),
+                };
+
+                let mut network = self.network.write().await;
+                if let Err(e) = network.send_ack(channel, response) {
+                    tracing::error!("❌ Failed to send ACK: {}", e);
+                }
+                for chunk in pending_chunks {
+                    let _ = network.send_message(peer, chunk);
+                }
+            }
+            Err(e) => {
+                tracing::error!("❌ Failed to process message: {}", e);
+            }
+        }
     }
 
     /// Get a clone of the network Arc for spawning the event loop

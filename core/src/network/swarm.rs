@@ -33,6 +33,13 @@ use crate::{
 use crate::group::GroupManager;
 
 /// P2P Network Manager
+/// CORE-04: request inbound aguardando processamento fora do lock
+pub struct InboundRequest {
+    pub peer: PeerId,
+    pub request: crate::protocol::Message,
+    pub channel: libp2p::request_response::ResponseChannel<crate::protocol::Message>,
+}
+
 pub struct NetworkManager {
     swarm: Swarm<MePassaBehaviour>,
     local_peer_id: PeerId,
@@ -42,6 +49,11 @@ pub struct NetworkManager {
     pending_kad_get: HashMap<QueryId, oneshot::Sender<Option<Multiaddr>>>,
     /// Mensagens outbound em voo (request_id -> mensagem) para re-enfileirar em OutboundFailure
     pending_outbound: HashMap<libp2p::request_response::OutboundRequestId, crate::protocol::Message>,
+    /// CORE-04: requests inbound coletados no poll e processados FORA do
+    /// write-lock do NetworkManager (decrypt Signal + SQLite + fs são lentos)
+    pending_inbound: Vec<InboundRequest>,
+    /// CORE-04: mensagens gossipsub de grupo, idem
+    pending_gossip: Vec<libp2p::gossipsub::Message>,
     last_published_addr: Option<Multiaddr>,
     nat_detector: NatDetector,
     prefer_relay: bool,
@@ -104,6 +116,8 @@ impl NetworkManager {
             message_handler: None,
             pending_kad_get: HashMap::new(),
             pending_outbound: HashMap::new(),
+            pending_inbound: Vec::new(),
+            pending_gossip: Vec::new(),
             last_published_addr: None,
             nat_detector: NatDetector::new(),
             prefer_relay: false,
@@ -130,6 +144,19 @@ impl NetworkManager {
     /// Set group manager for handling GossipSub group messages
     pub fn set_group_manager(&mut self, manager: Arc<GroupManager>) {
         self.group_manager = Some(manager);
+    }
+
+    /// CORE-04: drena o trabalho inbound coletado pelo poll para ser
+    /// processado fora do lock (ver Client::poll_network_once)
+    pub fn take_pending_inbound(&mut self) -> (Vec<InboundRequest>, Vec<libp2p::gossipsub::Message>) {
+        (
+            std::mem::take(&mut self.pending_inbound),
+            std::mem::take(&mut self.pending_gossip),
+        )
+    }
+
+    pub fn message_handler_arc(&self) -> Option<Arc<MessageHandler>> {
+        self.message_handler.clone()
     }
 
     /// Set VoIP signaling sender for forwarding inbound signals
@@ -615,14 +642,9 @@ impl NetworkManager {
             MePassaBehaviourEvent::Gossipsub(gossipsub_event) => {
                 match gossipsub_event {
                     libp2p::gossipsub::Event::Message { message, .. } => {
-                        if let Some(group_manager) = &self.group_manager {
-                            if let Err(e) = group_manager
-                                .handle_gossipsub_message(&message.topic.clone(), message)
-                                .await
-                            {
-                                tracing::warn!("Failed to handle group message: {}", e);
-                            }
-                        }
+                        // CORE-04: verificação de assinatura + decrypt + DB
+                        // rodam fora do lock (ver Client::poll_network_once)
+                        self.pending_gossip.push(message);
                     }
                     _ => {
                         tracing::debug!("GossipSub event: {:?}", gossipsub_event);
@@ -645,54 +667,15 @@ impl NetworkManager {
                                     request_id
                                 );
 
-                                // Process message through handler
-                                if let Some(handler) = self.message_handler.clone() {
-                                    let message_type = MessageType::try_from(request.r#type)
-                                        .unwrap_or(MessageType::Unspecified);
-
-                                    // Special case: MediaRequest triggers chunked responses
-                                    let mut pending_chunks = Vec::new();
-                                    if message_type == MessageType::MediaRequest {
-                                        if let Some(Payload::MediaRequest(ref media_request)) = request.payload {
-                                            match handler.build_media_chunks(peer, media_request).await {
-                                                Ok(chunks) => {
-                                                    pending_chunks = chunks;
-                                                }
-                                                Err(e) => {
-                                                    tracing::error!("❌ Failed to build media chunks: {}", e);
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    match handler.handle_incoming_message(peer, request).await {
-                                        Ok(ack) => {
-                                            tracing::info!("✅ Processed message {}, sending ACK", ack.message_id);
-                                            let response = Message {
-                                                id: Uuid::new_v4().to_string(),
-                                                sender_peer_id: self.local_peer_id.to_string(),
-                                                recipient_peer_id: peer.to_string(),
-                                                timestamp: Utc::now().timestamp_millis(),
-                                                r#type: MessageType::Ack as i32,
-                                                payload: Some(Payload::Ack(ack)),
-                                            };
-                                            if let Err(e) = self.send_ack(channel, response) {
-                                                tracing::error!("❌ Failed to send ACK: {}", e);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::error!("❌ Failed to process message: {}", e);
-                                        }
-                                    }
-
-                                    if !pending_chunks.is_empty() {
-                                        for chunk in pending_chunks {
-                                            let _ = self.send_message(peer, chunk);
-                                        }
-                                    }
-                                } else {
-                                    tracing::warn!("⚠️ No message handler configured, message will be dropped");
-                                }
+                                // CORE-04: NÃO processar aqui - decrypt Signal,
+                                // SQLite e fs sob o write-lock do NetworkManager
+                                // bloqueavam todos os sends/polls concorrentes.
+                                // O Client processa após soltar o lock.
+                                self.pending_inbound.push(InboundRequest {
+                                    peer,
+                                    request,
+                                    channel,
+                                });
                             }
                             libp2p::request_response::Message::Response {
                                 request_id,

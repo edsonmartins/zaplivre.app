@@ -1027,4 +1027,148 @@ mod tests {
             assert_eq!(message.status, MessageStatus::Delivered);
         }
     }
+
+    /// SEC-03: helper - handler + DB com contato, mensagem e registro de mídia
+    async fn media_test_setup(
+        data: &[u8],
+        tmp: &std::path::Path,
+    ) -> (MessageHandler, Arc<Database>, String, String) {
+        use sha2::{Digest, Sha256};
+
+        let db = Database::in_memory().unwrap();
+        init_schema(&db).unwrap();
+
+        let sender_peer = PeerId::random().to_string();
+        db.insert_contact(&NewContact {
+            peer_id: sender_peer.clone(),
+            username: None,
+            display_name: None,
+            public_key: vec![1, 2, 3],
+            prekey_bundle_json: None,
+        })
+        .unwrap();
+
+        let conversation_id = db.get_or_create_conversation(&sender_peer).unwrap();
+        let message_id = "media-msg-1".to_string();
+        db.insert_message(&crate::storage::messages::NewMessage {
+            message_id: message_id.clone(),
+            conversation_id,
+            sender_peer_id: sender_peer.clone(),
+            recipient_peer_id: Some("local-peer".to_string()),
+            message_type: "document".to_string(),
+            content_encrypted: None,
+            content_plaintext: None,
+            status: crate::storage::MessageStatus::Delivered,
+            parent_message_id: None,
+        })
+        .unwrap();
+
+        let media_hash = format!("{:x}", Sha256::new_with_prefix(data).finalize());
+        db.insert_media(&crate::storage::media::NewMedia {
+            media_hash: media_hash.clone(),
+            message_id: message_id.clone(),
+            media_type: crate::storage::media::MediaType::Document,
+            file_name: Some("doc.bin".to_string()),
+            file_size: Some(data.len() as i64),
+            mime_type: Some("application/octet-stream".to_string()),
+            local_path: None,
+            thumbnail_path: None,
+            width: None,
+            height: None,
+            duration_seconds: None,
+        })
+        .unwrap();
+
+        let db_arc = Arc::new(db);
+        let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
+        let storage_key = identity.read().await.storage_key().unwrap();
+        let session_manager = SignalSessionManager::new(Arc::clone(&identity));
+        let handler = MessageHandler::new(
+            "local-peer".to_string(),
+            Arc::clone(&db_arc),
+            tmp.to_path_buf(),
+            identity,
+            session_manager,
+            storage_key,
+            None,
+        );
+
+        (handler, db_arc, media_hash, message_id)
+    }
+
+    fn media_chunk_message(_chunk: MediaChunk) -> Message {
+        Message {
+            id: "chunk-envelope".to_string(),
+            sender_peer_id: "remote".to_string(),
+            recipient_peer_id: "local-peer".to_string(),
+            timestamp: chrono::Utc::now().timestamp_millis(),
+            r#type: MessageType::MediaChunk as i32,
+            payload: None,
+        }
+    }
+
+    /// SEC-03: arquivo remontado com hash correto é aceito e movido para media/
+    #[tokio::test]
+    async fn test_media_chunk_integrity_accepts_valid_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let data = b"conteudo legitimo do arquivo".to_vec();
+        let (handler, _db, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+
+        let chunk = MediaChunk {
+            message_id,
+            media_hash: media_hash.clone(),
+            offset: 0,
+            data: data.clone(),
+            is_last: true,
+        };
+        let envelope = media_chunk_message(chunk.clone());
+
+        handler
+            .handle_media_chunk(&envelope, &chunk)
+            .await
+            .expect("valid media must be accepted");
+
+        // Arquivo final existe em media/
+        let final_path = tmp.path().join("media").join(format!("{}.bin", media_hash));
+        assert!(final_path.exists(), "reassembled media missing");
+        assert_eq!(std::fs::read(&final_path).unwrap(), data);
+    }
+
+    /// SEC-03: chunk adulterado (hash não bate) é rejeitado e o .part removido
+    #[tokio::test]
+    async fn test_media_chunk_integrity_rejects_tampered_file() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let data = b"conteudo legitimo do arquivo".to_vec();
+        let (handler, _db, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+
+        // Peer malicioso envia bytes diferentes sob o mesmo media_hash
+        let chunk = MediaChunk {
+            message_id,
+            media_hash: media_hash.clone(),
+            offset: 0,
+            data: b"payload adulterado por um peer malicioso".to_vec(),
+            is_last: true,
+        };
+        let envelope = media_chunk_message(chunk.clone());
+
+        let err = handler
+            .handle_media_chunk(&envelope, &chunk)
+            .await
+            .expect_err("tampered media must be rejected");
+        assert!(
+            err.to_string().to_lowercase().contains("integrity"),
+            "unexpected error: {}",
+            err
+        );
+
+        // Nem o .part nem o arquivo final podem sobrar
+        let part = tmp
+            .path()
+            .join("media")
+            .join("tmp")
+            .join(format!("{}.part", media_hash));
+        assert!(!part.exists(), ".part file must be deleted on rejection");
+        let final_path = tmp.path().join("media").join(format!("{}.bin", media_hash));
+        assert!(!final_path.exists());
+    }
 }

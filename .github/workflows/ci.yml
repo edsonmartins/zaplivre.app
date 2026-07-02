@@ -36,7 +36,7 @@ jobs:
         run: cargo test -p mepassa-core --lib
 
       - name: Integration tests (working suites)
-        run: cargo test -p mepassa-core --test p2p_messaging --test relay_integration
+        run: cargo test -p mepassa-core --test p2p_messaging --test relay_integration --test message_integration --test reliability
 
       - name: Server tests
         run: cargo test -p mepassa-store -p mepassa-push -p turn-credentials -p mepassa-signaling
