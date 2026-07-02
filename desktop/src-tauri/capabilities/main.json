@@ -2,7 +2,9 @@
   "$schema": "https://schema.tauri.app/config/2.0",
   "identifier": "main-capability",
   "description": "Main capability for MePassa Desktop",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:path:default",
     "core:path:allow-resolve-directory",
@@ -17,6 +19,8 @@
     "notification:default",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",
-    "notification:allow-show"
+    "notification:allow-show",
+    "dialog:default",
+    "dialog:allow-open"
   ]
 }

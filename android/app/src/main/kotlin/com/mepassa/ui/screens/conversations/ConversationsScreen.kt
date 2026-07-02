@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +33,9 @@ import java.util.*
 @Composable
 fun ConversationsScreen(
     onConversationClick: (String) -> Unit,
-    onGroupsClick: (() -> Unit)? = null
+    onGroupsClick: (() -> Unit)? = null,
+    onSearchClick: (() -> Unit)? = null,
+    onSettingsClick: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     var conversations by remember { mutableStateOf<List<FfiConversation>>(emptyList()) }
@@ -71,12 +75,32 @@ fun ConversationsScreen(
                     Text(stringResource(R.string.conversations_title))
                 },
                 actions = {
+                    // Busca global de mensagens
+                    if (onSearchClick != null) {
+                        IconButton(onClick = onSearchClick) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Buscar",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
                     // Botão de grupos
                     if (onGroupsClick != null) {
                         IconButton(onClick = onGroupsClick) {
                             Icon(
                                 imageVector = Icons.Default.Group,
                                 contentDescription = "Grupos",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    // Configurações (backup de identidade, prekeys E2E, etc.)
+                    if (onSettingsClick != null) {
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Configurações",
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }

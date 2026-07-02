@@ -203,6 +203,29 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     }
   }
 
+  // UX-02: anexar arquivo (imagem vai comprimida; o resto como documento)
+  const handleAttachFile = async () => {
+    if (!peerId) return
+
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const selected = await open({ multiple: false, title: 'Enviar arquivo' })
+      if (!selected || typeof selected !== 'string') return
+
+      setIsSending(true)
+      await invoke<string>('send_file_message', {
+        toPeerId: peerId,
+        filePath: selected,
+      })
+      await loadMessages()
+      await loadMediaIndex()
+    } catch (error) {
+      console.error('Failed to send file:', error)
+    } finally {
+      setIsSending(false)
+    }
+  }
+
   const handleSend = async () => {
     if (!newMessage.trim() || !peerId || isSending) return
 
@@ -365,6 +388,22 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
       {/* Input */}
       <div className="bg-white border-t border-gray-200 px-6 py-4">
         <div className="flex items-center space-x-3">
+          {/* Anexar arquivo (UX-02) */}
+          <button
+            onClick={handleAttachFile}
+            disabled={isSending}
+            className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+            title="Anexar arquivo"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+              />
+            </svg>
+          </button>
           <input
             type="text"
             value={newMessage}

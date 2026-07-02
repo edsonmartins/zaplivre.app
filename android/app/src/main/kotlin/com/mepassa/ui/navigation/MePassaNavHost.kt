@@ -38,6 +38,9 @@ sealed class Screen(val route: String) {
         fun createRoute(peerId: String) = "chat/$peerId"
     }
     object GroupList : Screen("groups")
+    object Settings : Screen("settings")
+    object Profile : Screen("profile")
+    object Search : Screen("search")
     object GroupChat : Screen("group_chat/{groupId}") {
         fun createRoute(groupId: String) = "group_chat/$groupId"
     }
@@ -118,6 +121,12 @@ fun MePassaNavHost(
                 },
                 onGroupsClick = {
                     navController.navigate(Screen.GroupList.route)
+                },
+                onSearchClick = {
+                    navController.navigate(Screen.Search.route)
+                },
+                onSettingsClick = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -240,6 +249,36 @@ fun MePassaNavHost(
                 groupId = groupId,
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        // Settings (backup de identidade, prekeys E2E, notificações)
+        composable(Screen.Settings.route) {
+            com.mepassa.ui.screens.settings.SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Profile (peer ID, QR code, nome de exibição)
+        composable(Screen.Profile.route) {
+            com.mepassa.ui.screens.profile.ProfileScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+            )
+        }
+
+        // Busca global de mensagens
+        composable(Screen.Search.route) {
+            com.mepassa.ui.screens.search.MessageSearchScreen(
+                onBack = { navController.popBackStack() },
+                onMessageClick = { message ->
+                    val peer = if (message.senderPeerId == MePassaClientWrapper.localPeerId.value) {
+                        message.recipientPeerId
+                    } else {
+                        message.senderPeerId
+                    }
+                    peer?.let { navController.navigate(Screen.Chat.createRoute(it)) }
                 }
             )
         }

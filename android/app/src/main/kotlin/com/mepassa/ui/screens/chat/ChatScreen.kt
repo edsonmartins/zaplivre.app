@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -503,25 +504,53 @@ fun ChatScreen(
         )
     }
 
-    // Forward dialog (simple version - TODO: add conversation selector)
+    // Forward dialog: seletor de conversas (UX-01)
     if (showForwardDialog && selectedMessage != null) {
+        var forwardTargets by remember { mutableStateOf<List<uniffi.mepassa.FfiConversation>>(emptyList()) }
+        LaunchedEffect(Unit) {
+            forwardTargets = MePassaClientWrapper.listConversations()
+                .filter { it.peerId != null && it.peerId != peerId }
+        }
+
         AlertDialog(
             onDismissRequest = { showForwardDialog = false },
-            title = { Text("Encaminhar mensagem") },
-            text = { Text("Funcionalidade de encaminhamento será implementada em breve.\n\nTODO: Adicionar seletor de conversas.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        // TODO: Show conversation selector, then:
-                        // MePassaClientWrapper.forwardMessage(
-                        //     selectedMessage!!.messageId,
-                        //     targetPeerId
-                        // )
-                        showForwardDialog = false
-                        selectedMessage = null
+            title = { Text("Encaminhar para...") },
+            text = {
+                if (forwardTargets.isEmpty()) {
+                    Text("Nenhuma outra conversa disponível.")
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        items(forwardTargets.size) { index ->
+                            val target = forwardTargets[index]
+                            ListItem(
+                                headlineContent = {
+                                    Text(target.displayName ?: target.peerId?.take(16) ?: "?")
+                                },
+                                modifier = Modifier.clickable {
+                                    val messageId = selectedMessage!!.messageId
+                                    val toPeer = target.peerId!!
+                                    showForwardDialog = false
+                                    selectedMessage = null
+                                    scope.launch {
+                                        try {
+                                            MePassaClientWrapper.forwardMessage(messageId, toPeer)
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("ChatScreen", "Forward failed", e)
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
-                ) {
-                    Text("OK")
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = {
+                    showForwardDialog = false
+                    selectedMessage = null
+                }) {
+                    Text("Cancelar")
                 }
             }
         )

@@ -41,6 +41,20 @@ fun SettingsScreen(
     var showPrekeyImportDialog by remember { mutableStateOf(false) }
     var prekeyImportPeerId by remember { mutableStateOf("") }
     var prekeyImportJson by remember { mutableStateOf("") }
+    var storageUsedMb by remember { mutableStateOf("calculando...") }
+
+    fun dirSizeBytes(dir: java.io.File): Long =
+        dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+    fun refreshStorageUsage() {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val dataDir = java.io.File(context.filesDir, "mepassa_data")
+            val total = dirSizeBytes(dataDir) + dirSizeBytes(context.cacheDir)
+            storageUsedMb = "%.1f MB".format(total / (1024.0 * 1024.0))
+        }
+    }
+
+    LaunchedEffect(Unit) { refreshStorageUsage() }
 
     Scaffold(
         topBar = {
@@ -192,7 +206,7 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     title = "Armazenamento usado",
-                    description = "0 MB"  // TODO: Calculate actual storage
+                    description = storageUsedMb
                 )
             }
 
@@ -201,7 +215,10 @@ fun SettingsScreen(
                     title = "Limpar cache de imagens",
                     description = "Liberar espaço removendo imagens em cache",
                     onClick = {
-                        // TODO: Implement clear image cache
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            context.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+                            refreshStorageUsage()
+                        }
                     }
                 )
             }
@@ -211,7 +228,13 @@ fun SettingsScreen(
                     title = "Limpar cache de vídeos",
                     description = "Liberar espaço removendo vídeos em cache",
                     onClick = {
-                        // TODO: Implement clear video cache
+                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            // Cache temporário de mídia (arquivos .part de downloads)
+                            java.io.File(context.filesDir, "mepassa_data/media/tmp")
+                                .deleteRecursively()
+                            context.externalCacheDir?.listFiles()?.forEach { it.deleteRecursively() }
+                            refreshStorageUsage()
+                        }
                     }
                 )
             }
@@ -228,7 +251,7 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     title = "Versão",
-                    description = "1.0.0 (Beta)"
+                    description = com.mepassa.BuildConfig.VERSION_NAME
                 )
             }
 
@@ -287,18 +310,30 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Sair") },
-            text = { Text("Tem certeza que deseja sair?") },
+            text = {
+                Text(
+                    "Isso apaga sua identidade e todos os dados locais deste " +
+                        "dispositivo. Sem um backup exportado, você perderá o " +
+                        "acesso a este peer ID permanentemente. Continuar?"
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: Implement logout
                         showLogoutDialog = false
+                        // Logout destrutivo: parar o service, apagar identidade
+                        // segura + dados locais e encerrar o processo
+                        com.mepassa.service.MePassaService.stop(context)
+                        com.mepassa.core.AndroidIdentityStore.deleteIdentity(context)
+                        java.io.File(context.filesDir, "mepassa_data").deleteRecursively()
+                        (context as? android.app.Activity)?.finishAffinity()
+                        Runtime.getRuntime().exit(0)
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Sair")
+                    Text("Apagar e sair")
                 }
             },
             dismissButton = {

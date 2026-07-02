@@ -130,14 +130,25 @@ class MePassaService : Service() {
      * Cria notificação do foreground service
      */
     private fun createNotification(connectedPeers: UInt): Notification {
-        // TODO: Adicionar PendingIntent para abrir MainActivity quando clicar
         // UInt não é aceito por String.format("%d") - converter para Int
         val contentText = getString(R.string.service_notification_text, connectedPeers.toInt())
+
+        // Tocar na notificação abre o app (AND-14)
+        val intent = Intent(this, com.mepassa.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.service_notification_title))
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // TODO: Substituir por ícone real
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)

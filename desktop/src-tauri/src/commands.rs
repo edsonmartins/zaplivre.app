@@ -785,6 +785,63 @@ pub async fn add_group_sender_key(
         .map_err(|e| e.to_string())
 }
 
+/// UX-02: envia um arquivo do disco - imagens vão pelo pipeline de imagem
+/// (compressão), o resto como documento
+#[tauri::command]
+pub async fn send_file_message(
+    state: State<'_, ClientState>,
+    to_peer_id: String,
+    file_path: String,
+) -> Result<String, String> {
+    let client = {
+        let client_guard = state.lock().map_err(|e| e.to_string())?;
+        client_guard
+            .as_ref()
+            .ok_or_else(|| "Client not initialized".to_string())?
+            .clone()
+    };
+
+    let path = std::path::Path::new(&file_path);
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("arquivo")
+        .to_string();
+    let data = std::fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
+
+    const MAX_FILE_BYTES: usize = 50 * 1024 * 1024;
+    if data.len() > MAX_FILE_BYTES {
+        return Err("Arquivo maior que 50MB".to_string());
+    }
+
+    let extension = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+
+    match extension.as_str() {
+        "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp" => client
+            .send_image_message(to_peer_id, data, file_name, 80)
+            .await
+            .map_err(|e| e.to_string()),
+        _ => {
+            let mime = match extension.as_str() {
+                "pdf" => "application/pdf",
+                "txt" => "text/plain",
+                "mp4" => "video/mp4",
+                "mp3" => "audio/mpeg",
+                "zip" => "application/zip",
+                _ => "application/octet-stream",
+            };
+            client
+                .send_document_message(to_peer_id, data, file_name, mime.to_string())
+                .await
+                .map_err(|e| e.to_string())
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn get_group_members(
     state: State<'_, ClientState>,

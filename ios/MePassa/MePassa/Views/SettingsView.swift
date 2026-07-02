@@ -10,6 +10,7 @@ import SwiftUI
 
 /// SettingsView - App settings screen
 struct SettingsView: View {
+    @EnvironmentObject var appState: AppState
     @State private var notificationsEnabled = true
     @State private var soundEnabled = true
     @State private var vibrationEnabled = true
@@ -23,6 +24,49 @@ struct SettingsView: View {
     @State private var showPrekeyImportSheet = false
     @State private var prekeyPeerId = ""
     @State private var prekeyJson = ""
+    @State private var storageUsed = "calculando..."
+
+    private func directorySize(_ url: URL) -> Int64 {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey]) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            total += Int64((try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        return total
+    }
+
+    private func refreshStorageUsage() {
+        DispatchQueue.global(qos: .utility).async {
+            let fm = FileManager.default
+            var total: Int64 = 0
+            if let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first {
+                total += directorySize(docs)
+            }
+            if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                total += directorySize(caches)
+            }
+            let formatted = String(format: "%.1f MB", Double(total) / (1024.0 * 1024.0))
+            DispatchQueue.main.async { storageUsed = formatted }
+        }
+    }
+
+    private func clearCaches() {
+        DispatchQueue.global(qos: .utility).async {
+            let fm = FileManager.default
+            if let caches = fm.urls(for: .cachesDirectory, in: .userDomainMask).first,
+               let contents = try? fm.contentsOfDirectory(at: caches, includingPropertiesForKeys: nil) {
+                contents.forEach { try? fm.removeItem(at: $0) }
+            }
+            let tmp = fm.temporaryDirectory
+            if let contents = try? fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) {
+                contents.forEach { try? fm.removeItem(at: $0) }
+            }
+            refreshStorageUsage()
+        }
+    }
 
     var body: some View {
         Form {
@@ -80,16 +124,12 @@ struct SettingsView: View {
                 HStack {
                     Text("Armazenamento usado")
                     Spacer()
-                    Text("0 MB")
+                    Text(storageUsed)
                         .foregroundColor(.secondary)
                 }
 
-                Button("Limpar cache de imagens") {
-                    // TODO: Implement clear image cache
-                }
-
-                Button("Limpar cache de vídeos") {
-                    // TODO: Implement clear video cache
+                Button("Limpar caches") {
+                    clearCaches()
                 }
             }
 
@@ -98,7 +138,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Versão")
                     Spacer()
-                    Text("1.0.0 (Beta)")
+                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
                         .foregroundColor(.secondary)
                 }
 
@@ -124,13 +164,22 @@ struct SettingsView: View {
         }
         .navigationTitle("Configurações")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { refreshStorageUsage() }
         .alert("Sair", isPresented: $showLogoutAlert) {
             Button("Cancelar", role: .cancel) { }
-            Button("Sair", role: .destructive) {
-                // TODO: Implement logout
+            Button("Apagar e sair", role: .destructive) {
+                // Logout destrutivo: apaga a identidade do Keychain e o estado
+                // local. Sem backup exportado o peer ID é perdido.
+                do {
+                    try KeychainStore.deleteIdentity()
+                } catch {
+                    print("⚠️ Failed to delete identity from keychain: \(error)")
+                }
+                UserDefaults.standard.removeObject(forKey: "local_peer_id")
+                appState.logout()
             }
         } message: {
-            Text("Tem certeza que deseja sair?")
+            Text("Isso apaga sua identidade deste dispositivo. Sem um backup exportado, você perderá o acesso a este peer ID permanentemente. Continuar?")
         }
         .alert("Erro", isPresented: $showExportError) {
             Button("OK", role: .cancel) { }

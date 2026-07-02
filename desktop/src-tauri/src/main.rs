@@ -60,6 +60,7 @@ fn main() {
             commands::add_group_sender_key,
             commands::get_group_members,
             commands::update_group,
+            commands::send_file_message,
             // VoIP commands (FASE 12)
             commands::start_call,
             commands::accept_call,
