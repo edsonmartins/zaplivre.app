@@ -45,3 +45,6 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 [[bin]]
 name = "mepassa-bootstrap"
 path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = "3"

@@ -53,7 +53,7 @@ pub async fn generate_credentials(
     let ttl = req.ttl_seconds.unwrap_or(86400);
 
     // Validate TTL (between 1 minute and 7 days)
-    if ttl < 60 || ttl > 604800 {
+    if !(60..=604800).contains(&ttl) {
         return Err((
             StatusCode::BAD_REQUEST,
             "ttl_seconds must be between 60 and 604800".to_string(),

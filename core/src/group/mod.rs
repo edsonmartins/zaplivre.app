@@ -17,7 +17,6 @@
 
 pub mod envelope;
 pub mod manager;
-pub mod sender_keys;
 pub mod storage;
 pub mod types;
 

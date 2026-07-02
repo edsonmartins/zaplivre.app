@@ -109,9 +109,7 @@ fn sanitize_apns_token(token: &str) -> String {
         .trim()
         .trim_matches('<')
         .trim_matches('>')
-        .replace(' ', "")
-        .replace('\n', "")
-        .replace('\t', "")
+        .replace([' ', '\n', '\t'], "")
 }
 
 #[cfg(test)]

@@ -99,7 +99,7 @@ pub async fn handle(
                     continue;
                 };
                 match fcm_client
-                    .send(&token, &req.title, &req.body, &data)
+                    .send(token, &req.title, &req.body, &data)
                     .await
                 {
                     Ok(_) => {
@@ -140,7 +140,7 @@ pub async fn handle(
                 match &state.apns_client {
                     Some(apns_client) => {
                         match apns_client
-                            .send(&token, &req.title, &req.body, &data, Some(1))
+                            .send(token, &req.title, &req.body, &data, Some(1))
                             .await
                         {
                             Ok(_) => {

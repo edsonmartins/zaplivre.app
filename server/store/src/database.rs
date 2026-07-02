@@ -1,12 +1,12 @@
 //! Database connection and operations
 
-use chrono::Utc;
+use base64::{engine::general_purpose, Engine as _};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
 use std::time::Duration;
 use uuid::Uuid;
 
-use crate::models::{MessageStatus, OfflineMessage, StoreMessageRequest};
+use crate::models::{OfflineMessage, StoreMessageRequest};
 
 /// Database manager
 #[derive(Clone)]
@@ -29,6 +29,7 @@ impl Database {
     }
 
     /// Get the connection pool
+    #[allow(dead_code)]
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }
@@ -38,7 +39,7 @@ impl Database {
         &self,
         req: &StoreMessageRequest,
     ) -> Result<(Uuid, String), sqlx::Error> {
-        let payload_bytes = base64::decode(&req.encrypted_payload)
+        let payload_bytes = general_purpose::STANDARD.decode(&req.encrypted_payload)
             .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
         let message_type = req.message_type.clone().unwrap_or_else(|| "text".to_string());

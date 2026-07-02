@@ -1025,7 +1025,7 @@ impl MePassaClient {
                         loop {
                             poll_count += 1;
                             // Log every 1000 polls (~10 seconds) to confirm loop is running
-                            if poll_count % 1000 == 0 {
+                            if poll_count.is_multiple_of(1000) {
                                 tracing::debug!("🔄 Network poll #{}", poll_count);
                             }
                             // Poll for one event at a time, releasing lock between polls
@@ -1602,9 +1602,9 @@ impl MePassaClient {
         #[cfg(not(any(feature = "voip", feature = "video")))]
         {
             let _ = callback;
-            return Err(MePassaFfiError::Other {
+            Err(MePassaFfiError::Other {
                 details: "VoIP/video feature disabled".to_string(),
-            });
+            })
         }
     }
 
@@ -1627,9 +1627,9 @@ impl MePassaClient {
         #[cfg(not(feature = "voip"))]
         {
             let _ = callback;
-            return Err(MePassaFfiError::Other {
+            Err(MePassaFfiError::Other {
                 details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
-            });
+            })
         }
     }
 
@@ -1652,9 +1652,9 @@ impl MePassaClient {
         #[cfg(not(any(feature = "voip", feature = "video")))]
         {
             let _ = callback;
-            return Err(MePassaFfiError::Other {
+            Err(MePassaFfiError::Other {
                 details: "VoIP/video feature disabled".to_string(),
-            });
+            })
         }
     }
 
@@ -1677,9 +1677,9 @@ impl MePassaClient {
         #[cfg(not(any(feature = "voip", feature = "video")))]
         {
             let _ = callback;
-            return Err(MePassaFfiError::Other {
+            Err(MePassaFfiError::Other {
                 details: "VoIP/video feature disabled".to_string(),
-            });
+            })
         }
     }
 

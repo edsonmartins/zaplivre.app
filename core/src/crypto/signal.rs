@@ -322,7 +322,7 @@ impl IdentityKeyStore for SignalStoreHandle {
     async fn get_identity_key_pair(&self) -> libsignal_protocol_syft::error::Result<IdentityKeyPair> {
         let identity = self.inner.identity.read().await;
         IdentityKeyPair::try_from(identity.signal_identity_keypair_record())
-            .map_err(|e| e.into())
+            .map_err(|e| e)
     }
 
     async fn get_local_registration_id(&self) -> libsignal_protocol_syft::error::Result<u32> {
@@ -377,12 +377,12 @@ impl PreKeyStore for SignalStoreHandle {
     ) -> libsignal_protocol_syft::error::Result<PreKeyRecord> {
         let identity = self.inner.identity.read().await;
         let Some(pool) = identity.prekey_pool() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
         };
         let id: u32 = prekey_id.into();
         pool.get_prekey(id)
             .cloned()
-            .ok_or_else(|| SignalProtocolError::InvalidArgument("Missing prekey".to_string()).into())
+            .ok_or_else(|| SignalProtocolError::InvalidArgument("Missing prekey".to_string()))
     }
 
     async fn save_pre_key(
@@ -393,7 +393,7 @@ impl PreKeyStore for SignalStoreHandle {
         let mut identity = self.inner.identity.write().await;
         identity.init_prekey_pool(100);
         let Some(pool) = identity.prekey_pool_mut() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
         };
         let id: u32 = prekey_id.into();
         pool.store_prekey_record(id, record.clone());
@@ -422,13 +422,13 @@ impl SignedPreKeyStore for SignalStoreHandle {
     ) -> libsignal_protocol_syft::error::Result<SignedPreKeyRecord> {
         let identity = self.inner.identity.read().await;
         let Some(pool) = identity.prekey_pool() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
         };
         let id: u32 = signed_prekey_id.into();
         let record = pool.signed_prekey_record().clone();
         let record_id: u32 = record.id()?.into();
         if record_id != id {
-            return Err(SignalProtocolError::InvalidArgument("Signed prekey id mismatch".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Signed prekey id mismatch".to_string()));
         }
         Ok(record)
     }
@@ -441,7 +441,7 @@ impl SignedPreKeyStore for SignalStoreHandle {
         let mut identity = self.inner.identity.write().await;
         identity.init_prekey_pool(100);
         let Some(pool) = identity.prekey_pool_mut() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
         };
         let id: u32 = signed_prekey_id.into();
         pool.store_signed_prekey_record(id, record.clone());
@@ -457,13 +457,13 @@ impl KyberPreKeyStore for SignalStoreHandle {
     ) -> libsignal_protocol_syft::error::Result<KyberPreKeyRecord> {
         let identity = self.inner.identity.read().await;
         let Some(pool) = identity.prekey_pool() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
         };
         let id: u32 = kyber_prekey_id.into();
         let record = pool.kyber_prekey_record().clone();
         let record_id: u32 = record.id()?.into();
         if record_id != id {
-            return Err(SignalProtocolError::InvalidArgument("Kyber prekey id mismatch".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Kyber prekey id mismatch".to_string()));
         }
         Ok(record)
     }
@@ -476,7 +476,7 @@ impl KyberPreKeyStore for SignalStoreHandle {
         let mut identity = self.inner.identity.write().await;
         identity.init_prekey_pool(100);
         let Some(pool) = identity.prekey_pool_mut() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()).into());
+            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
         };
         let id: u32 = kyber_prekey_id.into();
         pool.store_kyber_prekey_record(id, record.clone());

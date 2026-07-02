@@ -38,6 +38,8 @@ impl RedisClient {
     }
 
     /// Check if a peer is online (in presence set)
+    /// Presença planejada (não usada ainda - integração futura com o push)
+    #[allow(dead_code)]
     pub async fn is_peer_online(&self, peer_id: &str) -> Result<bool, redis::RedisError> {
         let mut conn = self.get_connection().await?;
 
@@ -48,6 +50,7 @@ impl RedisClient {
     }
 
     /// Set peer presence (online)
+    #[allow(dead_code)]
     pub async fn set_peer_online(&self, peer_id: &str, ttl_seconds: u64) -> Result<(), redis::RedisError> {
         let mut conn = self.get_connection().await?;
 
@@ -60,6 +63,7 @@ impl RedisClient {
     }
 
     /// Remove peer presence (offline)
+    #[allow(dead_code)]
     pub async fn set_peer_offline(&self, peer_id: &str) -> Result<(), redis::RedisError> {
         let mut conn = self.get_connection().await?;
 

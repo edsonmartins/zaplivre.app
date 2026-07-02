@@ -5,7 +5,7 @@
 
 use anyhow::Result;
 use libp2p::{Multiaddr, PeerId};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -160,7 +160,7 @@ impl DhtStorage {
                     }
                 };
 
-                peers.entry(peer_id).or_insert_with(Vec::new).push(addr);
+                peers.entry(peer_id).or_default().push(addr);
             }
 
             let peer_count = peers.len();

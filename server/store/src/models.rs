@@ -1,5 +1,6 @@
 //! Data models for message store
 
+use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -78,7 +79,7 @@ impl StoreMessageRequest {
         }
 
         // Validate base64
-        if base64::decode(&self.encrypted_payload).is_err() {
+        if general_purpose::STANDARD.decode(&self.encrypted_payload).is_err() {
             return Err("encrypted_payload must be valid base64".to_string());
         }
 
@@ -126,7 +127,7 @@ impl From<OfflineMessage> for OfflineMessageDto {
         Self {
             id: msg.id,
             sender_peer_id: msg.sender_peer_id,
-            encrypted_payload: base64::encode(&msg.encrypted_payload),
+            encrypted_payload: general_purpose::STANDARD.encode(&msg.encrypted_payload),
             message_type: msg.message_type,
             message_id: msg.message_id,
             created_at: msg.created_at,
@@ -157,13 +158,14 @@ pub struct HealthResponse {
 
 /// Helper module for base64 serialization
 mod base64_serde {
+    use base64::{engine::general_purpose, Engine as _};
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&base64::encode(bytes))
+        serializer.serialize_str(&general_purpose::STANDARD.encode(bytes))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
@@ -171,6 +173,6 @@ mod base64_serde {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        base64::decode(&s).map_err(serde::de::Error::custom)
+        general_purpose::STANDARD.decode(&s).map_err(serde::de::Error::custom)
     }
 }

@@ -1,15 +1,16 @@
 //! Message Integration Tests
 //!
-//! End-to-end tests for message exchange with full stack:
-//! - NetworkManager with MessageHandler
-//! - Database persistence
-//! - Event emission
-//! - ACK handling
-//! - Status updates
+//! - Teste E2E REAL (TST-02): dois Clients completos trocando mensagem por
+//!   TCP local, com verificação de recepção no destinatário e de ACK
+//!   (status Delivered) no remetente
+//! - Testes do MessageHandler (processamento + ACK) com a API atual
 
-use libp2p::{identity::Keypair, Multiaddr, PeerId};
+use libp2p::PeerId;
 use mepassa_core::{
-    network::{MessageEvent, MessageHandler, NetworkManager},
+    api::ClientBuilder,
+    crypto::SignalSessionManager,
+    identity::Identity,
+    network::{MessageEvent, MessageHandler},
     protocol::{pb::message::Payload, AckStatus, Message, MessageType, TextMessage},
     storage::{schema::init_schema, Database, MessageStatus},
 };
@@ -17,188 +18,156 @@ use std::{sync::Arc, time::Duration};
 use tokio::{sync::RwLock, time::sleep};
 use uuid::Uuid;
 
-/// Test helper to create a peer with full stack
-struct TestPeer {
-    peer_id: PeerId,
-    network: Arc<RwLock<NetworkManager>>,
-    database: Arc<RwLock<Database>>,
-    message_handler: Arc<MessageHandler>,
-    event_rx: tokio::sync::mpsc::UnboundedReceiver<MessageEvent>,
-}
-
-impl TestPeer {
-    async fn new(port: u16) -> Self {
-        // Create keypair and peer ID
-        let keypair = Keypair::generate_ed25519();
-        let peer_id = PeerId::from(keypair.public());
-
-        // Create database
-        let db = Database::in_memory().expect("Failed to create database");
-        init_schema(&db).expect("Failed to init schema");
-        let database = Arc::new(RwLock::new(db));
-
-        // Create event channel
-        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
-
-        // Create message handler
-        let message_handler = Arc::new(MessageHandler::new(
-            peer_id.to_string(),
-            Arc::clone(&database),
-            Some(event_tx),
-        ));
-
-        // Create network manager
-        let mut network = NetworkManager::new(keypair).expect("Failed to create network");
-
-        // Set message handler
-        network.set_message_handler(Arc::clone(&message_handler));
-
-        let network = Arc::new(RwLock::new(network));
-
-        // Start listening
-        let addr: Multiaddr = format!("/ip4/127.0.0.1/tcp/{}", port)
-            .parse()
-            .expect("Invalid address");
-
-        {
-            let mut net = network.write().await;
-            net.listen_on(addr.clone()).expect("Failed to listen");
-        }
-
-        tracing::info!("✅ Created peer {} on port {}", peer_id, port);
-
-        Self {
-            peer_id,
-            network,
-            database,
-            message_handler,
-            event_rx,
-        }
-    }
-
-    async fn connect_to(&self, other_peer_id: PeerId, other_addr: Multiaddr) {
-        let mut network = self.network.write().await;
-        network.add_peer_to_dht(other_peer_id, other_addr.clone());
-        network.dial(other_peer_id, other_addr).expect("Failed to dial");
-    }
-
-    async fn send_text_message(&self, to_peer_id: &PeerId, content: &str) -> String {
-        let message_id = Uuid::new_v4().to_string();
-
-        let message = Message {
-            id: message_id.clone(),
-            sender_peer_id: self.peer_id.to_string(),
-            recipient_peer_id: to_peer_id.to_string(),
-            timestamp: chrono::Utc::now().timestamp_millis(),
-            r#type: MessageType::Text as i32,
-            payload: Some(Payload::Text(TextMessage {
-                content: content.to_string(),
-                reply_to_id: String::new(),
-                metadata: std::collections::HashMap::new(),
-            })),
-        };
-
-        let mut network = self.network.write().await;
-        network
-            .send_message(to_peer_id.clone(), message)
-            .expect("Failed to send message");
-
-        tracing::info!("📤 Sent message {} to {}", message_id, to_peer_id);
-
-        message_id
-    }
-
-    async fn get_message(&self, message_id: &str) -> Option<mepassa_core::storage::messages::Message> {
-        let db = self.database.read().await;
-        db.get_message(message_id).ok()
-    }
-
-    async fn get_conversation_messages(&self, conversation_id: &str) -> Vec<mepassa_core::storage::messages::Message> {
-        let db = self.database.read().await;
-        db.get_conversation_messages(conversation_id, None, None)
-            .unwrap_or_default()
-    }
-
-    async fn wait_for_event(&mut self, timeout: Duration) -> Option<MessageEvent> {
-        tokio::time::timeout(timeout, self.event_rx.recv())
-            .await
-            .ok()
-            .flatten()
-    }
-}
-
+/// TST-02: troca de mensagem ponta a ponta entre dois Clients reais.
+/// Roda em LocalSet (requisito do ClientBuilder) com um driver de rede por
+/// client (mesmo papel do loop do FFI em produção).
 #[tokio::test]
-#[ignore] // TODO: Requires event loop to be running for full end-to-end test
 async fn test_end_to_end_message_exchange() {
-    // Setup logging
     let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::INFO)
         .try_init();
 
-    tracing::info!("🧪 Starting end-to-end message exchange test");
+    let local = tokio::task::LocalSet::new();
+    local
+        .run_until(async {
+            let dir_a = tempfile::TempDir::new().unwrap();
+            let dir_b = tempfile::TempDir::new().unwrap();
 
-    // Create two peers
-    let mut peer_a = TestPeer::new(20001).await;
-    let mut peer_b = TestPeer::new(20002).await;
+            let client_a = Arc::new(
+                ClientBuilder::new()
+                    .data_dir(dir_a.path().to_path_buf())
+                    .build()
+                    .await
+                    .expect("build client A"),
+            );
+            let client_b = Arc::new(
+                ClientBuilder::new()
+                    .data_dir(dir_b.path().to_path_buf())
+                    .build()
+                    .await
+                    .expect("build client B"),
+            );
 
-    tracing::info!("👤 Peer A: {}", peer_a.peer_id);
-    tracing::info!("👤 Peer B: {}", peer_b.peer_id);
+            client_a
+                .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+                .await
+                .expect("listen A");
+            client_b
+                .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+                .await
+                .expect("listen B");
 
-    // Connect peers
-    let addr_b: Multiaddr = "/ip4/127.0.0.1/tcp/20002".parse().unwrap();
-    peer_a.connect_to(peer_b.peer_id, addr_b).await;
+            // Drivers de rede (equivalente ao poll loop do FFI)
+            for client in [Arc::clone(&client_a), Arc::clone(&client_b)] {
+                tokio::task::spawn_local(async move {
+                    loop {
+                        match client.poll_network_once().await {
+                            Ok(true) => {}
+                            Ok(false) => sleep(Duration::from_millis(5)).await,
+                            Err(_) => sleep(Duration::from_millis(50)).await,
+                        }
+                    }
+                });
+            }
 
-    // Wait for connection
-    sleep(Duration::from_secs(2)).await;
+            // Aguardar o endereço de escuta do B
+            let addr_b = {
+                let mut found = None;
+                for _ in 0..100 {
+                    let addrs = client_b.listening_addresses().await;
+                    if let Some(addr) = addrs.iter().find(|a| a.contains("127.0.0.1")) {
+                        found = Some(addr.clone());
+                        break;
+                    }
+                    sleep(Duration::from_millis(50)).await;
+                }
+                found.expect("B nunca reportou endereço de escuta")
+            };
 
-    // Check connection
-    {
-        let net_a = peer_a.network.read().await;
-        let net_b = peer_b.network.read().await;
-        tracing::info!("🔗 Peer A connections: {}", net_a.connected_peers());
-        tracing::info!("🔗 Peer B connections: {}", net_b.connected_peers());
+            let peer_b: PeerId = client_b.local_peer_id();
+            client_a
+                .connect_to_peer(peer_b, addr_b.parse().unwrap())
+                .await
+                .expect("dial B");
 
-        assert!(net_a.connected_peers() > 0, "Peer A should be connected");
-        assert!(net_b.connected_peers() > 0, "Peer B should be connected");
-    }
+            // Enviar (ensure_peer_connected aguarda a conexão - CORE-01)
+            let message_id = client_a
+                .send_text_message(peer_b, "Hello E2E!".to_string())
+                .await
+                .expect("send message");
 
-    // Send message from A to B
-    let message_id = peer_a
-        .send_text_message(&peer_b.peer_id, "Hello from Peer A!")
+            // 1) B deve receber e armazenar a mensagem
+            let peer_a_str = client_a.local_peer_id().to_string();
+            let mut received = false;
+            for _ in 0..200 {
+                let messages = client_b
+                    .get_conversation_messages(&peer_a_str, None, None)
+                    .unwrap_or_default();
+                if messages.iter().any(|m| m.message_id == message_id) {
+                    received = true;
+                    break;
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+            assert!(received, "Peer B nunca recebeu a mensagem {}", message_id);
+
+            // 2) A deve ver o status Delivered (ACK de B)
+            let peer_b_str = peer_b.to_string();
+            let mut delivered = false;
+            for _ in 0..200 {
+                let messages = client_a
+                    .get_conversation_messages(&peer_b_str, None, None)
+                    .unwrap_or_default();
+                if messages
+                    .iter()
+                    .any(|m| m.message_id == message_id && m.status == MessageStatus::Delivered)
+                {
+                    delivered = true;
+                    break;
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+            assert!(
+                delivered,
+                "ACK nunca chegou - status da mensagem não virou Delivered no remetente"
+            );
+        })
         .await;
+}
 
-    tracing::info!("📤 Sent message: {}", message_id);
+/// Helper: constrói um MessageHandler com a API atual (7 args)
+fn build_test_handler(
+    local_peer_id: &str,
+    db: &Database,
+    data_dir: std::path::PathBuf,
+    event_tx: tokio::sync::mpsc::UnboundedSender<MessageEvent>,
+) -> MessageHandler {
+    let mut identity = Identity::generate(1);
+    let storage_key = identity.storage_key().expect("storage key");
+    let identity = Arc::new(RwLock::new(identity));
+    let session_manager = SignalSessionManager::new(Arc::clone(&identity));
 
-    // Wait for message to be delivered and processed
-    sleep(Duration::from_secs(3)).await;
-
-    // TODO: Verify Peer B received and stored the message
-    // This requires running the event loop which we'll implement next
-
-    tracing::info!("✅ Test completed");
+    MessageHandler::new(
+        local_peer_id.to_string(),
+        Arc::new(db.clone()),
+        data_dir,
+        identity,
+        session_manager,
+        storage_key,
+        Some(event_tx),
+    )
 }
 
 #[tokio::test]
 async fn test_message_handler_processing() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .try_init();
-
-    tracing::info!("🧪 Testing MessageHandler processing");
-
-    // Create test database
     let db = Database::in_memory().expect("Failed to create database");
     init_schema(&db).expect("Failed to init schema");
 
-    // Generate sender peer ID first
+    // Sender precisa existir como contato (FK)
     let sender_peer = PeerId::random();
-    let sender_peer_id = sender_peer.to_string();
-
-    // Insert test contact with the SAME peer ID
     use mepassa_core::storage::contacts::NewContact;
     let contact = NewContact {
-        peer_id: sender_peer_id.clone(),
+        peer_id: sender_peer.to_string(),
         username: None,
         display_name: Some("Test Sender".to_string()),
         public_key: vec![1, 2, 3],
@@ -206,21 +175,11 @@ async fn test_message_handler_processing() {
     };
     db.insert_contact(&contact).expect("Failed to insert contact");
 
-    let db_arc = Arc::new(RwLock::new(db));
-
-    // Create event channel
     let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let handler = build_test_handler("local-peer", &db, tmp.path().to_path_buf(), event_tx);
 
-    // Create message handler
-    let handler = MessageHandler::new(
-        "local-peer".to_string(),
-        Arc::clone(&db_arc),
-        Some(event_tx),
-    );
-
-    // Create test message
     let message_id = Uuid::new_v4().to_string();
-
     let message = Message {
         id: message_id.clone(),
         sender_peer_id: sender_peer.to_string(),
@@ -234,25 +193,19 @@ async fn test_message_handler_processing() {
         })),
     };
 
-    tracing::info!("📨 Processing message {}", message_id);
-
-    // Process message
     let ack = handler
         .handle_incoming_message(sender_peer, message)
         .await
         .expect("Failed to handle message");
 
-    // Verify ACK
     assert_eq!(ack.message_id, message_id);
     assert_eq!(ack.status, AckStatus::Received as i32);
-    tracing::info!("✅ ACK verified: status = Received");
 
-    // Verify event was emitted
+    // Evento emitido
     let event = tokio::time::timeout(Duration::from_secs(1), event_rx.recv())
         .await
         .expect("Timeout waiting for event")
         .expect("No event received");
-
     match event {
         MessageEvent::MessageReceived {
             message_id: recv_msg_id,
@@ -261,70 +214,50 @@ async fn test_message_handler_processing() {
         } => {
             assert_eq!(recv_msg_id, message_id);
             assert_eq!(content, "Test message content");
-            tracing::info!("✅ Event verified: MessageReceived");
         }
         _ => panic!("Expected MessageReceived event"),
     }
 
-    // Verify message was stored in database
-    {
-        let db = db_arc.read().await;
-        let stored_msg = db
-            .get_message(&message_id)
-            .expect("Failed to get message");
-
-        assert_eq!(stored_msg.message_id, message_id);
-        assert_eq!(stored_msg.content_plaintext, Some("Test message content".to_string()));
-        assert_eq!(stored_msg.status, MessageStatus::Delivered);
-        tracing::info!("✅ Database verified: message stored with status Delivered");
-    }
-
-    tracing::info!("✅ MessageHandler processing test passed");
+    // Persistido (conteúdo cifrado at-rest; plaintext não é gravado)
+    let stored = db.get_message(&message_id).expect("Failed to get message");
+    assert_eq!(stored.message_id, message_id);
+    assert_eq!(stored.status, MessageStatus::Delivered);
+    assert!(
+        stored.content_encrypted.is_some() || stored.content_plaintext.is_some(),
+        "message content missing"
+    );
 }
 
 #[tokio::test]
 async fn test_ack_handling() {
-    // Setup logging
-    let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .try_init();
-
-    tracing::info!("🧪 Testing ACK handling");
-
-    // Create test database
     let db = Database::in_memory().expect("Failed to create database");
     init_schema(&db).expect("Failed to init schema");
 
-    // Insert test contacts
     use mepassa_core::storage::contacts::NewContact;
     let local_peer_id = "local-peer".to_string();
     let remote_peer_id = PeerId::random().to_string();
 
-    let local_contact = NewContact {
-        peer_id: local_peer_id.clone(),
-        username: None,
-        display_name: Some("Local".to_string()),
-        public_key: vec![1, 2, 3],
-        prekey_bundle_json: None,
-    };
-    db.insert_contact(&local_contact).expect("Failed to insert contact");
+    for (peer, name, key) in [
+        (&local_peer_id, "Local", vec![1u8, 2, 3]),
+        (&remote_peer_id, "Remote", vec![4u8, 5, 6]),
+    ] {
+        db.insert_contact(&NewContact {
+            peer_id: peer.clone(),
+            username: None,
+            display_name: Some(name.to_string()),
+            public_key: key,
+            prekey_bundle_json: None,
+        })
+        .expect("Failed to insert contact");
+    }
 
-    let remote_contact = NewContact {
-        peer_id: remote_peer_id.clone(),
-        username: None,
-        display_name: Some("Remote".to_string()),
-        public_key: vec![4, 5, 6],
-        prekey_bundle_json: None,
-    };
-    db.insert_contact(&remote_contact).expect("Failed to insert contact");
-
-    // Create conversation and insert message
-    let conversation_id = db.get_or_create_conversation(&remote_peer_id)
+    let conversation_id = db
+        .get_or_create_conversation(&remote_peer_id)
         .expect("Failed to create conversation");
 
     use mepassa_core::storage::messages::NewMessage;
     let message_id = Uuid::new_v4().to_string();
-    let new_msg = NewMessage {
+    db.insert_message(&NewMessage {
         message_id: message_id.clone(),
         conversation_id,
         sender_peer_id: local_peer_id.clone(),
@@ -334,62 +267,39 @@ async fn test_ack_handling() {
         content_plaintext: Some("Test message".to_string()),
         status: MessageStatus::Sent,
         parent_message_id: None,
-    };
-    db.insert_message(&new_msg).expect("Failed to insert message");
+    })
+    .expect("Failed to insert message");
 
-    let db_arc = Arc::new(RwLock::new(db));
-
-    // Create event channel
     let (event_tx, mut event_rx) = tokio::sync::mpsc::unbounded_channel();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let handler = build_test_handler(&local_peer_id, &db, tmp.path().to_path_buf(), event_tx);
 
-    // Create message handler
-    let handler = MessageHandler::new(
-        local_peer_id,
-        Arc::clone(&db_arc),
-        Some(event_tx),
-    );
-
-    // Create ACK
     use mepassa_core::protocol::AckMessage;
-    let ack = AckMessage {
-        message_id: message_id.clone(),
-        status: AckStatus::Received as i32,
-        error: String::new(),
-    };
-
-    tracing::info!("📨 Processing ACK for message {}", message_id);
-
-    // Process ACK
     handler
-        .handle_outgoing_ack(ack)
+        .handle_outgoing_ack(AckMessage {
+            message_id: message_id.clone(),
+            status: AckStatus::Received as i32,
+            error: String::new(),
+        })
         .await
         .expect("Failed to handle ACK");
 
-    // Verify message status was updated
-    {
-        let db = db_arc.read().await;
-        let message = db.get_message(&message_id).expect("Failed to get message");
-        assert_eq!(message.status, MessageStatus::Delivered);
-        tracing::info!("✅ Message status updated to Delivered");
-    }
+    let message = db.get_message(&message_id).expect("Failed to get message");
+    assert_eq!(message.status, MessageStatus::Delivered);
 
-    // Verify event was emitted
     let event = tokio::time::timeout(Duration::from_secs(1), event_rx.recv())
         .await
         .expect("Timeout waiting for event")
         .expect("No event received");
-
     match event {
         MessageEvent::MessageDelivered {
             message_id: delivered_msg_id,
             status,
+            ..
         } => {
             assert_eq!(delivered_msg_id, message_id);
             assert_eq!(status, MessageStatus::Delivered);
-            tracing::info!("✅ Event verified: MessageDelivered");
         }
         _ => panic!("Expected MessageDelivered event"),
     }
-
-    tracing::info!("✅ ACK handling test passed");
 }

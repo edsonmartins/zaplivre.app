@@ -1,6 +1,9 @@
 //! VoIP Integration Tests
 //!
 //! End-to-end tests for VoIP signaling between 2 peers.
+//! Requer a feature `voip`: cargo test --test voip_integration --features voip
+
+#![cfg(feature = "voip")]
 
 use libp2p::identity::Keypair;
 use libp2p::{Multiaddr, PeerId};

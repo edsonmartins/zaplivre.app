@@ -41,7 +41,7 @@ fn main() {
     println!("4. Getting prekey bundle...");
     let mut identity_mut = identity.clone();
     if let Some(pool) = identity_mut.prekey_pool_mut() {
-        let bundle = pool.get_bundle();
+        let bundle = pool.get_bundle().expect("get bundle");
         println!("   ✅ Prekey bundle created!");
         println!("   Signed prekey ID: {}", bundle.signed_prekey_id);
         println!("   One-time prekey: {}",
@@ -64,7 +64,7 @@ fn main() {
     // Alice gets Bob's prekey bundle
     let mut bob_mut = bob.clone();
     if let Some(bob_pool) = bob_mut.prekey_pool_mut() {
-        let _bob_bundle = bob_pool.get_bundle();
+        let _bob_bundle = bob_pool.get_bundle().expect("get bundle");
 
         // Alice can now use Bob's bundle to establish a shared secret
         // (This would be done via Signal Protocol X3DH in crypto module)

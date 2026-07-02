@@ -344,9 +344,7 @@ impl Client {
         })
         .await;
 
-        if let Err(e) = outcome {
-            return Err(e);
-        }
+        outcome?;
 
         Ok(message_id)
     }
@@ -922,9 +920,7 @@ impl Client {
         })
         .await;
 
-        if let Err(e) = outcome {
-            return Err(e);
-        }
+        outcome?;
 
         Ok(message_id)
     }
@@ -1057,9 +1053,7 @@ impl Client {
         })
         .await;
 
-        if let Err(e) = outcome {
-            return Err(e);
-        }
+        outcome?;
 
         Ok(message_id)
     }
@@ -1188,9 +1182,7 @@ impl Client {
         })
         .await;
 
-        if let Err(e) = outcome {
-            return Err(e);
-        }
+        outcome?;
 
         Ok(message_id)
     }
@@ -1334,9 +1326,7 @@ impl Client {
         })
         .await;
 
-        if let Err(e) = outcome {
-            return Err(e);
-        }
+        outcome?;
 
         Ok(message_id)
     }
@@ -1564,9 +1554,7 @@ impl Client {
             .update_conversation_last_message(&conversation_id, &new_message_id)
             .map_err(|e| MePassaError::Storage(e.to_string()))?;
 
-        if let Err(e) = outcome {
-            return Err(e);
-        }
+        outcome?;
 
         Ok(new_message_id)
     }
