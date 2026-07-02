@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate Swift bindings from Rust core using UniFFI
-# Requires: uniffi-bindgen (pip install uniffi-bindgen==0.28.3)
+# Requires: uniffi-bindgen 0.31.x (cargo install uniffi --version '^0.31' --features cli)
 
 set -e
 

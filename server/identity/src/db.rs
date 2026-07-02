@@ -55,11 +55,11 @@ pub async fn register_username(
 
     match result {
         Ok(row) => {
-            let created_at: chrono::NaiveDateTime = row.try_get("created_at")?;
+            let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at")?;
             Ok(RegisterResponse {
                 username: username.to_string(),
                 peer_id: peer_id.to_string(),
-                created_at: created_at.and_utc(),
+                created_at,
             })
         }
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
@@ -114,9 +114,9 @@ pub async fn update_prekeys(
 
     match result {
         Some(row) => {
-            let last_updated: chrono::NaiveDateTime = row.try_get("last_updated")?;
+            let last_updated: chrono::DateTime<chrono::Utc> = row.try_get("last_updated")?;
             Ok(UpdatePrekeysResponse {
-                updated_at: last_updated.and_utc(),
+                updated_at: last_updated,
             })
         }
         None => Err(crate::error::AppError::UsernameNotFound(peer_id.to_string())),

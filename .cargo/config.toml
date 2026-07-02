@@ -1,0 +1,4 @@
+[env]
+# CMake 4.x rejeita CMakeLists antigos (compat < 3.5). O opus vendorizado pelo
+# audiopus_sys (feature voip) precisa desta política para compilar.
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

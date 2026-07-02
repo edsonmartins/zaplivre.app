@@ -95,3 +95,4 @@ credentials.json
 secrets.yaml
 .secrets/
 ios/venv/
+server/push/certs/*.p8

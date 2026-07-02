@@ -55,7 +55,7 @@ cpal = { workspace = true, optional = true }
 bs58 = { workspace = true }
 reqwest = { workspace = true }
 async-trait = { workspace = true }
-tokio-tungstenite = { version = "0.23", default-features = false, features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.23", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 futures-util = "0.3"
 
 # Media processing (FASE 16)

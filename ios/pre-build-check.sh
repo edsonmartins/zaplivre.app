@@ -112,7 +112,7 @@ elif command -v uniffi-bindgen &> /dev/null; then
     UNIFFI_VERSION=$(uniffi-bindgen --version 2>/dev/null || echo "unknown")
     check_status "uniffi-bindgen (global): $UNIFFI_VERSION" "OK"
 else
-    check_status "uniffi-bindgen" "FAIL" "Install with: cd ios && python3 -m venv venv && source venv/bin/activate && pip install uniffi-bindgen==0.28.3"
+    check_status "uniffi-bindgen" "FAIL" "Install with: cargo install uniffi --version ^0.31 --features cli"
 fi
 
 # 7. Check Rust libraries

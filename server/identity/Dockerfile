@@ -1,4 +1,4 @@
-# MePassa Push Notification Server Dockerfile
+# MePassa Identity Server Dockerfile
 
 FROM rust:1.88-slim-bookworm AS builder
 
@@ -8,7 +8,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace files
@@ -16,30 +15,25 @@ COPY Cargo.toml Cargo.lock ./
 COPY core ./core
 COPY server ./server
 
-# Build push server
-RUN cargo build --release --package mepassa-push
+# Build identity server
+RUN cargo build --release --package mepassa-identity-server
 
 # Runtime stage
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libssl3 \
-    libpq5 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy binary
-COPY --from=builder /app/target/release/mepassa-push /usr/local/bin/mepassa-push
+COPY --from=builder /app/target/release/mepassa-identity-server /usr/local/bin/mepassa-identity-server
 
-# Create certs directory
-RUN mkdir -p /etc/push
-
-EXPOSE 8081
+EXPOSE 8083
 
 ENV RUST_LOG=info
-ENV PORT=8081
+ENV BIND_ADDR=0.0.0.0:8083
 
-CMD ["mepassa-push"]
+CMD ["mepassa-identity-server"]

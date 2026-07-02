@@ -18,8 +18,8 @@ anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
-# Database (PostgreSQL only - don't use workspace to avoid SQLite conflict)
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls", "macros"], default-features = false }
+# Database (PostgreSQL only; workspace version to avoid compiling two sqlx trees)
+sqlx = { workspace = true, features = ["postgres", "macros"] }
 
 # Firebase Cloud Messaging
 fcm = "0.9"

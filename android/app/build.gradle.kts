@@ -21,8 +21,9 @@ android {
         }
 
         // Garantir que JNI libs sejam incluídas
+        // arm64-v8a: devices reais | x86_64: emulador
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
 
         val messageStoreUrl = (project.findProperty("MESSAGE_STORE_URL") as String?)
@@ -89,6 +90,25 @@ android {
             java.srcDirs("src/main/kotlin")
         }
     }
+}
+
+// Build da lib nativa Rust (libmepassa_core.so) antes do build Android.
+// Por padrão roda apenas se as .so ainda não existem; force com -PrebuildNative.
+val jniLibsDir = file("src/main/jniLibs")
+val buildRustCore = tasks.register<Exec>("buildRustCore") {
+    group = "build"
+    description = "Compila libmepassa_core.so via cargo (android/build-native.sh)"
+    workingDir = rootDir.parentFile
+    commandLine("bash", "android/build-native.sh")
+    onlyIf {
+        project.hasProperty("rebuildNative") ||
+            !jniLibsDir.resolve("arm64-v8a/libmepassa_core.so").exists() ||
+            !jniLibsDir.resolve("x86_64/libmepassa_core.so").exists()
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn(buildRustCore)
 }
 
 dependencies {

@@ -40,7 +40,7 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities:
-          - armv7
+          - arm64
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -54,10 +54,16 @@ targets:
         NSCameraUsageDescription: "MePassa precisa acessar a câmera para videochamadas"
         NSPhotoLibraryUsageDescription: "MePassa precisa acessar fotos para compartilhar imagens"
         NSContactsUsageDescription: "MePassa precisa acessar contatos para encontrar amigos"
+        NSLocalNetworkUsageDescription: "MePassa usa a rede local para descobrir e conectar com contatos próximos (P2P)"
+        NSBonjourServices:
+          - _p2p._udp
         UIBackgroundModes:
           - voip
           - remote-notification
           - audio
+        # Backend endpoints consumed by the app (MePassaCore/SignalingClient)
+        MESSAGE_STORE_URL: "https://store.associahub.com.br"
+        SIGNALING_SERVER_URL: "wss://signaling.associahub.com.br/ws"
 
     settings:
       base:
@@ -100,6 +106,7 @@ targets:
 
       configs:
         Debug:
+          CODE_SIGN_ENTITLEMENTS: MePassa/MePassa.dev.entitlements
           OTHER_LDFLAGS[sdk=iphoneos*]:
             - $(inherited)
             - -L$(PROJECT_DIR)/Libraries
@@ -113,6 +120,7 @@ targets:
             - "-Wl,-search_paths_first"
             - "-Wl,-headerpad_max_install_names"
         Release:
+          CODE_SIGN_ENTITLEMENTS: MePassa/MePassa.prod.entitlements
           OTHER_LDFLAGS[sdk=iphoneos*]:
             - $(inherited)
             - -L$(PROJECT_DIR)/Libraries

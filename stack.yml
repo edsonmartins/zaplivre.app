@@ -230,10 +230,14 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - FCM_SERVER_KEY=${FCM_SERVER_KEY:-}
-      - APNS_CERT_PATH=/etc/push/apns.p12
-      - APNS_CERT_PASSWORD=${APNS_CERT_PASSWORD:-}
+      # APNs token-based auth (.p8 key) - see docs/APNS_SETUP_GUIDE.md
+      - APNS_KEY_PATH=/etc/push/apns_key.p8
+      - APNS_KEY_ID=${APNS_KEY_ID:-}
+      - APNS_TEAM_ID=${APNS_TEAM_ID:-}
+      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.mepassa.ios}
+      - APNS_PRODUCTION=${APNS_PRODUCTION:-true}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
-      - SERVER_PORT=8081
+      - PORT=8081
     ports:
       - "8081:8081"
     volumes:
@@ -249,6 +253,38 @@ services:
         - "traefik.http.routers.mepassa-push.tls=true"
         - "traefik.http.routers.mepassa-push.tls.certresolver=letsencrypt"
         - "traefik.http.services.mepassa-push.loadbalancer.server.port=8081"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  # Identity Server (usernames + prekey bundles - ADR 001)
+  identity-server:
+    image: mepassa-identity:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - BIND_ADDR=0.0.0.0:8083
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mepassa-network
+      - traefik-network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mepassa-identity.rule=Host(`identity.associahub.com.br`)"
+        - "traefik.http.routers.mepassa-identity.entrypoints=websecure"
+        - "traefik.http.routers.mepassa-identity.tls=true"
+        - "traefik.http.routers.mepassa-identity.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mepassa-identity.loadbalancer.server.port=8083"
       restart_policy:
         condition: on-failure
         delay: 5s

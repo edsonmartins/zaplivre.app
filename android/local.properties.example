@@ -1,0 +1,18 @@
+# Copy this file to local.properties and adjust the paths for your machine.
+# local.properties is machine-specific and must NOT be committed.
+
+# Android SDK location
+# macOS default:
+sdk.dir=/Users/YOUR_USER/Library/Android/sdk
+# Linux default:
+# sdk.dir=/home/YOUR_USER/Android/Sdk
+
+# Optional: pin a specific NDK for the Rust native build (build-native.sh).
+# If unset, build-native.sh picks the newest NDK under $sdk.dir/ndk.
+# ndk.dir is deprecated by AGP; prefer exporting ANDROID_NDK_HOME instead.
+
+# JDK: Gradle 8.5 requires Java 17-21 (Java 22+ NOT supported).
+# If your default `java` is newer, point Gradle to a compatible JDK, e.g.:
+#   export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
+# or uncomment in gradle.properties:
+#   org.gradle.java.home=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home

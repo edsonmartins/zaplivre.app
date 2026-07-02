@@ -163,19 +163,77 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - FCM_SERVER_KEY=${FCM_SERVER_KEY:-}
-      - APNS_CERT_PATH=/etc/push/apns.p12
-      - APNS_CERT_PASSWORD=${APNS_CERT_PASSWORD:-}
+      # APNs token-based auth (.p8 key) - see docs/APNS_SETUP_GUIDE.md
+      - APNS_KEY_PATH=/etc/push/apns_key.p8
+      - APNS_KEY_ID=${APNS_KEY_ID:-}
+      - APNS_TEAM_ID=${APNS_TEAM_ID:-}
+      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.mepassa.ios}
+      - APNS_PRODUCTION=${APNS_PRODUCTION:-false}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
-      - SERVER_PORT=8081
+      - PORT=8081
     ports:
       - "8081:8081"
     volumes:
       - ./server/push/certs:/etc/push:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - mepassa-network
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Identity Server (usernames + prekey bundles - ADR 001)
+  identity-server:
+    build:
+      context: .
+      dockerfile: server/identity/Dockerfile
+    container_name: mepassa-identity
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - BIND_ADDR=0.0.0.0:8083
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mepassa-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Signaling Server (WebRTC fallback - WebSocket relay)
+  signaling-server:
+    build:
+      context: .
+      dockerfile: server/signaling/Dockerfile
+    container_name: mepassa-signaling
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - mepassa-network
     restart: unless-stopped
 
   # Prometheus - Metrics (Optional)

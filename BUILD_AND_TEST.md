@@ -8,14 +8,22 @@ Este guia descreve como buildar e testar o MePassa com funcionalidades VoIP (FAS
 ```bash
 rustc --version  # Requer Rust 1.75+
 cargo --version
+protoc --version # OBRIGATÓRIO (libsignal/spqr) - macOS: brew install protobuf
+cmake --version  # OBRIGATÓRIO para builds com feature voip - macOS: brew install cmake
 ```
+> Sem `protoc` instalado, **nada do workspace Rust compila** (core, servers e desktop).
+> `cmake` é exigido pelas dependências nativas de VoIP (desktop/mobile).
+> `make setup` verifica isso automaticamente.
 
 ### Android
 ```bash
 # Android Studio Hedgehog | 2023.1.1+
 # Android SDK 34 (API Level 34)
-# NDK 26.1.10909125+
+# NDK 26.x (o build resolve via ANDROID_NDK_HOME ou o mais novo em $SDK/ndk)
+cp android/local.properties.example android/local.properties  # e ajuste sdk.dir
 ```
+> O Gradle compila a lib Rust automaticamente (task `buildRustCore`) na primeira vez
+> ou quando invocado com `-PrebuildNative`. Também é possível rodar `android/build-native.sh` manualmente.
 
 ### Desktop (Tauri)
 ```bash
@@ -26,7 +34,7 @@ npm --version    # v9+
 ### Servidores Backend
 ```bash
 docker --version
-docker-compose --version
+docker compose version
 ```
 
 ---

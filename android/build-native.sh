@@ -48,9 +48,47 @@ for target in "${TARGETS_NEEDED[@]}"; do
 done
 echo ""
 
-# Set Android NDK environment variables for C compiler (required by ring and other crates with C dependencies)
-NDK_PATH="/Users/edsonmartins/Library/Android/sdk/ndk/26.3.11579264"
-TOOLCHAIN_PATH="$NDK_PATH/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+# protoc is required by the core build (libsignal/spqr)
+if ! command -v protoc > /dev/null 2>&1; then
+    echo -e "${RED}ERROR: protoc not found. Install it first (macOS: brew install protobuf).${NC}"
+    exit 1
+fi
+
+# Resolve Android SDK location: ANDROID_HOME / ANDROID_SDK_ROOT / local.properties / default
+SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+if [ -z "$SDK_ROOT" ] && [ -f "$ANDROID_DIR/local.properties" ]; then
+    SDK_ROOT=$(sed -n 's/^sdk\.dir=//p' "$ANDROID_DIR/local.properties")
+fi
+if [ -z "$SDK_ROOT" ]; then
+    case "$(uname -s)" in
+        Darwin) SDK_ROOT="$HOME/Library/Android/sdk" ;;
+        *)      SDK_ROOT="$HOME/Android/Sdk" ;;
+    esac
+fi
+
+# Resolve NDK: ANDROID_NDK_HOME or newest NDK installed under the SDK
+if [ -n "${ANDROID_NDK_HOME:-}" ]; then
+    NDK_PATH="$ANDROID_NDK_HOME"
+else
+    NDK_PATH=$(ls -d "$SDK_ROOT/ndk/"* 2>/dev/null | sort -V | tail -1)
+fi
+if [ -z "$NDK_PATH" ] || [ ! -d "$NDK_PATH" ]; then
+    echo -e "${RED}ERROR: Android NDK not found.${NC}"
+    echo "Set ANDROID_NDK_HOME or install an NDK under $SDK_ROOT/ndk (sdkmanager 'ndk;26.3.11579264')."
+    exit 1
+fi
+echo -e "${BLUE}Using NDK:${NC} $NDK_PATH"
+
+case "$(uname -s)" in
+    Darwin) HOST_TAG="darwin-x86_64" ;;
+    Linux)  HOST_TAG="linux-x86_64" ;;
+    *) echo -e "${RED}Unsupported host OS: $(uname -s)${NC}"; exit 1 ;;
+esac
+TOOLCHAIN_PATH="$NDK_PATH/toolchains/llvm/prebuilt/$HOST_TAG/bin"
+if [ ! -d "$TOOLCHAIN_PATH" ]; then
+    echo -e "${RED}ERROR: NDK toolchain not found at $TOOLCHAIN_PATH${NC}"
+    exit 1
+fi
 export AR="$TOOLCHAIN_PATH/llvm-ar"
 
 # Build for Android ARM64 (64-bit ARM - most modern devices)

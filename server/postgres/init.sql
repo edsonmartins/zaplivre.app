@@ -59,8 +59,8 @@ CREATE INDEX idx_offline_messages_status ON offline_messages(status);
 CREATE TABLE IF NOT EXISTS push_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    -- User
-    peer_id TEXT NOT NULL UNIQUE,
+    -- User (multiple devices per peer allowed; uniqueness is (peer_id, device_id))
+    peer_id TEXT NOT NULL,
 
     -- Token
     token TEXT NOT NULL,

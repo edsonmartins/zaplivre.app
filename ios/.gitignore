@@ -56,5 +56,6 @@ target/
 .vscode/
 .idea/
 
-# Libraries (keep compiled .a files, they're committed)
-# NOTE: Libraries/*.a files ARE tracked in git
+# Compiled Rust static libraries are NOT tracked in git (too large, machine-built).
+# Run ./build-rust.sh (or ./build-all.sh) to generate them before building the app.
+Libraries/
