@@ -139,7 +139,12 @@ class PushNotificationManager: NSObject, ObservableObject {
 
             if let badge = aps["badge"] as? Int {
                 DispatchQueue.main.async {
-                    UIApplication.shared.applicationIconBadgeNumber = badge
+                    // IOS-12: API nova (a antiga é deprecated no iOS 17)
+                    if #available(iOS 16.0, *) {
+                        UNUserNotificationCenter.current().setBadgeCount(badge)
+                    } else {
+                        UIApplication.shared.applicationIconBadgeNumber = badge
+                    }
                 }
             }
         }
@@ -155,7 +160,11 @@ class PushNotificationManager: NSObject, ObservableObject {
 
     /// Clear badge count
     func clearBadge() {
-        UIApplication.shared.applicationIconBadgeNumber = 0
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(0)
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
     }
 }
 

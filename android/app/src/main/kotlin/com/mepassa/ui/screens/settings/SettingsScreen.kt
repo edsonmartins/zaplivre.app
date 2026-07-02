@@ -255,35 +255,8 @@ fun SettingsScreen(
                 )
             }
 
-            item {
-                SettingsClickableItem(
-                    title = "Licenças open source",
-                    description = "Ver licenças de bibliotecas utilizadas",
-                    onClick = {
-                        // TODO: Show licenses
-                    }
-                )
-            }
 
-            item {
-                SettingsClickableItem(
-                    title = "Termos de uso",
-                    description = "Ler os termos de uso do app",
-                    onClick = {
-                        // TODO: Show terms
-                    }
-                )
-            }
 
-            item {
-                SettingsClickableItem(
-                    title = "Política de privacidade",
-                    description = "Ler a política de privacidade",
-                    onClick = {
-                        // TODO: Show privacy policy
-                    }
-                )
-            }
 
             item {
                 Divider(modifier = Modifier.padding(vertical = 8.dp))

@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Photos
 
 /// MediaViewerView - Fullscreen media viewer with zoom and swipe
 struct MediaViewerView: View {
@@ -146,8 +147,35 @@ struct MediaViewerView: View {
 
     private func shareMedia() {
         guard let media = currentMedia else { return }
-        print("Share media: \(media.fileName ?? "unknown")")
-        // TODO: Implement share functionality
+
+        Task {
+            do {
+                let data = try await MePassaCore.shared.downloadMedia(mediaHash: media.mediaHash)
+                let fileName = media.fileName ?? "media_\(media.id)"
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+                try data.write(to: tempURL)
+
+                await MainActor.run {
+                    let activityVC = UIActivityViewController(
+                        activityItems: [tempURL],
+                        applicationActivities: nil
+                    )
+                    // Apresentar a partir da cena ativa (SwiftUI sem host próprio)
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let rootVC = scene.windows.first?.rootViewController {
+                        var top = rootVC
+                        while let presented = top.presentedViewController {
+                            top = presented
+                        }
+                        // iPad: precisa de sourceView para o popover
+                        activityVC.popoverPresentationController?.sourceView = top.view
+                        top.present(activityVC, animated: true)
+                    }
+                }
+            } catch {
+                print("❌ Error sharing media: \(error)")
+            }
+        }
     }
 
     private func downloadMedia() {
@@ -166,8 +194,10 @@ struct MediaViewerView: View {
                     let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("video_\(media.id).mp4")
                     try data.write(to: tempURL)
 
-                    // TODO: Use PHPhotoLibrary to save video
-                    print("✅ Video downloaded to: \(tempURL.path)")
+                    try await PHPhotoLibrary.shared().performChanges {
+                        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: tempURL)
+                    }
+                    print("✅ Video saved to Photos")
                 }
             } catch {
                 print("❌ Error downloading media: \(error)")

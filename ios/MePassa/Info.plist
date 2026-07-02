@@ -28,6 +28,8 @@
 	<string>MePassa precisa acessar contatos para encontrar amigos</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MePassa precisa acessar o microfone para chamadas de voz</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Permite salvar fotos e vídeos recebidos na sua galeria.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>MePassa precisa acessar fotos para compartilhar imagens</string>
 	<key>NSLocalNetworkUsageDescription</key>

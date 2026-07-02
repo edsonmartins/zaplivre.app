@@ -53,6 +53,7 @@ targets:
         NSMicrophoneUsageDescription: "MePassa precisa acessar o microfone para chamadas de voz"
         NSCameraUsageDescription: "MePassa precisa acessar a câmera para videochamadas"
         NSPhotoLibraryUsageDescription: "MePassa precisa acessar fotos para compartilhar imagens"
+        NSPhotoLibraryAddUsageDescription: "Permite salvar fotos e vídeos recebidos na sua galeria"
         NSContactsUsageDescription: "MePassa precisa acessar contatos para encontrar amigos"
         NSLocalNetworkUsageDescription: "MePassa usa a rede local para descobrir e conectar com contatos próximos (P2P)"
         NSBonjourServices:

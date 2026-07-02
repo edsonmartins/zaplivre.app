@@ -142,17 +142,6 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Button("Licenças open source") {
-                    // TODO: Show licenses
-                }
-
-                Button("Termos de uso") {
-                    // TODO: Show terms
-                }
-
-                Button("Política de privacidade") {
-                    // TODO: Show privacy policy
-                }
             }
 
             // Logout section
