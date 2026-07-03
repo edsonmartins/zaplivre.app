@@ -990,10 +990,37 @@ impl MePassaClient {
                         ("/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt", "QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt"),
                     ];
 
-                    let bootstrap_peers = if custom_bootstrap_peers.is_empty() {
+                    // Override por env p/ dev/local:
+                    // MEPASSA_BOOTSTRAP="/ip4/127.0.0.1/tcp/4001|12D3KooW...,addr|peer"
+                    let env_bootstrap_peers: Vec<(String, String)> =
+                        std::env::var("MEPASSA_BOOTSTRAP")
+                            .ok()
+                            .map(|v| {
+                                v.split(',')
+                                    .filter_map(|entry| {
+                                        entry.split_once('|').map(|(a, p)| {
+                                            (a.trim().to_string(), p.trim().to_string())
+                                        })
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
+                    let bootstrap_peers: Vec<(String, String)> = if !env_bootstrap_peers
+                        .is_empty()
+                    {
+                        tracing::info!("🌐 Using bootstrap peers from MEPASSA_BOOTSTRAP env");
+                        env_bootstrap_peers
+                    } else if custom_bootstrap_peers.is_empty() {
                         default_bootstrap_peers
+                            .into_iter()
+                            .map(|(a, p)| (a.to_string(), p.to_string()))
+                            .collect()
                     } else {
                         custom_bootstrap_peers
+                            .into_iter()
+                            .map(|(a, p)| (a.to_string(), p.to_string()))
+                            .collect()
                     };
 
                     for (addr_str, peer_id_str) in bootstrap_peers {
