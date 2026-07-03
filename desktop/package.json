@@ -1,7 +1,7 @@
 {
   "name": "mepassa-desktop",
   "version": "0.1.0",
-  "description": "MePassa Desktop - Hybrid P2P messaging app",
+  "description": "ZapLivre Desktop - mensageiro P2P livre com E2E",
   "type": "module",
   "scripts": {
     "dev": "vite",

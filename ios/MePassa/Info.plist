@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>MePassa</string>
+	<string>ZapLivre</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,17 +23,17 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>MePassa precisa acessar a câmera para videochamadas</string>
+	<string>ZapLivre precisa acessar a câmera para videochamadas</string>
 	<key>NSContactsUsageDescription</key>
-	<string>MePassa precisa acessar contatos para encontrar amigos</string>
+	<string>ZapLivre precisa acessar contatos para encontrar amigos</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MePassa precisa acessar o microfone para chamadas de voz</string>
+	<string>ZapLivre precisa acessar o microfone para chamadas de voz</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Permite salvar fotos e vídeos recebidos na sua galeria.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>MePassa precisa acessar fotos para compartilhar imagens</string>
+	<string>ZapLivre precisa acessar fotos para compartilhar imagens</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>MePassa usa a rede local para descobrir e conectar com contatos próximos (P2P)</string>
+	<string>ZapLivre usa a rede local para descobrir e conectar com contatos próximos (P2P)</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_p2p._udp</string>

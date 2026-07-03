@@ -50,12 +50,12 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSMicrophoneUsageDescription: "MePassa precisa acessar o microfone para chamadas de voz"
-        NSCameraUsageDescription: "MePassa precisa acessar a câmera para videochamadas"
-        NSPhotoLibraryUsageDescription: "MePassa precisa acessar fotos para compartilhar imagens"
+        NSMicrophoneUsageDescription: "ZapLivre precisa acessar o microfone para chamadas de voz"
+        NSCameraUsageDescription: "ZapLivre precisa acessar a câmera para videochamadas"
+        NSPhotoLibraryUsageDescription: "ZapLivre precisa acessar fotos para compartilhar imagens"
         NSPhotoLibraryAddUsageDescription: "Permite salvar fotos e vídeos recebidos na sua galeria"
-        NSContactsUsageDescription: "MePassa precisa acessar contatos para encontrar amigos"
-        NSLocalNetworkUsageDescription: "MePassa usa a rede local para descobrir e conectar com contatos próximos (P2P)"
+        NSContactsUsageDescription: "ZapLivre precisa acessar contatos para encontrar amigos"
+        NSLocalNetworkUsageDescription: "ZapLivre usa a rede local para descobrir e conectar com contatos próximos (P2P)"
         NSBonjourServices:
           - _p2p._udp
         UIBackgroundModes:
