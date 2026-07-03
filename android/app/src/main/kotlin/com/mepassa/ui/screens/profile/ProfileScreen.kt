@@ -42,7 +42,7 @@ fun ProfileScreen(
         context.getSharedPreferences("mepassa_profile", android.content.Context.MODE_PRIVATE)
     }
     var userName by remember {
-        mutableStateOf(profilePrefs.getString("display_name", null) ?: "Usuário MePassa")
+        mutableStateOf(profilePrefs.getString("display_name", null) ?: "Usuário ZapLivre")
     }
     var isEditingName by remember { mutableStateOf(false) }
     val localPeerId by MePassaClientWrapper.localPeerId.collectAsState()
@@ -175,7 +175,7 @@ fun ProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Seu ID MePassa",
+                    text = "Seu ID ZapLivre",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )

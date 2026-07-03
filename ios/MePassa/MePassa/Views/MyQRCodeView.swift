@@ -104,7 +104,7 @@ struct MyQRCodeView: View {
         guard let peerId = appState.currentUser?.peerId else { return }
 
         let activityVC = UIActivityViewController(
-            activityItems: ["Meu MePassa Peer ID: \(peerId)"],
+            activityItems: ["Meu ZapLivre Peer ID: \(peerId)"],
             applicationActivities: nil
         )
 

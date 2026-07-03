@@ -5,7 +5,7 @@ appId: com.mepassa
 - clearState
 - launchApp
 # Tela de onboarding deve aparecer (sem identidade ainda)
-- assertVisible: "MePassa"
+- assertVisible: "ZapLivre"
 - tapOn: "Começar"
 # Peer ID gerado deve aparecer
 - assertVisible: "Seu Peer ID:"

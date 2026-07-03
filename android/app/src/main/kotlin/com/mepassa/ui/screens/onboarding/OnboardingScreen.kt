@@ -72,7 +72,7 @@ fun OnboardingScreen(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = "MP",
+                            text = "ZL",
                             style = MaterialTheme.typography.displayLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

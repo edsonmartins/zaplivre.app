@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MePassa</string>
+    <string name="app_name">ZapLivre</string>
 
     <!-- Service -->
-    <string name="service_notification_title">MePassa</string>
+    <string name="service_notification_title">ZapLivre</string>
     <string name="service_notification_text">Conectado - %d peers</string>
-    <string name="service_channel_name">MePassa Service</string>
+    <string name="service_channel_name">ZapLivre Service</string>
     <string name="service_channel_description">Mantém conexão P2P ativa</string>
 
     <!-- Onboarding -->
-    <string name="onboarding_title">Bem-vindo ao MePassa</string>
+    <string name="onboarding_title">Bem-vindo ao ZapLivre</string>
     <string name="onboarding_subtitle">Mensagens privadas e seguras via P2P</string>
     <string name="onboarding_button">Começar</string>
     <string name="onboarding_generating">Gerando identidade…</string>

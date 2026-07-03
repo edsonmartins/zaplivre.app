@@ -41,7 +41,7 @@ class CallManager: NSObject, ObservableObject {
 
     // MARK: - CallKit Configuration
     private func configureCallKit() {
-        let configuration = CXProviderConfiguration(localizedName: "MePassa")
+        let configuration = CXProviderConfiguration(localizedName: "ZapLivre")
         configuration.supportsVideo = true
         configuration.maximumCallGroups = 1
         configuration.maximumCallsPerCallGroup = 1

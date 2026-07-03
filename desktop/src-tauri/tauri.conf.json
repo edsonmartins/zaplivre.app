@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0",
-  "productName": "MePassa",
+  "productName": "ZapLivre",
   "version": "0.1.0",
   "identifier": "com.integralltech.mepassa",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MePassa",
+        "title": "ZapLivre",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -32,7 +32,7 @@
     "trayIcon": {
       "iconPath": "icons/icon.png",
       "menuOnLeftClick": false,
-      "tooltip": "MePassa"
+      "tooltip": "ZapLivre"
     }
   },
   "bundle": {
@@ -48,8 +48,8 @@
     "publisher": "IntegrallTech",
     "copyright": "Copyright © 2025 IntegrallTech",
     "category": "public.app-category.social-networking",
-    "shortDescription": "Hybrid P2P messaging app",
-    "longDescription": "MePassa is a hybrid P2P + Server messaging platform with E2E encryption, VoIP calls, and self-hosting support.",
+    "shortDescription": "Mensageiro P2P livre com E2E",
+    "longDescription": "ZapLivre é um mensageiro P2P livre com criptografia de ponta a ponta, chamadas de voz/vídeo e suporte a self-hosting.",
     "resources": [],
     "externalBin": [],
     "macOS": {

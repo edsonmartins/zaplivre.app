@@ -50,7 +50,7 @@ function App() {
         const home = await homeDir()
         const dataDir = `${home}/.mepassa`
 
-        console.log('🔵 Initializing MePassa with data_dir:', dataDir)
+        console.log('🔵 Initializing ZapLivre with data_dir:', dataDir)
 
         const peerId = await invoke<string>('init_client', { dataDir })
         console.log('🔵 init_client returned peer_id:', peerId)
@@ -83,9 +83,9 @@ function App() {
           console.warn('⚠️ Failed to bootstrap DHT:', e)
         }
 
-        console.log('✅ MePassa initialized successfully. Peer ID:', peerId)
+        console.log('✅ ZapLivre initialized successfully. Peer ID:', peerId)
       } catch (error) {
-        console.error('❌ Failed to initialize MePassa:', error)
+        console.error('❌ Failed to initialize ZapLivre:', error)
         const errorMsg = error instanceof Error ? error.message : String(error)
         setErrorMessage(errorMsg)
         setIsInitialized(false)
@@ -229,7 +229,7 @@ function App() {
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading MePassa...</p>
+          <p className="mt-4 text-gray-600 font-medium">Carregando ZapLivre...</p>
           {errorMessage && (
             <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
               <p className="font-bold">Error during initialization:</p>

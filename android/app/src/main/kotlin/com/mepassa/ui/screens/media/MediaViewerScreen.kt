@@ -99,7 +99,7 @@ fun MediaViewerScreen(
                 val values = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, media.fileName ?: file.name)
                     put(MediaStore.MediaColumns.MIME_TYPE, media.mimeType ?: "application/octet-stream")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/MePassa")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/ZapLivre")
                 }
                 val uri = context.contentResolver.insert(collection, values)
                     ?: throw IllegalStateException("MediaStore recusou o insert")

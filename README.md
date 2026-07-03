@@ -1,4 +1,9 @@
-# MePassa
+# ZapLivre
+
+> **Marca:** o produto se chama **ZapLivre**. Os identificadores internos
+> (crates `mepassa-*`, bundle IDs, namespace UniFFI, protocolo, envs
+> `MEPASSA_*`) mantêm o codinome original de propósito — renomear a marca
+> exibida não exige tocar neles.
 
 > **Comunicação verdadeiramente híbrida: P2P quando possível, servidor quando necessário**
 

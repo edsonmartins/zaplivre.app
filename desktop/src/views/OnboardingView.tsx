@@ -62,7 +62,7 @@ export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to MePassa</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo ao ZapLivre</h1>
           <p className="text-gray-600 mb-6">
             Hybrid P2P messaging with E2E encryption
           </p>

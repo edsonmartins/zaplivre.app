@@ -12,7 +12,7 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
 
-    @AppStorage("display_name") private var userName = "Usuário MePassa"
+    @AppStorage("display_name") private var userName = "Usuário ZapLivre"
     @State private var isEditingName = false
     @State private var localPeerId = ""
     @State private var showCopiedAlert = false
@@ -91,7 +91,7 @@ struct ProfileView: View {
 
                     // Peer ID section
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Seu ID MePassa")
+                        Text("Seu ID ZapLivre")
                             .font(.headline)
 
                         HStack {

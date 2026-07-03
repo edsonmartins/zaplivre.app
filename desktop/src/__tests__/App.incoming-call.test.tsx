@@ -36,7 +36,7 @@ describe('App - chamada recebida', () => {
 
     // Aguardar a inicialização do app (init_client -> conversations)
     await waitFor(() => {
-      expect(screen.queryByText(/loading mepassa/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/carregando zaplivre/i)).not.toBeInTheDocument()
     })
 
     // Core avisa: chamada chegando
@@ -60,7 +60,7 @@ describe('App - chamada recebida', () => {
     )
 
     await waitFor(() => {
-      expect(screen.queryByText(/loading mepassa/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/carregando zaplivre/i)).not.toBeInTheDocument()
     })
 
     await emit('voip:incoming_call', {

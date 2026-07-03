@@ -59,7 +59,7 @@ struct IncomingCallScreen: View {
                     HStack(spacing: 8) {
                         Image(systemName: "phone.fill")
                             .font(.caption)
-                        Text("Chamada de voz MePassa")
+                        Text("Chamada de voz ZapLivre")
                             .font(.subheadline)
                     }
                     .foregroundColor(.white.opacity(0.8))
