@@ -1,0 +1,111 @@
+name: E2E Android (Maestro)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'core/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-android.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'android/**'
+      - 'core/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-android.yml'
+
+env:
+  # Fixar versão: flows usam evalScript/${output} (requer >= 1.30)
+  MAESTRO_VERSION: 1.39.13
+
+jobs:
+  maestro-android:
+    name: Maestro flows (emulador)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Só x86_64: é a arch do emulador; corta ~75% do build Rust
+          targets: x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust core (x86_64 only)
+        run: |
+          cd core
+          cargo ndk -t x86_64 -o ../android/app/src/main/jniLibs build --release --features voip
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build debug APK
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run Maestro flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install android/app/build/outputs/apk/debug/app-debug.apk
+            maestro test e2e/maestro/android/ --format junit --output maestro-android-report.xml
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-failure
+          path: |
+            ~/.maestro/tests/**
+            maestro-android-report.xml
+          if-no-files-found: ignore
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-report
+          path: maestro-android-report.xml
+          if-no-files-found: ignore

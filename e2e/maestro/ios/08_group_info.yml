@@ -1,0 +1,39 @@
+# Informações do grupo: criar/abrir grupo → info → nome e "Sair do grupo"
+# visíveis → fechar SEM sair do grupo
+appId: app.mepassa.ios
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_groups"
+
+# Criar grupo com nome único e abrir
+- evalScript: ${output.groupName = 'Grupo Info ' + Date.now()}
+- tapOn:
+    id: "grouplist_fab"
+- tapOn:
+    id: "grouplist_create_name_input"
+- inputText: ${output.groupName}
+- tapOn:
+    id: "grouplist_create_confirm"
+- extendedWaitUntil:
+    visible: ${output.groupName}
+    timeout: 10000
+- tapOn: ${output.groupName}
+
+# Abrir informações do grupo
+- tapOn:
+    id: "groupchat_info"
+- extendedWaitUntil:
+    visible: "Informações do Grupo"
+    timeout: 10000
+- assertVisible: ${output.groupName}
+- scrollUntilVisible:
+    element:
+      id: "groupinfo_leave"
+    direction: DOWN
+- assertVisible: "Sair do grupo"
+
+# Fechar SEM sair do grupo — deve voltar ao chat do grupo
+- tapOn: "Fechar"
+- assertVisible:
+    id: "groupchat_input"

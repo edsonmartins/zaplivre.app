@@ -92,6 +92,18 @@ android {
         }
     }
 
+    testOptions {
+        unitTests {
+            // Unit tests JVM: métodos android.* (ex. Log) retornam defaults em
+            // vez de lançar "not mocked"
+            isReturnDefaultValues = true
+            all { test ->
+                // Heap maior: mockk instrumenta os bindings UniFFI (arquivo grande)
+                test.maxHeapSize = "2g"
+            }
+        }
+    }
+
     sourceSets {
         getByName("main") {
             // Include Kotlin source directory
@@ -178,6 +190,9 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("app.cash.turbine:turbine:1.1.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(composeBom)

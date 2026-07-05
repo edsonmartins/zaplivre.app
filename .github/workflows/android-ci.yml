@@ -52,7 +52,6 @@ jobs:
         run: |
           cd core
           cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -t x86 -o ../android/app/src/main/jniLibs build --release --features voip
-        continue-on-error: true
 
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
@@ -61,16 +60,17 @@ jobs:
         env:
           MESSAGE_STORE_URL: ${{ secrets.MESSAGE_STORE_URL }}
           PUSH_SERVER_URL: ${{ secrets.PUSH_SERVER_URL }}
-        run: cd android && ./gradlew build
-        continue-on-error: true
+        # assembleDebug endurecido; `build` completo (lint+test) continua nos
+        # steps tolerantes abaixo até o lint ser zerado com baseline
+        run: cd android && ./gradlew assembleDebug
 
       - name: Lint
         run: cd android && ./gradlew lint
         continue-on-error: true
 
-      - name: Run tests
-        run: cd android && ./gradlew test
-        continue-on-error: true
+      - name: Run unit tests
+        # Endurecido: há testes reais de ViewModel em app/src/test (18 casos)
+        run: cd android && ./gradlew testDebugUnitTest
 
   ktlint:
     name: Ktlint

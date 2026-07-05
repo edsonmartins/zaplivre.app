@@ -17,19 +17,23 @@
 		1EF71D7166F8AB510462E058 /* NewChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E97D91F6AA59DDFEBFDA5D /* NewChatView.swift */; };
 		27642EEC81405F0130CD99D7 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9358C29AEAA0FD2264E79D6 /* TypingIndicator.swift */; };
 		286D5FADEE9185251C6B4322 /* ImageGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8325CEDD2DFD22F9105B5D30 /* ImageGalleryView.swift */; };
+		28C5CBD0F30F1A62E79DA4F3 /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37868052CC3AB175A7EFE767 /* VideoEncoder.swift */; };
 		2CD0DCDDD86A52F63DBAD08E /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79777AF9115896A051080B5B /* CoreImage.framework */; };
 		30D3C758F82481E8A59BCDD3 /* MessageUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD9585E273A8EAA1F5E554E /* MessageUtils.swift */; };
 		317F5E0D0F79C3A24CFC1B32 /* CallEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19B7B4E72CE4755EB2D4DB78 /* CallEventHandler.swift */; };
 		3579145296BB46C07BB636CF /* MePassaCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048D5B493E51EA326AE8095D /* MePassaCore.swift */; };
-		35A1B2C3D4E5F60789ABCDEF /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7E8F90123456789ABCDEF0 /* KeychainStore.swift */; };
 		3978C89B59BCADC464CE1F04 /* PushNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6EF334613690B61354C773 /* PushNotificationManager.swift */; };
 		4475F63B77DBB0FF8A4CA529 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E5CCC74D5177EEF2F6A9821 /* CameraManager.swift */; };
 		47AB699B1B0938D767191186 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664577EECF2F85A1B1C6FD0D /* Foundation.framework */; };
 		4985E2A1D02B6AAECCA3C433 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90F883F4B65B48FE9E36440 /* VideoPlayerView.swift */; };
+		50C0575461A237639F501599 /* MessageUtilsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B3E8F13669DF3DACABA6FD /* MessageUtilsTests.swift */; };
 		53302E33F98F895B2D451BA5 /* VideoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B285A8BCD34AFF49441179F4 /* VideoPicker.swift */; };
 		5597A6891ADAF653FD39F740 /* CallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A95A2FBFB940CDB147ADB83 /* CallScreen.swift */; };
+		5C5BDD254F0DFF1C2E3F6996 /* MessageEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44B9A86EEA2B38F40A65CC96 /* MessageEventHandler.swift */; };
 		5E3BB8A9CC902C0D29B0C0C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B50CC90605463C028220F6E /* CallManager.swift */; };
+		5F85A058F348D7174DA2C170 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7914BC7BE96802C3506C45 /* AppStateTests.swift */; };
 		624132B7177E3714B87FFF8C /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5D7C2097E25D4CC457B961E /* ImagePicker.swift */; };
+		63F71336A600DEA6DEE2037A /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1166081201AD4DA10E89FC7E /* KeychainStore.swift */; };
 		6653910E198A4FD3C80BA4C4 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199E8DDD9561569D82E407DF /* QRScannerViewController.swift */; };
 		67BF4979697CC5A651960CD2 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */; };
 		697CAA344D8ECC7264D48538 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9521FC7AFF178E13A5FBA2 /* AudioRecorder.swift */; };
@@ -41,6 +45,7 @@
 		7749CA32B4FFA3D64EC75D2D /* ReactionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 216CA68B29D66D1A9429EA1A /* ReactionBar.swift */; };
 		7C06BD52F2E1902D521F45F3 /* SelectedImagesPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB6F74C6CF0E30C836AC23A /* SelectedImagesPreview.swift */; };
 		7C51150F519C4ADB1DCE10AA /* SkeletonLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AB283A501D288A8EB8077E /* SkeletonLoader.swift */; };
+		813B197BBEE1B60BC857E6C4 /* AudioFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C46437EECC5A363004340B8 /* AudioFrameHandler.swift */; };
 		81965459A26640A877D0590A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B5023ED289C17530A67014A /* Assets.xcassets */; };
 		819D6641F21F3F8A104862CA /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D373AA779D55C7DA27CBEA63 /* SwiftUI.framework */; };
 		90846B03E60CA26B31A60A0E /* MediaViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F32EF40C8CE8CAE728AD1F /* MediaViewerView.swift */; };
@@ -54,7 +59,6 @@
 		B33866EEA82DA00D2CB863BD /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38ADF4D6FBEAF0931EAA6E74 /* DocumentPicker.swift */; };
 		B7C56CF83BEDAB8677193649 /* PushKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37D522D28608A864490872ED /* PushKit.framework */; };
 		BC301A0C2E6C3F555490C1A8 /* MessageStatusIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ACC2C929D33A1B4CD21215B /* MessageStatusIndicator.swift */; };
-		B1C2D3E4F5061728394A5B6C /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2C3D4E5F60718293A4B5C6D /* VideoEncoder.swift */; };
 		C1F8145EA5817DE3F7819FCC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D623CBBB8C2C5D88DA12769 /* ContentView.swift */; };
 		CBED27D990276C2F7603BADD /* VoipEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C838466A13309D59012626C1 /* VoipEventHandler.swift */; };
 		CDEF932AA0AB3982F7AE874C /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E55AB1DA8D1F48CB73BA35D /* ChatView.swift */; };
@@ -63,8 +67,8 @@
 		D53F0542D1815C6D8256EEEE /* MessageSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E95A2AD89DE1E9152DA66B5 /* MessageSearchView.swift */; };
 		D5B2EF6E56076E490778F7BB /* ConversationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 953C087ADAE72A6F84B50781 /* ConversationsView.swift */; };
 		D9CDA99C4A9F8FE73BB08202 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20494A7A7558254B1272DFB9 /* LoginView.swift */; };
+		EC2FF1324E5196323C3EF0B6 /* MePassaCoreProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB10D22C7374B81A5611EFEB /* MePassaCoreProtocol.swift */; };
 		EDF06F2AA0605EF6467B3372 /* VideoFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D7F5F0DCBEC9C3248D4B86D /* VideoFrameHandler.swift */; };
-		A1B2C3D4E5F60718293A4B5C /* AudioFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* AudioFrameHandler.swift */; };
 		EE0AB538F534A36F91C869E1 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 46B13DF8FCC573E97967BBF5 /* Security.framework */; };
 		EF32FE2F2EA7042C83D1CBD8 /* mepassa.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1884CD1B7ED61FDA1BFB385 /* mepassa.swift */; };
 		EFAAFD60E4980D068BE0C66D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F48331DA30F6E63A5D30BBF /* AppDelegate.swift */; };
@@ -73,13 +77,24 @@
 		FEC112E014EFD7FE4973B95F /* GroupChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08EEE700880F93A1A7B4D234 /* GroupChatView.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		A4FDCD357A8C5D39758D7380 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D5F8BD2EE4C74A36FEAF8A65 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49C4C6CC65D24C5226458C85;
+			remoteInfo = MePassa;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		03AB283A501D288A8EB8077E /* SkeletonLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonLoader.swift; sourceTree = "<group>"; };
 		048D5B493E51EA326AE8095D /* MePassaCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaCore.swift; sourceTree = "<group>"; };
-		6D7E8F90123456789ABCDEF0 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		08EEE700880F93A1A7B4D234 /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
 		0A6EF334613690B61354C773 /* PushNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationManager.swift; sourceTree = "<group>"; };
 		0F48331DA30F6E63A5D30BBF /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		1166081201AD4DA10E89FC7E /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		15B3E8F13669DF3DACABA6FD /* MessageUtilsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageUtilsTests.swift; sourceTree = "<group>"; };
 		16BCBADD850B6ADA2CD1B0B8 /* IncomingCallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallScreen.swift; sourceTree = "<group>"; };
 		1898B691A7F22C97FD4BFB34 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		199E8DDD9561569D82E407DF /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
@@ -93,14 +108,18 @@
 		2CCA9B73498EF9DC4888F632 /* MediaGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryView.swift; sourceTree = "<group>"; };
 		2D623CBBB8C2C5D88DA12769 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		30F32EF40C8CE8CAE728AD1F /* MediaViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaViewerView.swift; sourceTree = "<group>"; };
+		37868052CC3AB175A7EFE767 /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
 		37D522D28608A864490872ED /* PushKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = PushKit.framework; sourceTree = "<group>"; };
 		38ADF4D6FBEAF0931EAA6E74 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		3C61E61931C4A2F0A6ABADC4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3E55AB1DA8D1F48CB73BA35D /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		3E95A2AD89DE1E9152DA66B5 /* MessageSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSearchView.swift; sourceTree = "<group>"; };
+		44B9A86EEA2B38F40A65CC96 /* MessageEventHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageEventHandler.swift; sourceTree = "<group>"; };
 		46B13DF8FCC573E97967BBF5 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = "<group>"; };
+		4A7914BC7BE96802C3506C45 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
 		4ACC2C929D33A1B4CD21215B /* MessageStatusIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageStatusIndicator.swift; sourceTree = "<group>"; };
 		5B50CC90605463C028220F6E /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallManager.swift; sourceTree = "<group>"; };
+		5C46437EECC5A363004340B8 /* AudioFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFrameHandler.swift; sourceTree = "<group>"; };
 		5E1B4AE36E48637D6A731140 /* CallKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CallKit.framework; sourceTree = "<group>"; };
 		664577EECF2F85A1B1C6FD0D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Foundation.framework; sourceTree = "<group>"; };
 		6B5023ED289C17530A67014A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -113,19 +132,19 @@
 		89234A94FEF6D06064B81B94 /* VoiceRecorderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecorderViewModel.swift; sourceTree = "<group>"; };
 		8BA172F8C0F395FC76B2E201 /* MePassa.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MePassa.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D7F5F0DCBEC9C3248D4B86D /* VideoFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrameHandler.swift; sourceTree = "<group>"; };
-		B2C3D4E5F60718293A4B5C6D /* AudioFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFrameHandler.swift; sourceTree = "<group>"; };
 		8EB6F74C6CF0E30C836AC23A /* SelectedImagesPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedImagesPreview.swift; sourceTree = "<group>"; };
 		912E630669EFFC44FCC70C45 /* VoiceRecordButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordButton.swift; sourceTree = "<group>"; };
+		92A9EAD0AC91F4ABE4A96DDB /* MePassaTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MePassaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		941F0062B04D18348F877833 /* mepassaFFI.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = mepassaFFI.modulemap; sourceTree = "<group>"; };
 		953C087ADAE72A6F84B50781 /* ConversationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsView.swift; sourceTree = "<group>"; };
 		A0DFD82B314B4E75DB36FE9D /* GroupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupListView.swift; sourceTree = "<group>"; };
 		A5D7C2097E25D4CC457B961E /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
-		A2C3D4E5F60718293A4B5C6D /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
 		AAD9585E273A8EAA1F5E554E /* MessageUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageUtils.swift; sourceTree = "<group>"; };
 		AD9D23D740AC9EFF0D859F00 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = AVFoundation.framework; sourceTree = "<group>"; };
 		B285A8BCD34AFF49441179F4 /* VideoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPicker.swift; sourceTree = "<group>"; };
 		B90F883F4B65B48FE9E36440 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
 		B9358C29AEAA0FD2264E79D6 /* TypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingIndicator.swift; sourceTree = "<group>"; };
+		BB10D22C7374B81A5611EFEB /* MePassaCoreProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MePassaCoreProtocol.swift; sourceTree = "<group>"; };
 		C3A4842838F175D272616AA7 /* VideoCallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCallScreen.swift; sourceTree = "<group>"; };
 		C4968B9BA3D2284251F12D4D /* ImagePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreviewView.swift; sourceTree = "<group>"; };
 		C4F11E99C555E9473FE13033 /* MediaPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPickerViewModel.swift; sourceTree = "<group>"; };
@@ -178,6 +197,16 @@
 			);
 			name = MePassa;
 			path = MePassa/MePassa;
+			sourceTree = "<group>";
+		};
+		410C0074473B774E8D4A2008 /* MePassaTests */ = {
+			isa = PBXGroup;
+			children = (
+				4A7914BC7BE96802C3506C45 /* AppStateTests.swift */,
+				15B3E8F13669DF3DACABA6FD /* MessageUtilsTests.swift */,
+			);
+			name = MePassaTests;
+			path = MePassa/MePassaTests;
 			sourceTree = "<group>";
 		};
 		45C88A9AF675D224D07B7F05 /* Frameworks */ = {
@@ -247,12 +276,12 @@
 		5BB3FD99E4AAE80BE631906F /* VoIP */ = {
 			isa = PBXGroup;
 			children = (
-				B2C3D4E5F60718293A4B5C6D /* AudioFrameHandler.swift */,
+				5C46437EECC5A363004340B8 /* AudioFrameHandler.swift */,
 				F7BE3BB1B497A6018B53DCF6 /* AudioManager.swift */,
 				19B7B4E72CE4755EB2D4DB78 /* CallEventHandler.swift */,
 				5B50CC90605463C028220F6E /* CallManager.swift */,
 				6E5CCC74D5177EEF2F6A9821 /* CameraManager.swift */,
-				A2C3D4E5F60718293A4B5C6D /* VideoEncoder.swift */,
+				37868052CC3AB175A7EFE767 /* VideoEncoder.swift */,
 				8D7F5F0DCBEC9C3248D4B86D /* VideoFrameHandler.swift */,
 				C838466A13309D59012626C1 /* VoipEventHandler.swift */,
 			);
@@ -284,9 +313,11 @@
 			children = (
 				0F48331DA30F6E63A5D30BBF /* AppDelegate.swift */,
 				FC9521FC7AFF178E13A5FBA2 /* AudioRecorder.swift */,
-				6D7E8F90123456789ABCDEF0 /* KeychainStore.swift */,
+				1166081201AD4DA10E89FC7E /* KeychainStore.swift */,
 				C4F11E99C555E9473FE13033 /* MediaPickerViewModel.swift */,
 				048D5B493E51EA326AE8095D /* MePassaCore.swift */,
+				BB10D22C7374B81A5611EFEB /* MePassaCoreProtocol.swift */,
+				44B9A86EEA2B38F40A65CC96 /* MessageEventHandler.swift */,
 				0A6EF334613690B61354C773 /* PushNotificationManager.swift */,
 				89234A94FEF6D06064B81B94 /* VoiceRecorderViewModel.swift */,
 			);
@@ -298,6 +329,7 @@
 			children = (
 				9DD3629F094EA9F2C3CCAE1C /* Generated */,
 				2C7BF185363C6E54C6E018C2 /* MePassa */,
+				410C0074473B774E8D4A2008 /* MePassaTests */,
 				45C88A9AF675D224D07B7F05 /* Frameworks */,
 				F19FFCC55B908E232E398F24 /* Products */,
 			);
@@ -307,6 +339,7 @@
 			isa = PBXGroup;
 			children = (
 				8BA172F8C0F395FC76B2E201 /* MePassa.app */,
+				92A9EAD0AC91F4ABE4A96DDB /* MePassaTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -333,6 +366,24 @@
 			productReference = 8BA172F8C0F395FC76B2E201 /* MePassa.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CCC07C4467501555575A4BC9 /* MePassaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EDC1FAB5414C6751F0846AD5 /* Build configuration list for PBXNativeTarget "MePassaTests" */;
+			buildPhases = (
+				6F1BC5AE46B227399D56FAD2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0DB9A59193E906D2A93FBECD /* PBXTargetDependency */,
+			);
+			name = MePassaTests;
+			packageProductDependencies = (
+			);
+			productName = MePassaTests;
+			productReference = 92A9EAD0AC91F4ABE4A96DDB /* MePassaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -345,19 +396,15 @@
 					49C4C6CC65D24C5226458C85 = {
 						DevelopmentTeam = T8N7A2P3TQ;
 						ProvisioningStyle = Automatic;
-						SystemCapabilities = {
-							com.apple.BackgroundModes = {
-								enabled = 1;
-							};
-							com.apple.Push = {
-								enabled = 1;
-							};
-						};
+						SystemCapabilities = "[\"com.apple.BackgroundModes\": [\"enabled\": 1], \"com.apple.Push\": [\"enabled\": 1]]";
+					};
+					CCC07C4467501555575A4BC9 = {
+						DevelopmentTeam = T8N7A2P3TQ;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
 			buildConfigurationList = 219678E9B23FE05BE078F746 /* Build configuration list for PBXProject "MePassa" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -367,10 +414,12 @@
 			mainGroup = DE658F6DA0280D1BA5646C86;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = F19FFCC55B908E232E398F24 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				49C4C6CC65D24C5226458C85 /* MePassa */,
+				CCC07C4467501555575A4BC9 /* MePassaTests */,
 			);
 		};
 /* End PBXProject section */
@@ -387,11 +436,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		6F1BC5AE46B227399D56FAD2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F85A058F348D7174DA2C170 /* AppStateTests.swift in Sources */,
+				50C0575461A237639F501599 /* MessageUtilsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A12C76D8FBF33853EAC9F352 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				EFAAFD60E4980D068BE0C66D /* AppDelegate.swift in Sources */,
+				813B197BBEE1B60BC857E6C4 /* AudioFrameHandler.swift in Sources */,
 				67BF4979697CC5A651960CD2 /* AudioManager.swift in Sources */,
 				697CAA344D8ECC7264D48538 /* AudioRecorder.swift in Sources */,
 				A9A07664AECE328C34CA7300 /* AvatarPicker.swift in Sources */,
@@ -411,13 +470,15 @@
 				624132B7177E3714B87FFF8C /* ImagePicker.swift in Sources */,
 				6CACC3A1922AF1EEC2BBEA61 /* ImagePreviewView.swift in Sources */,
 				004C73CB872D149009343EA7 /* IncomingCallScreen.swift in Sources */,
+				63F71336A600DEA6DEE2037A /* KeychainStore.swift in Sources */,
 				D9CDA99C4A9F8FE73BB08202 /* LoginView.swift in Sources */,
 				D1CDF8C187A43F255957FD9E /* MePassaApp.swift in Sources */,
 				3579145296BB46C07BB636CF /* MePassaCore.swift in Sources */,
-				35A1B2C3D4E5F60789ABCDEF /* KeychainStore.swift in Sources */,
+				EC2FF1324E5196323C3EF0B6 /* MePassaCoreProtocol.swift in Sources */,
 				9562758745B3EDC488C7EA74 /* MediaGalleryView.swift in Sources */,
 				723BDF0B21A4899BBDF57179 /* MediaPickerViewModel.swift in Sources */,
 				90846B03E60CA26B31A60A0E /* MediaViewerView.swift in Sources */,
+				5C5BDD254F0DFF1C2E3F6996 /* MessageEventHandler.swift in Sources */,
 				D53F0542D1815C6D8256EEEE /* MessageSearchView.swift in Sources */,
 				BC301A0C2E6C3F555490C1A8 /* MessageStatusIndicator.swift in Sources */,
 				30D3C758F82481E8A59BCDD3 /* MessageUtils.swift in Sources */,
@@ -434,9 +495,8 @@
 				7C51150F519C4ADB1DCE10AA /* SkeletonLoader.swift in Sources */,
 				27642EEC81405F0130CD99D7 /* TypingIndicator.swift in Sources */,
 				10960C1BB73B8F46FF2FD9CB /* VideoCallScreen.swift in Sources */,
-				B1C2D3E4F5061728394A5B6C /* VideoEncoder.swift in Sources */,
+				28C5CBD0F30F1A62E79DA4F3 /* VideoEncoder.swift in Sources */,
 				EDF06F2AA0605EF6467B3372 /* VideoFrameHandler.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5C /* AudioFrameHandler.swift in Sources */,
 				53302E33F98F895B2D451BA5 /* VideoPicker.swift in Sources */,
 				4985E2A1D02B6AAECCA3C433 /* VideoPlayerView.swift in Sources */,
 				1D2B8E833A34878163918AFC /* VoiceMessageBubble.swift in Sources */,
@@ -448,6 +508,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0DB9A59193E906D2A93FBECD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49C4C6CC65D24C5226458C85 /* MePassa */;
+			targetProxy = A4FDCD357A8C5D39758D7380 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1E3F6658193BBB3D8A9FCB9B /* Debug */ = {
@@ -509,6 +577,33 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		2D14AACC2153027C49F64482 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.mepassa.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MePassa.app/MePassa";
+			};
+			name = Release;
 		};
 		431947B401D29EDE286101FB /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -572,6 +667,33 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		81998FCB8EB2B6E5EB2972EF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.mepassa.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/MePassa/Generated",
+				);
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MePassa.app/MePassa";
 			};
 			name = Debug;
 		};
@@ -710,6 +832,15 @@
 			buildConfigurations = (
 				431947B401D29EDE286101FB /* Debug */,
 				E9BDDCE1517E9405015A4DAC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EDC1FAB5414C6751F0846AD5 /* Build configuration list for PBXNativeTarget "MePassaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81998FCB8EB2B6E5EB2972EF /* Debug */,
+				2D14AACC2153027C49F64482 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

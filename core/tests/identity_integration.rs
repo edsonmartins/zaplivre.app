@@ -7,7 +7,8 @@
 //! 4. Store remote contact locally
 //! 5. Query contacts from local storage
 //!
-//! Requires Identity Server running on http://localhost:8080
+//! Requires Identity Server running on http://localhost:8083
+//! (override with IDENTITY_SERVER_URL)
 //!
 //! Run with: cargo test --test identity_integration --features integration-tests
 
@@ -19,7 +20,11 @@ mod integration_tests {
         storage::{Database, NewContact},
     };
 
-    const IDENTITY_SERVER_URL: &str = "http://localhost:8080";
+    /// URL do identity-server (8083 por padrão; 8080 é o message-store)
+    fn identity_server_url() -> String {
+        std::env::var("IDENTITY_SERVER_URL")
+            .unwrap_or_else(|_| "http://localhost:8083".to_string())
+    }
 
     /// Setup: Create in-memory database with schema
     fn setup_db() -> Database {
@@ -36,7 +41,7 @@ mod integration_tests {
         let username = format!("alice_{}", rand::random::<u32>());
 
         // 2. Register on Identity Server
-        let client = IdentityClient::new(IDENTITY_SERVER_URL).unwrap();
+        let client = IdentityClient::new(&identity_server_url()).unwrap();
 
         let response = client
             .register_username(&alice, &username, &peer_id)
@@ -74,7 +79,7 @@ mod integration_tests {
         let alice_peer_id = format!("12D3KooW{}", rand::random::<u64>());
         let alice_username = format!("alice_{}", rand::random::<u32>());
 
-        let client = IdentityClient::new(IDENTITY_SERVER_URL).unwrap();
+        let client = IdentityClient::new(&identity_server_url()).unwrap();
 
         client
             .register_username(&alice, &alice_username, &alice_peer_id)
@@ -117,7 +122,7 @@ mod integration_tests {
         let peer_id = format!("12D3KooW{}", rand::random::<u64>());
         let username = format!("alice_{}", rand::random::<u32>());
 
-        let client = IdentityClient::new(IDENTITY_SERVER_URL).unwrap();
+        let client = IdentityClient::new(&identity_server_url()).unwrap();
 
         client
             .register_username(&alice, &username, &peer_id)
@@ -160,7 +165,7 @@ mod integration_tests {
         let alice = Identity::generate(10);
         let alice_peer_id = format!("12D3KooW{}", rand::random::<u64>());
 
-        let client = IdentityClient::new(IDENTITY_SERVER_URL).unwrap();
+        let client = IdentityClient::new(&identity_server_url()).unwrap();
 
         client
             .register_username(&alice, &username, &alice_peer_id)
@@ -208,7 +213,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_search_contacts_after_registration() {
         let db = setup_db();
-        let client = IdentityClient::new(IDENTITY_SERVER_URL).unwrap();
+        let client = IdentityClient::new(&identity_server_url()).unwrap();
 
         // Register multiple users
         let users = vec![
@@ -253,7 +258,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_health_check() {
-        let client = IdentityClient::new(IDENTITY_SERVER_URL).unwrap();
+        let client = IdentityClient::new(&identity_server_url()).unwrap();
         let health = client.health_check().await.unwrap();
 
         assert_eq!(health["status"], "healthy");

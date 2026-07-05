@@ -1,0 +1,27 @@
+# Toggles de Settings: alternar não pode derrubar a tela
+# NOTA: os toggles são @State local (NÃO persistem) — de propósito este flow
+# não assere persistência, só que a UI aguenta a interação
+appId: app.mepassa.ios
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_settings"
+- assertVisible: "Notificações"
+
+# Alternar notificações e confirmações de leitura
+- tapOn:
+    id: "settings_toggle_notifications"
+- tapOn:
+    id: "settings_toggle_read_receipts"
+
+# Tela continua de pé
+- assertVisible: "Notificações"
+- assertVisible: "Privacidade"
+- assertVisible:
+    id: "settings_toggle_notifications"
+
+# Fechar o sheet (Settings não tem botão Fechar → swipe para baixo)
+- swipe:
+    start: 50%, 12%
+    end: 50%, 90%
+- assertVisible: "Conversas"

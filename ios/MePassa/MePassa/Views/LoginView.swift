@@ -55,6 +55,7 @@ struct LoginView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
+                    .accessibilityIdentifier("onboarding_create")
                     .disabled(isGeneratingId)
 
                     // Or divider
@@ -87,6 +88,7 @@ struct LoginView: View {
                         .foregroundColor(.primary)
                         .cornerRadius(12)
                     }
+                    .accessibilityIdentifier("onboarding_restore")
                 }
                 .padding(.horizontal, 30)
 
@@ -116,6 +118,7 @@ struct LoginView: View {
                             .padding(.top, 12)
 
                         TextEditor(text: $importText)
+                            .accessibilityIdentifier("onboarding_peer_id")
                             .font(.system(.body, design: .monospaced))
                             .frame(minHeight: 200)
                             .overlay(

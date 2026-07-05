@@ -18,6 +18,17 @@
    - Add to ClientBuilder via `add_bootstrap_peer` on desktop/iOS/Android.
 
 ## P1 — High
+4b) **Envio não persiste a mensagem localmente + erro engolido** (descoberto na validação E2E iOS)
+   - Ao enviar (1:1 e grupo) com o peer **offline**, a mensagem própria **não é
+     salva no SQLite** (tabela `messages` fica vazia após o envio de grupo) e o
+     1:1 mostra `MePassaFfiError.Network`. O esperado é persistir localmente
+     ANTES de distribuir e depois enfileirar para retry (relacionado ao item 10).
+   - `GroupChatView.sendMessage` (iOS) tem `catch` que **engole o erro** sem
+     nenhum feedback ao usuário — falta estado de erro / indicação de "Pendente".
+   - Impacto nos testes: o envio ponta-a-ponta saiu da automação Maestro (só
+     testável com 2 devices). Ver `e2e/maestro/README.md` e
+     `docs/guides/testing-manual.md`.
+
 5) **NAT detection + relay strategy**
    - Replace placeholder in `core/src/network/nat_detection.rs`.
    - Ensure relay reservation and circuit dial flow are stable.

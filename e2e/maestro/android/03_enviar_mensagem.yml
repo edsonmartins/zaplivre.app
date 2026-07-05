@@ -6,23 +6,32 @@ appId: com.mepassa
 env:
   PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
 ---
-- launchApp
-- extendedWaitUntil:
-    visible: "Conversas"
-    timeout: 10000
+- runFlow: common/_setup_identity.yml
 
-# Nova conversa
+# Nova conversa (dialog: título "Nova conversa", confirmar = "OK")
 - tapOn:
-    id: ".*fab.*"
-    optional: true
-- tapOn: "Nova conversa"
+    id: "conversations_fab"
+- tapOn:
+    id: "new_chat_peer_input"
 - inputText: ${PEER_ID}
-- tapOn: "Iniciar"
-
-# Enviar mensagem
-- tapOn: "Mensagem"
-- inputText: "olá do teste maestro"
 - tapOn:
-    id: ".*send.*"
-    optional: true
-- assertVisible: "olá do teste maestro"
+    id: "new_chat_confirm"
+
+# Enviar mensagem — chat_send só existe quando o campo tem texto
+- tapOn:
+    id: "chat_input"
+- inputText: "olá do teste maestro"
+- assertVisible:
+    id: "chat_send"
+- tapOn:
+    id: "chat_send"
+
+# Envio real: a mensagem aparece como bolha no chat...
+- extendedWaitUntil:
+    visible: "olá do teste maestro"
+    timeout: 10000
+# ...e o campo de input foi limpo (chat_send some quando o campo está vazio;
+# o placeholder "Mensagem…" volta a aparecer)
+- assertNotVisible:
+    id: "chat_send"
+- assertVisible: "Mensagem…"

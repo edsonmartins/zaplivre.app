@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mepassa.core.MePassaClientWrapper
@@ -201,7 +202,9 @@ fun GroupInfoScreen(
                     if (group!!.isAdmin) {
                         item {
                             Card(
-                                modifier = Modifier.clickable { showAddMemberDialog = true }
+                                modifier = Modifier
+                                    .clickable { showAddMemberDialog = true }
+                                    .testTag("groupinfo_add_member")
                             ) {
                                 ListItem(
                                     headlineContent = {
@@ -254,7 +257,9 @@ fun GroupInfoScreen(
                     // Botão de sair do grupo
                     item {
                         Card(
-                            modifier = Modifier.clickable { showLeaveDialog = true }
+                            modifier = Modifier
+                                .clickable { showLeaveDialog = true }
+                                .testTag("groupinfo_leave")
                         ) {
                             ListItem(
                                 headlineContent = {

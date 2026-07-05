@@ -1,0 +1,25 @@
+# Nova conversa (peer offline): valida a NewChatView e o tratamento de erro.
+#
+# Uma conversa 1:1 completa exige um segundo device alcançável (fora do escopo
+# de 1 device). Com o peer placeholder offline, o comportamento determinístico
+# é o app tratar a falha de rede sem travar — é isso que validamos aqui.
+# O envio ponta-a-ponta está em docs/guides/testing-manual.md (2 devices).
+appId: app.mepassa.ios
+env:
+  PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_new_chat"
+- assertVisible: "Nova Conversa"
+- tapOn:
+    id: "new_chat_peer_input"
+- inputText: ${PEER_ID}
+# tira o foco do campo (hideKeyboard trava no simulador iOS 26)
+- tapOn: "Inserir Peer ID manualmente"
+- tapOn:
+    id: "new_chat_confirm"
+# Peer offline → o app mostra o erro de rede e não trava (sheet segue aberto)
+- extendedWaitUntil:
+    visible: "Falha ao iniciar conversa.*"
+    timeout: 20000

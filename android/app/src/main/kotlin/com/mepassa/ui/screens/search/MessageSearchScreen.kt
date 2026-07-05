@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -115,6 +116,7 @@ fun MessageSearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
+                    .testTag("search_input")
             )
 
             // Results

@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import com.mepassa.core.MePassaClientWrapper
 import kotlinx.coroutines.launch
 
@@ -88,7 +89,8 @@ fun SettingsScreen(
                     title = "Ativar notificações",
                     description = "Receber notificações de novas mensagens",
                     checked = notificationsEnabled,
-                    onCheckedChange = { notificationsEnabled = it }
+                    onCheckedChange = { notificationsEnabled = it },
+                    switchTestTag = "settings_toggle_notifications"
                 )
             }
 
@@ -98,7 +100,8 @@ fun SettingsScreen(
                     description = "Tocar som ao receber mensagens",
                     checked = soundEnabled,
                     onCheckedChange = { soundEnabled = it },
-                    enabled = notificationsEnabled
+                    enabled = notificationsEnabled,
+                    switchTestTag = "settings_toggle_sound"
                 )
             }
 
@@ -108,7 +111,8 @@ fun SettingsScreen(
                     description = "Vibrar ao receber mensagens",
                     checked = vibrationEnabled,
                     onCheckedChange = { vibrationEnabled = it },
-                    enabled = notificationsEnabled
+                    enabled = notificationsEnabled,
+                    switchTestTag = "settings_toggle_vibration"
                 )
             }
 
@@ -126,7 +130,8 @@ fun SettingsScreen(
                     title = "Confirmações de leitura",
                     description = "Enviar confirmações quando ler mensagens",
                     checked = readReceiptsEnabled,
-                    onCheckedChange = { readReceiptsEnabled = it }
+                    onCheckedChange = { readReceiptsEnabled = it },
+                    switchTestTag = "settings_toggle_read_receipts"
                 )
             }
 
@@ -135,7 +140,8 @@ fun SettingsScreen(
                     title = "Última visualização",
                     description = "Mostrar quando você esteve online",
                     checked = lastSeenEnabled,
-                    onCheckedChange = { lastSeenEnabled = it }
+                    onCheckedChange = { lastSeenEnabled = it },
+                    switchTestTag = "settings_toggle_last_seen"
                 )
             }
 
@@ -150,6 +156,7 @@ fun SettingsScreen(
 
             item {
                 SettingsClickableItem(
+                    modifier = Modifier.testTag("settings_export_backup"),
                     title = "Exportar backup da identidade",
                     description = "Copie o backup Base64 para restaurar em outro aparelho",
                     onClick = {
@@ -265,6 +272,7 @@ fun SettingsScreen(
             // Logout
             item {
                 SettingsClickableItem(
+                    modifier = Modifier.testTag("settings_logout"),
                     title = "Sair",
                     description = "Desconectar desta conta",
                     onClick = { showLogoutDialog = true },
@@ -498,7 +506,8 @@ fun SettingsSwitchItem(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    switchTestTag: String? = null
 ) {
     Row(
         modifier = modifier
@@ -525,7 +534,8 @@ fun SettingsSwitchItem(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            enabled = enabled
+            enabled = enabled,
+            modifier = if (switchTestTag != null) Modifier.testTag(switchTestTag) else Modifier
         )
     }
 }

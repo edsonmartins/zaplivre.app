@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -130,7 +131,9 @@ fun ProfileScreen(
                     onValueChange = { userName = it },
                     label = { Text("Nome") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_name_input")
                 )
 
                 Row(
@@ -148,7 +151,8 @@ fun ProfileScreen(
                             // de perfil sincronizado ainda)
                             profilePrefs.edit().putString("display_name", userName.trim()).apply()
                             isEditingName = false
-                        }
+                        },
+                        modifier = Modifier.testTag("profile_save_name")
                     ) {
                         Text("Salvar")
                     }
@@ -161,7 +165,8 @@ fun ProfileScreen(
                 )
 
                 TextButton(
-                    onClick = { isEditingName = true }
+                    onClick = { isEditingName = true },
+                    modifier = Modifier.testTag("profile_edit_name")
                 ) {
                     Text("Editar nome")
                 }
@@ -196,7 +201,9 @@ fun ProfileScreen(
                             text = (localPeerId?.take(32) ?: "") + "...",
                             style = MaterialTheme.typography.bodyMedium,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("profile_peer_id")
                         )
 
                         IconButton(
@@ -206,7 +213,8 @@ fun ProfileScreen(
                                 clipboard.setPrimaryClip(clip)
 
                                 // TODO: Show toast
-                            }
+                            },
+                            modifier = Modifier.testTag("profile_copy_peer_id")
                         ) {
                             Icon(
                                 Icons.Default.ContentCopy,
@@ -276,7 +284,8 @@ fun ProfileScreen(
             Surface(
                 modifier = Modifier
                     .size(200.dp)
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .testTag("qr_image"),
                 shape = MaterialTheme.shapes.medium,
                 color = Color.White
             ) {

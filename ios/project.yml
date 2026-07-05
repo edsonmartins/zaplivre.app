@@ -159,7 +159,8 @@ targets:
         embed: false
 
     scheme:
-      testTargets: []
+      testTargets:
+        - MePassaTests
       gatherCoverageData: false
 
     attributes:
@@ -168,3 +169,32 @@ targets:
           enabled: 1
         com.apple.Push:
           enabled: 1
+
+  MePassaTests:
+    type: bundle.unit-test
+    platform: iOS
+
+    sources:
+      - path: MePassa/MePassaTests
+        excludes:
+          - "**/.DS_Store"
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mepassa.ios.tests
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: "T8N7A2P3TQ"
+
+        # Tests reference types from the app module that come from the
+        # mepassaFFI clang module (UniFFI generated), so the test target
+        # needs the same module/header search paths as the app.
+        SWIFT_INCLUDE_PATHS:
+          - $(inherited)
+          - $(PROJECT_DIR)/MePassa/Generated
+        HEADER_SEARCH_PATHS:
+          - $(inherited)
+          - $(PROJECT_DIR)/MePassa/Generated
+
+    dependencies:
+      - target: MePassa

@@ -85,6 +85,12 @@ pub async fn rate_limit_middleware(
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    // CI/testes de integração: RATE_LIMIT_DISABLED=1 desliga o limitador.
+    // Nunca usar em produção.
+    if std::env::var("RATE_LIMIT_DISABLED").as_deref() == Ok("1") {
+        return Ok(next.run(req).await);
+    }
+
     let path = req.uri().path();
 
     // Determine rate limit config based on path

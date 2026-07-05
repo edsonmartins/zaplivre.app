@@ -2,14 +2,16 @@
 # Regressão IOS-10: loadGroups/createGroup eram mocks (lista sempre vazia)
 appId: app.mepassa.ios
 ---
-- launchApp
-- extendedWaitUntil:
-    visible: "Conversas"
-    timeout: 15000
-- tapOn: "Grupos"
+- runFlow: common/_setup_identity.yml
 - tapOn:
-    id: "plus"
-    optional: true
+    id: "conversations_groups"
+- tapOn:
+    id: "grouplist_fab"
+- tapOn:
+    id: "grouplist_create_name_input"
 - inputText: "Grupo Maestro iOS"
-- tapOn: "Criar"
-- assertVisible: "Grupo Maestro iOS"
+- tapOn:
+    id: "grouplist_create_confirm"
+- extendedWaitUntil:
+    visible: "Grupo Maestro iOS"
+    timeout: 10000

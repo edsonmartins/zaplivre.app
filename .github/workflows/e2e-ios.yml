@@ -1,0 +1,118 @@
+name: E2E iOS (Maestro)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'core/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-ios.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'ios/**'
+      - 'core/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-ios.yml'
+
+env:
+  MAESTRO_VERSION: 1.39.13
+  # Mesmos ajustes do ios/build-rust.sh
+  CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+  IPHONEOS_DEPLOYMENT_TARGET: '13.0'
+  CARGO_TARGET_AARCH64_APPLE_IOS_SIM_RUSTFLAGS: '-C link-arg=-mios-simulator-version-min=13.0'
+
+jobs:
+  maestro-ios:
+    name: Maestro flows (simulador)
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Runner macos-latest é arm64: só o slice de simulador arm64 é necessário
+          targets: aarch64-apple-ios-sim
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install uniffi-bindgen
+        run: cargo install uniffi --version '^0.31' --features cli
+
+      - name: Build Rust core for simulator (arm64 only)
+        run: |
+          cd core
+          cargo build --release --target aarch64-apple-ios-sim --features voip -p mepassa-core
+          mkdir -p ../ios/Libraries
+          cp ../target/aarch64-apple-ios-sim/release/libmepassa_core.a \
+             ../ios/Libraries/libmepassa_core_sim.a
+
+      - name: Generate Swift bindings
+        run: ./ios/generate-bindings.sh
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: cd ios && xcodegen generate
+
+      - name: Build app for simulator
+        run: |
+          cd ios
+          xcodebuild -project MePassa.xcodeproj \
+            -scheme MePassa \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            ARCHS=arm64 \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            build
+        # ARCHS=arm64: a lib Rust é compilada só para aarch64-apple-ios-sim.
+        # Assinatura ad-hoc ("-") + entitlements: sem isso o Keychain falha com
+        # -34018 no simulador, quebrando persistência de identidade e backup.
+
+      - name: Boot simulator and install app
+        run: |
+          UDID=$(xcrun simctl create e2e-iphone "iPhone 15" 2>/dev/null \
+            || xcrun simctl list devices available -j \
+               | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(dev['udid'] for devs in d.values() for dev in devs if dev['isAvailable']))")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" ios/build/Build/Products/Debug-iphonesimulator/MePassa.app
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run Maestro flows
+        run: maestro test e2e/maestro/ios/ --format junit --output maestro-ios-report.xml
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-failure
+          path: |
+            ~/.maestro/tests/**
+            maestro-ios-report.xml
+          if-no-files-found: ignore
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-report
+          path: maestro-ios-report.xml
+          if-no-files-found: ignore

@@ -13,12 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mepassa.R
-import com.mepassa.core.MePassaClientWrapper
-import kotlinx.coroutines.launch
 import uniffi.mepassa.FfiConversation
 import java.text.SimpleDateFormat
 import java.util.*
@@ -35,38 +35,12 @@ fun ConversationsScreen(
     onConversationClick: (String) -> Unit,
     onGroupsClick: (() -> Unit)? = null,
     onSearchClick: (() -> Unit)? = null,
-    onSettingsClick: (() -> Unit)? = null
+    onSettingsClick: (() -> Unit)? = null,
+    viewModel: ConversationsViewModel = viewModel { ConversationsViewModel() }
 ) {
-    val scope = rememberCoroutineScope()
-    var conversations by remember { mutableStateOf<List<FfiConversation>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    // Carregamento, eventos do core (EVT-01) e safety net vivem no ViewModel
+    val uiState by viewModel.uiState.collectAsState()
     var showNewConversationDialog by remember { mutableStateOf(false) }
-
-    // Carregar conversas (sender keys de grupo agora são distribuídas
-    // pelo core via protocolo in-band - sem varredura manual)
-    LaunchedEffect(Unit) {
-        scope.launch {
-            conversations = MePassaClientWrapper.listConversations()
-            isLoading = false
-        }
-    }
-
-    // EVT-01: recarregar a lista quando o core avisa de mensagem nova
-    LaunchedEffect(Unit) {
-        MePassaClientWrapper.messageEvents.collect { event ->
-            if (event !is MePassaClientWrapper.MessageUiEvent.Typing) {
-                conversations = MePassaClientWrapper.listConversations()
-            }
-        }
-    }
-
-    // Safety net: refresh lento caso algum evento se perca
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(30000)
-            conversations = MePassaClientWrapper.listConversations()
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -77,7 +51,10 @@ fun ConversationsScreen(
                 actions = {
                     // Busca global de mensagens
                     if (onSearchClick != null) {
-                        IconButton(onClick = onSearchClick) {
+                        IconButton(
+                            onClick = onSearchClick,
+                            modifier = Modifier.testTag("conversations_search")
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Buscar",
@@ -87,7 +64,10 @@ fun ConversationsScreen(
                     }
                     // Botão de grupos
                     if (onGroupsClick != null) {
-                        IconButton(onClick = onGroupsClick) {
+                        IconButton(
+                            onClick = onGroupsClick,
+                            modifier = Modifier.testTag("conversations_groups")
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Group,
                                 contentDescription = "Grupos",
@@ -97,7 +77,10 @@ fun ConversationsScreen(
                     }
                     // Configurações (backup de identidade, prekeys E2E, etc.)
                     if (onSettingsClick != null) {
-                        IconButton(onClick = onSettingsClick) {
+                        IconButton(
+                            onClick = onSettingsClick,
+                            modifier = Modifier.testTag("conversations_settings")
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Configurações",
@@ -114,7 +97,8 @@ fun ConversationsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showNewConversationDialog = true }
+                onClick = { showNewConversationDialog = true },
+                modifier = Modifier.testTag("conversations_fab")
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.conversations_new))
             }
@@ -125,13 +109,13 @@ fun ConversationsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when {
-                isLoading -> {
+            when (val state = uiState) {
+                is ConversationsUiState.Loading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                conversations.isEmpty() -> {
+                is ConversationsUiState.Error -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -140,24 +124,42 @@ fun ConversationsScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.conversations_empty),
+                            text = state.message,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(conversations) { conversation ->
-                            ConversationItem(
-                                conversation = conversation,
-                                onClick = {
-                                    conversation.peerId?.let { onConversationClick(it) }
-                                }
+                is ConversationsUiState.Success -> {
+                    if (state.conversations.isEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.conversations_empty),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Divider()
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("conversations_list")
+                        ) {
+                            items(state.conversations) { conversation ->
+                                ConversationItem(
+                                    conversation = conversation,
+                                    onClick = {
+                                        conversation.peerId?.let { onConversationClick(it) }
+                                    }
+                                )
+                                Divider()
+                            }
                         }
                     }
                 }
@@ -239,13 +241,16 @@ fun NewConversationDialog(
                 label = { Text("Peer ID") },
                 placeholder = { Text("12D3KooW...") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("new_chat_peer_input")
             )
         },
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(peerIdInput.trim()) },
-                enabled = peerIdInput.trim().isNotEmpty()
+                enabled = peerIdInput.trim().isNotEmpty(),
+                modifier = Modifier.testTag("new_chat_confirm")
             ) {
                 Text(stringResource(R.string.ok))
             }

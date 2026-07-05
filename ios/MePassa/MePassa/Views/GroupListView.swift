@@ -83,6 +83,7 @@ struct GroupListView: View {
                     Button(action: { showingCreateGroup = true }) {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("grouplist_fab")
                 }
             }
             .sheet(isPresented: $showingCreateGroup) {
@@ -186,6 +187,7 @@ struct CreateGroupView: View {
             Form {
                 Section {
                     TextField("Nome do grupo", text: $groupName)
+                        .accessibilityIdentifier("grouplist_create_name_input")
                         .autocapitalization(.words)
 
                     if #available(iOS 16.0, *) {
@@ -217,6 +219,7 @@ struct CreateGroupView: View {
                         await createGroup()
                     }
                 }
+                .accessibilityIdentifier("grouplist_create_confirm")
                 .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
             )
         }

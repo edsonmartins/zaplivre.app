@@ -2,12 +2,11 @@
 # Regressão: backup implementado mas inacessível (tela órfã)
 appId: com.mepassa
 ---
-- launchApp
-- extendedWaitUntil:
-    visible: "Conversas"
-    timeout: 10000
-- tapOn: "Configurações"
-- tapOn: "Exportar backup da identidade"
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_settings"
+- tapOn:
+    id: "settings_export_backup"
 - assertVisible: "Backup da identidade"
 # O campo deve conter conteúdo (Base64), não vazio nem erro
 - assertNotVisible: "Backup não encontrado"

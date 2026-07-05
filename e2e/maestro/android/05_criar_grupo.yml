@@ -2,15 +2,17 @@
 # Regressão (iOS teve isso): lista mockada sempre vazia
 appId: com.mepassa
 ---
-- launchApp
-- extendedWaitUntil:
-    visible: "Conversas"
-    timeout: 10000
-- tapOn: "Grupos"
+- runFlow: common/_setup_identity.yml
 - tapOn:
-    id: ".*fab.*"
-    optional: true
-- tapOn: "Criar grupo"
+    id: "conversations_groups"
+- tapOn:
+    id: "grouplist_fab"
+# Dialog "Criar Grupo" (confirmar = "Criar")
+- tapOn:
+    id: "grouplist_create_name_input"
 - inputText: "Grupo Maestro"
-- tapOn: "Criar"
-- assertVisible: "Grupo Maestro"
+- tapOn:
+    id: "grouplist_create_confirm"
+- extendedWaitUntil:
+    visible: "Grupo Maestro"
+    timeout: 10000

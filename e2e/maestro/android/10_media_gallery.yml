@@ -1,0 +1,24 @@
+# Galeria de mídia: conversa sem mídia → galeria abre com empty state
+# ("Nenhuma mídia") em vez de crashar
+appId: com.mepassa
+env:
+  PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
+---
+- runFlow: common/_setup_identity.yml
+
+# Abrir/criar conversa via peer ID (mesmo padrão do flow 03)
+- tapOn:
+    id: "conversations_fab"
+- tapOn:
+    id: "new_chat_peer_input"
+- inputText: ${PEER_ID}
+- tapOn:
+    id: "new_chat_confirm"
+
+# Abrir a galeria de mídia do chat
+- tapOn:
+    id: "chat_media_gallery"
+- assertVisible:
+    id: "mediagallery_empty"
+- assertVisible: "Nenhuma mídia"
+- back

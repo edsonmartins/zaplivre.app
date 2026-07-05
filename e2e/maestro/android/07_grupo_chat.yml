@@ -1,0 +1,32 @@
+# Chat de grupo: criar grupo (nome único) → abrir → enviar mensagem → aparece
+appId: com.mepassa
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_groups"
+
+# Nome único por execução (flows são independentes de ordem e o estado persiste)
+- evalScript: ${output.groupName = 'Grupo E2E ' + Date.now()}
+
+# Criar grupo (dialog "Criar Grupo")
+- tapOn:
+    id: "grouplist_fab"
+- tapOn:
+    id: "grouplist_create_name_input"
+- inputText: "${output.groupName}"
+- tapOn:
+    id: "grouplist_create_confirm"
+- extendedWaitUntil:
+    visible: "${output.groupName}"
+    timeout: 10000
+
+# Abrir o grupo e enviar mensagem
+- tapOn: "${output.groupName}"
+- tapOn:
+    id: "groupchat_input"
+- inputText: "mensagem de grupo via maestro"
+- tapOn:
+    id: "groupchat_send"
+- extendedWaitUntil:
+    visible: "mensagem de grupo via maestro"
+    timeout: 10000

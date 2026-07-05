@@ -1,0 +1,29 @@
+# Backup da identidade: exportar deve abrir o sheet com o Base64
+# Regressão: backup implementado mas inacessível (tela órfã)
+# O sheet "Exportar Identidade" SÓ abre se exportIdentity() teve sucesso
+# (erro vira um alert "Erro" no lugar do sheet)
+appId: app.mepassa.ios
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_settings"
+- tapOn:
+    id: "settings_export_backup"
+# Título literal da UI: "Backup da identidade (Base64)" — parênteses são
+# metacaracteres de regex, então casamos pelo prefixo
+- extendedWaitUntil:
+    visible: "Backup da identidade.*"
+    timeout: 15000
+- assertVisible: "Copiar"
+- assertNotVisible: "Erro"
+# Fechar o sheet de export; a Settings (Form sem NavigationView) não mostra
+# título, então validamos pela seção "Notificações" no topo.
+- tapOn: "Fechar"
+- assertVisible: "Notificações"
+# Fechar o sheet de Settings pelo grabber (swipe do topo; começar no meio
+# apenas rolaria a lista)
+- swipe:
+    start: 50%, 7%
+    end: 50%, 92%
+    duration: 600
+- assertVisible: "Conversas"

@@ -14,6 +14,12 @@ on:
       - 'core/**'
       - '.github/workflows/ios-ci.yml'
 
+env:
+  # Mesmos ajustes do ios/build-rust.sh
+  CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+  IPHONEOS_DEPLOYMENT_TARGET: '13.0'
+  CARGO_TARGET_AARCH64_APPLE_IOS_RUSTFLAGS: '-C link-arg=-miphoneos-version-min=13.0'
+
 jobs:
   build:
     name: Build iOS
@@ -29,54 +35,42 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim
+          targets: aarch64-apple-ios
 
-      - name: Install cargo-lipo
-        run: cargo install cargo-lipo
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Build Rust Core for iOS
+      - name: Install uniffi-bindgen
+        run: cargo install uniffi --version '^0.31' --features cli
+
+      - name: Build Rust core for iOS device
         run: |
           cd core
-          cargo lipo --release --targets aarch64-apple-ios,x86_64-apple-ios
-        continue-on-error: true
+          cargo build --release --target aarch64-apple-ios --features voip -p mepassa-core
+          mkdir -p ../ios/Libraries
+          cp ../target/aarch64-apple-ios/release/libmepassa_core.a \
+             ../ios/Libraries/libmepassa_core_ios.a
 
-      - name: Cache Pods
-        uses: actions/cache@v4
-        with:
-          path: ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
+      - name: Generate Swift bindings
+        run: ./ios/generate-bindings.sh
 
-      - name: Install CocoaPods dependencies
-        run: |
-          cd ios
-          pod install
-        continue-on-error: true
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        # O projeto é gerado por XcodeGen a partir de ios/project.yml
+        # (não há Podfile/xcworkspace neste repo)
+        run: cd ios && xcodegen generate
 
       - name: Build iOS project
-        env:
-          MESSAGE_STORE_URL: ${{ secrets.MESSAGE_STORE_URL }}
-          PUSH_SERVER_URL: ${{ secrets.PUSH_SERVER_URL }}
         run: |
           cd ios
-          xcodebuild -workspace MePassa.xcworkspace \
-                     -scheme MePassa \
-                     -sdk iphoneos \
-                     -configuration Release \
-                     CODE_SIGNING_ALLOWED=NO \
-                     build
-        continue-on-error: true
-
-      - name: Run tests
-        run: |
-          cd ios
-          xcodebuild test \
-                     -workspace MePassa.xcworkspace \
-                     -scheme MePassa \
-                     -sdk iphonesimulator \
-                     -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest'
-        continue-on-error: true
+          xcodebuild -project MePassa.xcodeproj \
+            -scheme MePassa \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
   swiftlint:
     name: SwiftLint

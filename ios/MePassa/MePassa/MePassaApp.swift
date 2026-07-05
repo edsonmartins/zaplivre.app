@@ -141,10 +141,15 @@ class AppState: ObservableObject {
     @Published var groups: [ChatGroup] = []
 
     private var refreshTimer: Timer?
+    private let core: MePassaCoreProtocol
     var voipEventHandler: VoipEventHandler?
     var callEventHandler: CallEventHandler?
     var audioFrameHandler: AudioFrameHandler?
     var messageEventHandler: MessageEventHandler?
+
+    init(core: MePassaCoreProtocol = MePassaCore.shared) {
+        self.core = core
+    }
 
     func login(peerId: String) {
         self.isAuthenticated = true
@@ -183,8 +188,8 @@ class AppState: ObservableObject {
     func loadConversations() {
         Task {
             do {
-                let convs = try await MePassaCore.shared.listConversations()
-                await MePassaCore.shared.scanGroupSenderKeyMessages()
+                let convs = try await core.listConversations()
+                await core.scanGroupSenderKeyMessages()
 
                 // Convert FFI conversations to local model
                 await MainActor.run {

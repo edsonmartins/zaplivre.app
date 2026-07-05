@@ -26,7 +26,7 @@ import com.mepassa.voip.VoipEventHandler
  * - Gerenciamento de ciclo de vida
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-object MePassaClientWrapper {
+object MePassaClientWrapper : MePassaClientApi {
     private const val TAG = "MePassaClientWrapper"
     private const val GROUP_SENDER_KEY_PREFIX = "mepassa-group-key:v1:"
 
@@ -35,7 +35,7 @@ object MePassaClientWrapper {
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
     private val _localPeerId = MutableStateFlow<String?>(null)
-    val localPeerId: StateFlow<String?> = _localPeerId.asStateFlow()
+    override val localPeerId: StateFlow<String?> = _localPeerId.asStateFlow()
 
     // ─── Eventos de chamada (core -> UI) ───────────────────────────────────
     data class IncomingCallEvent(val callId: String, val callerPeerId: String)
@@ -66,7 +66,7 @@ object MePassaClientWrapper {
     }
 
     private val _messageEvents = MutableSharedFlow<MessageUiEvent>(extraBufferCapacity = 64)
-    val messageEvents: SharedFlow<MessageUiEvent> = _messageEvents.asSharedFlow()
+    override val messageEvents: SharedFlow<MessageUiEvent> = _messageEvents.asSharedFlow()
 
     private val messageEventCallback = object : FfiMessageEventCallback {
         override fun onMessageReceived(messageId: String, fromPeerId: String) {
@@ -286,7 +286,7 @@ object MePassaClientWrapper {
     /**
      * Lista todas as conversas
      */
-    suspend fun listConversations(): List<FfiConversation> = withContext(Dispatchers.IO) {
+    override suspend fun listConversations(): List<FfiConversation> = withContext(Dispatchers.IO) {
         try {
             getClient().listConversations()
         } catch (e: Exception) {
@@ -298,10 +298,10 @@ object MePassaClientWrapper {
     /**
      * Busca mensagens de uma conversa
      */
-    suspend fun getConversationMessages(
+    override suspend fun getConversationMessages(
         peerId: String,
-        limit: UInt? = null,
-        offset: UInt? = null
+        limit: UInt?,
+        offset: UInt?
     ): List<FfiMessage> = withContext(Dispatchers.IO) {
         try {
             getClient().getConversationMessages(peerId, limit, offset)
@@ -314,7 +314,7 @@ object MePassaClientWrapper {
     /**
      * Envia mensagem de texto
      */
-    suspend fun sendTextMessage(toPeerId: String, content: String): Result<String> =
+    override suspend fun sendTextMessage(toPeerId: String, content: String): Result<String> =
         withContext(Dispatchers.IO) {
             try {
                 val messageId = getClient().sendTextMessage(toPeerId, content)
@@ -328,7 +328,7 @@ object MePassaClientWrapper {
     /**
      * Marca conversa como lida
      */
-    suspend fun markConversationRead(peerId: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun markConversationRead(peerId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             getClient().markConversationRead(peerId)
             true
@@ -713,7 +713,7 @@ object MePassaClientWrapper {
      * de sender key por texto. A distribuição agora é feita pelo core
      * (protocolo in-band, CORE-16) e não gera mais mensagens de chat.
      */
-    fun isLegacyGroupKeyMessage(message: FfiMessage): Boolean =
+    override fun isLegacyGroupKeyMessage(message: FfiMessage): Boolean =
         message.contentPlaintext?.startsWith(GROUP_SENDER_KEY_PREFIX) == true
 
     // ========== Video Methods (FASE 14) ==========
@@ -807,12 +807,12 @@ object MePassaClientWrapper {
     /**
      * Send image message
      */
-    suspend fun sendImageMessage(
+    override suspend fun sendImageMessage(
         toPeerId: String,
         imageData: List<UByte>,
         fileName: String,
-        quality: UInt = 85u
-    ) = withContext(Dispatchers.IO) {
+        quality: UInt
+    ): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.sendImageMessage(toPeerId, imageData, fileName, quality)
@@ -826,12 +826,12 @@ object MePassaClientWrapper {
     /**
      * Send voice message
      */
-    suspend fun sendVoiceMessage(
+    override suspend fun sendVoiceMessage(
         toPeerId: String,
         audioData: List<UByte>,
         fileName: String,
         durationSeconds: Int
-    ) = withContext(Dispatchers.IO) {
+    ): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.sendVoiceMessage(toPeerId, audioData, fileName, durationSeconds)
@@ -845,12 +845,12 @@ object MePassaClientWrapper {
     /**
      * Send document/file message
      */
-    suspend fun sendDocumentMessage(
+    override suspend fun sendDocumentMessage(
         toPeerId: String,
         fileData: List<UByte>,
         fileName: String,
         mimeType: String
-    ) = withContext(Dispatchers.IO) {
+    ): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.sendDocumentMessage(toPeerId, fileData, fileName, mimeType)
@@ -864,15 +864,15 @@ object MePassaClientWrapper {
     /**
      * Send video message
      */
-    suspend fun sendVideoMessage(
+    override suspend fun sendVideoMessage(
         toPeerId: String,
         videoData: List<UByte>,
         fileName: String,
-        width: Int? = null,
-        height: Int? = null,
+        width: Int?,
+        height: Int?,
         durationSeconds: Int,
-        thumbnailData: List<UByte>? = null
-    ) = withContext(Dispatchers.IO) {
+        thumbnailData: List<UByte>?
+    ): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.sendVideoMessage(toPeerId, videoData, fileName, width, height, durationSeconds, thumbnailData)
@@ -888,7 +888,7 @@ object MePassaClientWrapper {
     /**
      * Delete message
      */
-    suspend fun deleteMessage(messageId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteMessage(messageId: String): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.deleteMessage(messageId)
@@ -902,7 +902,7 @@ object MePassaClientWrapper {
     /**
      * Forward message
      */
-    suspend fun forwardMessage(messageId: String, toPeerId: String) = withContext(Dispatchers.IO) {
+    override suspend fun forwardMessage(messageId: String, toPeerId: String): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.forwardMessage(messageId, toPeerId)
@@ -918,7 +918,7 @@ object MePassaClientWrapper {
     /**
      * Add reaction to message
      */
-    suspend fun addReaction(messageId: String, emoji: String) = withContext(Dispatchers.IO) {
+    override suspend fun addReaction(messageId: String, emoji: String): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.addReaction(messageId, emoji)
@@ -932,7 +932,7 @@ object MePassaClientWrapper {
     /**
      * Remove reaction from message
      */
-    suspend fun removeReaction(messageId: String, emoji: String) = withContext(Dispatchers.IO) {
+    override suspend fun removeReaction(messageId: String, emoji: String): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.removeReaction(messageId, emoji)
@@ -946,7 +946,7 @@ object MePassaClientWrapper {
     /**
      * Get reactions for message
      */
-    suspend fun getMessageReactions(messageId: String): List<uniffi.mepassa.FfiReaction> = withContext(Dispatchers.IO) {
+    override suspend fun getMessageReactions(messageId: String): List<uniffi.mepassa.FfiReaction> = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
             c.getMessageReactions(messageId)

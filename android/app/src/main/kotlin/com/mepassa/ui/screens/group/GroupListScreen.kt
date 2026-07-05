@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mepassa.core.MePassaClientWrapper
@@ -83,7 +84,8 @@ fun GroupListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showCreateGroupDialog = true }
+                onClick = { showCreateGroupDialog = true },
+                modifier = Modifier.testTag("grouplist_fab")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Criar grupo")
             }
@@ -281,7 +283,9 @@ fun CreateGroupDialog(
                     label = { Text("Nome do grupo") },
                     placeholder = { Text("Ex: Amigos da faculdade") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("grouplist_create_name_input")
                 )
                 OutlinedTextField(
                     value = descriptionInput,
@@ -299,7 +303,8 @@ fun CreateGroupDialog(
                     val desc = if (descriptionInput.trim().isEmpty()) null else descriptionInput.trim()
                     onConfirm(nameInput.trim(), desc)
                 },
-                enabled = nameInput.trim().isNotEmpty()
+                enabled = nameInput.trim().isNotEmpty(),
+                modifier = Modifier.testTag("grouplist_create_confirm")
             ) {
                 Text("Criar")
             }

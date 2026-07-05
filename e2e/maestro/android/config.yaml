@@ -1,0 +1,7 @@
+# Configuração da suíte Android.
+# Só os flows numerados na raiz são executáveis; common/ contém helpers
+# (chamados via runFlow) e fica fora da execução direta.
+flows:
+  - "*.yml"
+executionOrder:
+  continueOnFailure: true

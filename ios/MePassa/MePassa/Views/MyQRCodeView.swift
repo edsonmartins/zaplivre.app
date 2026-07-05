@@ -31,6 +31,7 @@ struct MyQRCodeView: View {
                         .background(Color.white)
                         .cornerRadius(16)
                         .shadow(radius: 10)
+                        .accessibilityIdentifier("qr_image")
                 } else {
                     Rectangle()
                         .fill(Color.secondary.opacity(0.2))
@@ -77,6 +78,7 @@ struct MyQRCodeView: View {
                     Button("Fechar") {
                         dismiss()
                     }
+                    .accessibilityIdentifier("qr_close")
                 }
             }
         }

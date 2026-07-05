@@ -201,9 +201,11 @@ struct ChatView: View {
                 Button(action: { showMediaGallery = true }) {
                     Image(systemName: "photo.on.rectangle")
                 }
+                .accessibilityIdentifier("chat_media_gallery")
                 Button(action: { showSearch = true }) {
                     Image(systemName: "magnifyingglass")
                 }
+                .accessibilityIdentifier("chat_search")
                 Button(action: startVoiceCall) {
                     Image(systemName: "phone")
                 }
@@ -311,6 +313,7 @@ struct ChatView: View {
 
                 // Text field
                 TextField("Mensagem", text: $messageText)
+                    .accessibilityIdentifier("chat_input")
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -355,6 +358,7 @@ struct ChatView: View {
                             .font(.title2)
                             .foregroundColor(.blue)
                     }
+                    .accessibilityIdentifier("chat_send")
                 }
             }
             .padding(.horizontal)

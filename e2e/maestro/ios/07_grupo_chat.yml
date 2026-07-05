@@ -1,0 +1,38 @@
+# Chat de grupo: criar grupo → abrir → compositor de mensagem funciona.
+#
+# Valida a UI de GroupChatView (navegação, campo, botão de enviar). O envio
+# ponta-a-ponta de grupo exige rede/outros membros e não persiste com 1 device
+# (mensagem própria não é salva offline) — cobertura completa em testing-manual.
+appId: app.mepassa.ios
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_groups"
+
+# Criar grupo com nome único (evita colisão com execuções anteriores)
+- evalScript: ${output.groupName = 'Grupo Maestro ' + Date.now()}
+- tapOn:
+    id: "grouplist_fab"
+- tapOn:
+    id: "grouplist_create_name_input"
+- inputText: ${output.groupName}
+- tapOn:
+    id: "grouplist_create_confirm"
+
+# Abrir o grupo recém-criado pelo nome
+- extendedWaitUntil:
+    visible: ${output.groupName}
+    timeout: 10000
+- tapOn: ${output.groupName}
+
+# O compositor de mensagem do grupo aceita texto e o botão de enviar responde
+- assertVisible:
+    id: "groupchat_input"
+- tapOn:
+    id: "groupchat_input"
+- inputText: "mensagem de grupo maestro"
+- assertVisible: "mensagem de grupo maestro"
+- tapOn:
+    id: "groupchat_send"
+# Sem crash: a tela do grupo segue de pé (título com o nome do grupo visível)
+- assertVisible: ${output.groupName}
