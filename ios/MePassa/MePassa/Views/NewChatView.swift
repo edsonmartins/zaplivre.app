@@ -77,6 +77,7 @@ struct NewChatView: View {
                         .font(.headline)
 
                     TextField("12D3KooW...", text: $peerId)
+                        .accessibilityIdentifier("new_chat_peer_input")
                         .textFieldStyle(.roundedBorder)
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
@@ -97,6 +98,7 @@ struct NewChatView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
+                    .accessibilityIdentifier("new_chat_confirm")
                     .disabled(peerId.isEmpty || isStartingChat)
 
                     // Error message

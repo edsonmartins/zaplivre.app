@@ -63,6 +63,7 @@ struct MediaGalleryView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                     }
+                    .accessibilityIdentifier("mediagallery_empty")
                     Spacer()
                 } else {
                     // Media grid
@@ -80,6 +81,7 @@ struct MediaGalleryView: View {
                         }
                         .padding(2)
                     }
+                    .accessibilityIdentifier("mediagallery_grid")
                 }
             }
             .navigationTitle("Mídia - \(peerName)")

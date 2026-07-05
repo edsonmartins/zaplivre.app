@@ -172,6 +172,7 @@ struct SearchBarView: View {
                     .foregroundColor(.secondary)
 
                 TextField("Buscar mensagens...", text: $query)
+                    .accessibilityIdentifier("search_input")
                     .autocorrectionDisabled()
 
                 if isSearching {

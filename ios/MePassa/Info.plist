@@ -22,24 +22,24 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>ZapLivre precisa acessar a câmera para videochamadas</string>
-	<key>NSContactsUsageDescription</key>
-	<string>ZapLivre precisa acessar contatos para encontrar amigos</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>ZapLivre precisa acessar o microfone para chamadas de voz</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Permite salvar fotos e vídeos recebidos na sua galeria.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>ZapLivre precisa acessar fotos para compartilhar imagens</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>ZapLivre usa a rede local para descobrir e conectar com contatos próximos (P2P)</string>
+	<key>MESSAGE_STORE_URL</key>
+	<string>https://store.associahub.com.br</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_p2p._udp</string>
 	</array>
-	<key>MESSAGE_STORE_URL</key>
-	<string>https://store.associahub.com.br</string>
+	<key>NSCameraUsageDescription</key>
+	<string>ZapLivre precisa acessar a câmera para videochamadas</string>
+	<key>NSContactsUsageDescription</key>
+	<string>ZapLivre precisa acessar contatos para encontrar amigos</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ZapLivre usa a rede local para descobrir e conectar com contatos próximos (P2P)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ZapLivre precisa acessar o microfone para chamadas de voz</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Permite salvar fotos e vídeos recebidos na sua galeria</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ZapLivre precisa acessar fotos para compartilhar imagens</string>
 	<key>SIGNALING_SERVER_URL</key>
 	<string>wss://signaling.associahub.com.br/ws</string>
 	<key>UIApplicationSceneManifest</key>

@@ -56,6 +56,7 @@ struct ProfileView: View {
                     if isEditingName {
                         VStack(spacing: 12) {
                             TextField("Nome", text: $userName)
+                                .accessibilityIdentifier("profile_name_input")
                                 .textFieldStyle(.roundedBorder)
                                 .multilineTextAlignment(.center)
 
@@ -70,6 +71,7 @@ struct ProfileView: View {
                                     userName = userName.trimmingCharacters(in: .whitespaces)
                                     isEditingName = false
                                 }
+                                .accessibilityIdentifier("profile_save_name")
                                 .buttonStyle(.borderedProminent)
                             }
                         }
@@ -83,6 +85,7 @@ struct ProfileView: View {
                             Button("Editar nome") {
                                 isEditingName = true
                             }
+                            .accessibilityIdentifier("profile_edit_name")
                             .font(.subheadline)
                         }
                     }
@@ -96,6 +99,7 @@ struct ProfileView: View {
 
                         HStack {
                             Text(String(localPeerId.prefix(32)) + "...")
+                                .accessibilityIdentifier("profile_peer_id")
                                 .font(.system(.body, design: .monospaced))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
@@ -109,6 +113,7 @@ struct ProfileView: View {
                                 Image(systemName: "doc.on.doc")
                                     .foregroundColor(.blue)
                             }
+                            .accessibilityIdentifier("profile_copy_peer_id")
                         }
                         .padding()
                         .background(Color(.systemGray6))
@@ -182,6 +187,7 @@ struct ProfileView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .accessibilityIdentifier("profile_qr")
 
                     Spacer()
                 }

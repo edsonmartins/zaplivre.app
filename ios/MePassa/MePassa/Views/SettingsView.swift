@@ -73,19 +73,24 @@ struct SettingsView: View {
             // Notifications section
             Section("Notificações") {
                 Toggle("Ativar notificações", isOn: $notificationsEnabled)
+                    .accessibilityIdentifier("settings_toggle_notifications")
 
                 Toggle("Som", isOn: $soundEnabled)
+                    .accessibilityIdentifier("settings_toggle_sound")
                     .disabled(!notificationsEnabled)
 
                 Toggle("Vibração", isOn: $vibrationEnabled)
+                    .accessibilityIdentifier("settings_toggle_vibration")
                     .disabled(!notificationsEnabled)
             }
 
             // Privacy section
             Section("Privacidade") {
                 Toggle("Confirmações de leitura", isOn: $readReceiptsEnabled)
+                    .accessibilityIdentifier("settings_toggle_read_receipts")
 
                 Toggle("Última visualização", isOn: $lastSeenEnabled)
+                    .accessibilityIdentifier("settings_toggle_last_seen")
             }
 
             // Identity section
@@ -101,6 +106,7 @@ struct SettingsView: View {
                         }
                     }
                 }
+                .accessibilityIdentifier("settings_export_backup")
 
                 Button("Exportar prekeys") {
                     Task {
@@ -149,6 +155,7 @@ struct SettingsView: View {
                 Button("Sair", role: .destructive) {
                     showLogoutAlert = true
                 }
+                .accessibilityIdentifier("settings_logout")
             }
         }
         .navigationTitle("Configurações")

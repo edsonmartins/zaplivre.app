@@ -68,11 +68,13 @@ struct GroupChatView: View {
             HStack(spacing: 12) {
                 if #available(iOS 16.0, *) {
                     TextField("Mensagem", text: $messageText, axis: .vertical)
+                        .accessibilityIdentifier("groupchat_input")
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...4)
                         .disabled(isSending)
                 } else {
                     TextField("Mensagem", text: $messageText)
+                        .accessibilityIdentifier("groupchat_input")
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(4)
                         .disabled(isSending)
@@ -88,6 +90,7 @@ struct GroupChatView: View {
                             .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
                     }
                 }
+                .accessibilityIdentifier("groupchat_send")
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
             }
             .padding()
@@ -99,6 +102,7 @@ struct GroupChatView: View {
             Button(action: { showingGroupInfo = true }) {
                 Image(systemName: "info.circle")
             }
+            .accessibilityIdentifier("groupchat_info")
         )
         .sheet(isPresented: $showingGroupInfo) {
             GroupInfoView(group: group)

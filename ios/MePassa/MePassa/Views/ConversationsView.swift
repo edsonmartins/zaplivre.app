@@ -45,6 +45,7 @@ struct ConversationsView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .accessibilityIdentifier("conversations_list")
                 }
             }
             .background(
@@ -72,16 +73,19 @@ struct ConversationsView: View {
                     Button(action: { showingSettings = true }) {
                         Image(systemName: "gear")
                     }
+                    .accessibilityIdentifier("conversations_settings")
                 }
 
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button(action: { showingGroups = true }) {
                         Image(systemName: "person.3")
                     }
+                    .accessibilityIdentifier("conversations_groups")
 
                     Button(action: { showingNewChat = true }) {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("conversations_new_chat")
                 }
             }
             .sheet(isPresented: $showingNewChat) {

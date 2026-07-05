@@ -85,6 +85,7 @@ struct GroupInfoView: View {
                         Button(action: { showingAddMember = true }) {
                             Label("Adicionar membro", systemImage: "person.badge.plus")
                         }
+                        .accessibilityIdentifier("groupinfo_add_member")
 
                         Button(action: { showingEditGroup = true }) {
                             Label("Editar informações", systemImage: "pencil")
@@ -97,6 +98,7 @@ struct GroupInfoView: View {
                     Button(role: .destructive, action: { showingLeaveConfirmation = true }) {
                         Label("Sair do grupo", systemImage: "rectangle.portrait.and.arrow.right")
                     }
+                    .accessibilityIdentifier("groupinfo_leave")
                 }
 
                 // Group info
