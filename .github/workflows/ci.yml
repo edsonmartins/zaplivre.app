@@ -41,6 +41,80 @@ jobs:
       - name: Server tests
         run: cargo test -p mepassa-store -p mepassa-push -p turn-credentials -p mepassa-signaling
 
+  identity-integration:
+    name: Identity server integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mepassa
+          POSTGRES_PASSWORD: mepassa
+          POSTGRES_DB: mepassa_identity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgres://mepassa:mepassa@localhost:5432/mepassa_identity
+      REDIS_URL: redis://localhost:6379
+      IDENTITY_SERVER_URL: http://localhost:8083
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler postgresql-client
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Apply identity schema
+        # db::init_pool não aplica schema - só cria o pool
+        run: psql "$DATABASE_URL" -f server/identity/schema.sql
+
+      - name: Build and start identity-server
+        run: |
+          cargo build -p mepassa-identity-server
+          BIND_ADDR=127.0.0.1:8083 RATE_LIMIT_DISABLED=1 ./target/debug/mepassa-identity-server &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8083/health && break
+            sleep 1
+          done
+
+      - name: Identity integration tests
+        run: cargo test -p mepassa-core --test identity_integration --features integration-tests -- --test-threads=1
+
+  voip-integration:
+    name: VoIP integration (non-blocking)
+    runs-on: ubuntu-latest
+    # Testes P2P com timing real - não-bloqueante até provar estabilidade no runner
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler cmake libssl-dev pkg-config libasound2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: VoIP integration tests (including ignored)
+        timeout-minutes: 20
+        run: cargo test -p mepassa-core --test voip_integration --features voip -- --include-ignored --test-threads=1
+
   desktop:
     name: Desktop (TypeScript)
     runs-on: ubuntu-latest

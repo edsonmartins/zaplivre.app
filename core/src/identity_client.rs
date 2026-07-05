@@ -163,6 +163,16 @@ pub struct IdentityClient {
 }
 
 impl IdentityClient {
+    /// Corpo de erro pode vir vazio (ex.: 429 do rate limiter) - não assumir JSON
+    async fn error_from_response(response: reqwest::Response) -> anyhow::Error {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        match serde_json::from_str::<ErrorResponse>(&body) {
+            Ok(error) => anyhow!("{}: {}", error.error, error.message),
+            Err(_) => anyhow!("HTTP {}: {}", status, body),
+        }
+    }
+
     /// Create a new Identity Server client
     pub fn new(base_url: impl Into<String>) -> Result<Self> {
         let client = reqwest::Client::builder()
@@ -232,8 +242,7 @@ impl IdentityClient {
         if response.status().is_success() {
             Ok(response.json().await?)
         } else {
-            let error: ErrorResponse = response.json().await?;
-            Err(anyhow!("{}: {}", error.error, error.message))
+            Err(Self::error_from_response(response).await)
         }
     }
 
@@ -255,8 +264,7 @@ impl IdentityClient {
         if response.status().is_success() {
             Ok(response.json().await?)
         } else {
-            let error: ErrorResponse = response.json().await?;
-            Err(anyhow!("{}: {}", error.error, error.message))
+            Err(Self::error_from_response(response).await)
         }
     }
 
@@ -307,8 +315,7 @@ impl IdentityClient {
         if response.status().is_success() {
             Ok(response.json().await?)
         } else {
-            let error: ErrorResponse = response.json().await?;
-            Err(anyhow!("{}: {}", error.error, error.message))
+            Err(Self::error_from_response(response).await)
         }
     }
 

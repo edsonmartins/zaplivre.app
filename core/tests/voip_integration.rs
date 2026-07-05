@@ -18,8 +18,11 @@ use tokio::sync::RwLock;
 use tokio::time::timeout;
 use uuid::Uuid;
 
-/// Test helper: Create a client with VoIP enabled
-async fn create_test_client(name: &str) -> (Client, TempDir, PeerId) {
+/// Test helper: Create a client with VoIP enabled.
+///
+/// Must be called from within a `tokio::task::LocalSet` (uses `spawn_local`
+/// to drive the libp2p swarm event loop in the background).
+async fn create_test_client(name: &str) -> (Arc<Client>, TempDir, PeerId) {
     let temp_dir = TempDir::new().unwrap();
     let data_dir = temp_dir.path().to_path_buf();
 
@@ -33,35 +36,60 @@ async fn create_test_client(name: &str) -> (Client, TempDir, PeerId) {
         .await
         .unwrap();
 
+    let client = Arc::new(client);
+
+    // Drive the swarm: without pumping the network event loop, listeners
+    // never become ready and connections/signaling never progress.
+    let net_client = client.clone();
+    tokio::task::spawn_local(async move {
+        let _ = net_client.run_network().await;
+    });
+
     tracing::info!("✅ Created test client '{}': {}", name, peer_id);
 
     (client, temp_dir, peer_id)
 }
 
-/// Test helper: Start listening on local address
+/// Test helper: Start listening on local address and return the actual
+/// (auto-assigned) listening address.
 async fn start_listening(client: &Client) -> Multiaddr {
     let addr: Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().unwrap();
-    client.listen_on(addr.clone()).await.unwrap();
+    client.listen_on(addr).await.unwrap();
 
-    // Wait a bit for listener to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    // In real scenario, we'd get the actual listening address from network events
-    // For now, we'll use port 0 which gets auto-assigned
-    addr
+    // Wait for the listener to be ready and grab the real port (tcp/0 is auto-assigned)
+    for _ in 0..50 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        if let Some(addr) = client
+            .listening_addresses()
+            .await
+            .into_iter()
+            .find(|a| a.contains("/ip4/127.0.0.1/") && !a.ends_with("/tcp/0"))
+        {
+            return addr.parse().unwrap();
+        }
+    }
+    panic!("Listener did not become ready in time");
 }
 
 /// Test helper: Connect peer A to peer B
 async fn connect_peers(client_a: &Client, peer_b_id: PeerId, addr_b: Multiaddr) {
     client_a.connect_to_peer(peer_b_id, addr_b).await.unwrap();
 
-    // Wait for connection to establish
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // Wait for connection to establish (up to 5s)
+    for _ in 0..50 {
+        if client_a.connected_peers_count().await > 0 {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 }
 
 #[tokio::test]
-#[ignore] // Requires full setup - run with `cargo test voip_integration -- --ignored`
+#[ignore] // Requires real network/audio devices - run with `cargo test voip_integration --features voip -- --include-ignored`.
+// The VoIP code uses `tokio::task::spawn_local`, so each test body runs inside a `tokio::task::LocalSet`.
 async fn test_two_peers_setup() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -94,11 +122,14 @@ async fn test_two_peers_setup() {
     tracing::info!("👥 Peer A connected to {} peers", peers_a);
 
     assert!(peers_a > 0, "Peer A should be connected to at least 1 peer");
+    }).await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_call_offer_flow() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -141,11 +172,14 @@ async fn test_call_offer_flow() {
             panic!("Call initiation timed out");
         }
     }
+    }).await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_call_answer_flow() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -189,11 +223,14 @@ async fn test_call_answer_flow() {
             panic!("Accept call timed out");
         }
     }
+    }).await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_call_reject_flow() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -236,11 +273,14 @@ async fn test_call_reject_flow() {
             panic!("Reject call timed out");
         }
     }
+    }).await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_call_hangup_flow() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -283,11 +323,14 @@ async fn test_call_hangup_flow() {
             panic!("Hangup timed out");
         }
     }
+    }).await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_mute_toggle() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -312,11 +355,14 @@ async fn test_mute_toggle() {
         Ok(()) => tracing::info!("✅ Mute toggled successfully"),
         Err(e) => tracing::warn!("⚠️ Mute toggle error: {}", e),
     }
+    }).await;
 }
 
 #[tokio::test]
 #[ignore]
 async fn test_speakerphone_toggle() {
+    let local = tokio::task::LocalSet::new();
+    local.run_until(async {
     tracing_subscriber::fmt()
         .with_test_writer()
         .with_max_level(tracing::Level::INFO)
@@ -341,6 +387,7 @@ async fn test_speakerphone_toggle() {
         Ok(()) => tracing::info!("✅ Speakerphone toggled successfully"),
         Err(e) => tracing::warn!("⚠️ Speakerphone toggle error: {}", e),
     }
+    }).await;
 }
 
 #[tokio::test]
