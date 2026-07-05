@@ -1,17 +1,38 @@
-# Anti-órfã iOS: telas principais alcançáveis
+# Anti-órfã iOS: telas principais alcançáveis a partir de Conversas
+# (Settings, Grupos e Nova Conversa abrem como sheets; Settings e Grupos
+# não têm botão Fechar, então o sheet é dispensado com swipe para baixo)
 appId: app.mepassa.ios
 ---
-- launchApp
-- extendedWaitUntil:
-    visible: "Conversas"
-    timeout: 15000
+- runFlow: common/_setup_identity.yml
 
 # Configurações (backup/prekeys/logout)
-- tapOn: "Configurações"
+- tapOn:
+    id: "conversations_settings"
 - assertVisible: "Exportar backup da identidade"
+- scrollUntilVisible:
+    element:
+      id: "settings_logout"
+    direction: DOWN
 - assertVisible: "Sair"
-- back
+- swipe:
+    start: 50%, 7%
+    end: 50%, 92%
+    duration: 600
+- assertVisible: "Conversas"
 
 # Grupos: lista deve carregar de verdade (regressão IOS-10: mock vazio)
-- tapOn: "Grupos"
-- back
+- tapOn:
+    id: "conversations_groups"
+- assertVisible: "Grupos"
+- swipe:
+    start: 50%, 7%
+    end: 50%, 92%
+    duration: 600
+- assertVisible: "Conversas"
+
+# Nova conversa
+- tapOn:
+    id: "conversations_new_chat"
+- assertVisible: "Nova Conversa"
+- tapOn: "Cancelar"
+- assertVisible: "Conversas"

@@ -1,0 +1,23 @@
+# Helper de setup: garante identidade fresca e app na tela de Conversas.
+#
+# clearState a cada setup torna cada flow autossuficiente e determinístico
+# (mesma estrutura validada nos flows iOS). Esperar o botão renderizar de forma
+# estável ANTES de tocar evita o timing do splash do FFI — um `runFlow when:`
+# imediato é avaliado antes de o onboarding aparecer e é pulado por engano.
+appId: com.mepassa
+---
+- clearState
+# Pré-concede notificações (POST_NOTIFICATIONS no Android 13+): o diálogo
+# do sistema cobriria a tela de onboarding e interceptaria os toques.
+- launchApp:
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible:
+      id: "onboarding_create"
+    timeout: 30000
+- tapOn:
+    id: "onboarding_create"
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 30000

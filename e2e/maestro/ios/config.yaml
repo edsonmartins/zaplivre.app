@@ -1,0 +1,4 @@
+flows:
+  - "*.yml"
+executionOrder:
+  continueOnFailure: true

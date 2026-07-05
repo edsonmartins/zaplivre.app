@@ -1,0 +1,19 @@
+# Busca global: abrir busca → digitar → tela continua de pé (sem crash)
+# Empty state esperado com termo sem resultados: "Nenhum resultado encontrado"
+appId: com.mepassa
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_search"
+- assertVisible: "Buscar mensagens"
+- tapOn:
+    id: "search_input"
+- inputText: "maestro"
+# A tela de busca continua viva após a query (empty state ou resultados,
+# nunca crash) — o campo de busca segue presente
+- assertVisible:
+    id: "search_input"
+- back
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 10000

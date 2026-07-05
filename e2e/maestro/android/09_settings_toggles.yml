@@ -1,0 +1,28 @@
+# Toggles de Settings: alternar switches não pode crashar a tela.
+# NOTA: os toggles NÃO persistem (estado local) — não asserte persistência
+# após reabrir o app.
+appId: com.mepassa
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_settings"
+- assertVisible: "Configurações"
+
+# Notificações (topo da lista)
+- tapOn:
+    id: "settings_toggle_notifications"
+
+# Confirmações de leitura (pode exigir scroll na LazyColumn)
+- scrollUntilVisible:
+    element:
+      id: "settings_toggle_read_receipts"
+    direction: DOWN
+- tapOn:
+    id: "settings_toggle_read_receipts"
+
+# Sem crash: a tela de Configurações continua de pé
+- assertVisible: "Configurações"
+- back
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 10000

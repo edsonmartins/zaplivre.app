@@ -1,0 +1,33 @@
+# Info do grupo: criar/abrir grupo → tela "Informações do Grupo" acessível,
+# nome do grupo e botão de sair visíveis. NÃO sai do grupo.
+appId: com.mepassa
+---
+- runFlow: common/_setup_identity.yml
+- tapOn:
+    id: "conversations_groups"
+
+# Nome único por execução
+- evalScript: ${output.groupName = 'Grupo Info ' + Date.now()}
+
+# Criar e abrir o grupo
+- tapOn:
+    id: "grouplist_fab"
+- tapOn:
+    id: "grouplist_create_name_input"
+- inputText: "${output.groupName}"
+- tapOn:
+    id: "grouplist_create_confirm"
+- extendedWaitUntil:
+    visible: "${output.groupName}"
+    timeout: 10000
+- tapOn: "${output.groupName}"
+
+# Abrir a tela de informações
+- tapOn:
+    id: "groupchat_info"
+- assertVisible: "Informações do Grupo"
+- assertVisible: "${output.groupName}"
+- assertVisible:
+    id: "groupinfo_leave"
+# Voltar sem sair do grupo
+- back

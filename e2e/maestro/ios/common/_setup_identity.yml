@@ -1,0 +1,29 @@
+# Subflow: garante identidade fresca e app na tela de Conversas.
+# Usado como primeiro passo pelos flows 02+ (o 01 cobre o onboarding em si).
+#
+# clearState a cada setup: torna cada flow autossuficiente e determinístico.
+# Uma identidade residual no Keychain faz o app cair no onboarding mas impede
+# criar outra por cima (regressão IDN-02) — partir do zero evita isso.
+appId: app.mepassa.ios
+---
+- clearState
+# Pré-concede notificações. No simulador iOS o app ainda dispara o diálogo
+# no launch, então também o dispensamos tocando em "Permitir" se aparecer.
+- launchApp:
+    permissions:
+      notifications: allow
+- tapOn:
+    text: "Permitir"
+    optional: true
+# Espera o botão renderizar de forma estável (o init do FFI leva alguns
+# segundos) ANTES de tocar — um tapOn imediato pega o botão antes de estar
+# interativo e o toque não surte efeito.
+- extendedWaitUntil:
+    visible:
+      id: "onboarding_create"
+    timeout: 30000
+- tapOn:
+    id: "onboarding_create"
+- extendedWaitUntil:
+    visible: "Conversas"
+    timeout: 30000

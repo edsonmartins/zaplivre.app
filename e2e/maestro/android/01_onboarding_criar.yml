@@ -1,15 +1,21 @@
 # Onboarding: primeira execução → criar identidade → Conversas
 # Regressão: IDN-01 (auto-init não pode atropelar o onboarding)
+# Único flow com clearState — os demais reaproveitam a identidade via
+# common/_setup_identity.yml e são independentes de ordem.
 appId: com.mepassa
 ---
 - clearState
-- launchApp
+# Pré-concede notificações (Android 13+): o diálogo cobriria o onboarding
+- launchApp:
+    permissions:
+      notifications: allow
 # Tela de onboarding deve aparecer (sem identidade ainda)
 - assertVisible: "ZapLivre"
-- tapOn: "Começar"
+- tapOn:
+    id: "onboarding_create"
 # Peer ID gerado deve aparecer
 - assertVisible: "Seu Peer ID:"
 # Auto-navega para conversas
 - extendedWaitUntil:
     visible: "Conversas"
-    timeout: 10000
+    timeout: 30000

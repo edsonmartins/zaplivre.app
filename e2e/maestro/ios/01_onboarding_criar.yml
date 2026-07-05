@@ -1,12 +1,20 @@
 # Onboarding iOS: primeira execução → criar identidade → app funcional
 # Regressão: IDN-02 (auto-init atropelava a LoginView; import impossível)
+# Único flow com clearState: os demais reaproveitam a identidade criada aqui.
 appId: app.mepassa.ios
 ---
 - clearState
-- launchApp
+# Pré-concede notificações; dispensa o diálogo do iOS se ainda aparecer
+- launchApp:
+    permissions:
+      notifications: allow
+- tapOn:
+    text: "Permitir"
+    optional: true
 - assertVisible: "Criar nova identidade"
-- tapOn: "Criar nova identidade"
+- tapOn:
+    id: "onboarding_create"
 # Após criar, deve chegar na lista de conversas (login automático)
 - extendedWaitUntil:
     visible: "Conversas"
-    timeout: 15000
+    timeout: 30000

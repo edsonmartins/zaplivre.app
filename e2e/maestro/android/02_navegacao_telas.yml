@@ -2,21 +2,24 @@
 # Regressão: AND-13 (Settings/Profile/Search ficaram órfãs por meses)
 appId: com.mepassa
 ---
-- launchApp
-- extendedWaitUntil:
-    visible: "Conversas"
-    timeout: 10000
+- runFlow: common/_setup_identity.yml
 
 # Busca global
-- tapOn: "Buscar"
+- tapOn:
+    id: "conversations_search"
+- assertVisible:
+    id: "search_input"
 - back
 
 # Grupos
-- tapOn: "Grupos"
+- tapOn:
+    id: "conversations_groups"
+- assertVisible: "Grupos"
 - back
 
 # Configurações (backup de identidade mora aqui!)
-- tapOn: "Configurações"
+- tapOn:
+    id: "conversations_settings"
 - assertVisible: "Exportar backup da identidade"
 - assertVisible: "Sair"
 - back
