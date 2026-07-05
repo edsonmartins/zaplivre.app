@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
+import { formatDate } from '../utils/format'
 
 interface Group {
   id: string
@@ -72,10 +73,6 @@ export default function GroupListView({ localPeerId }: GroupListViewProps) {
     }
   }
 
-  const formatDate = (timestamp: number): string => {
-    const date = new Date(timestamp * 1000)
-    return date.toLocaleDateString()
-  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">

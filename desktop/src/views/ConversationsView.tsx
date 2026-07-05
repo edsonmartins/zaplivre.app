@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event'
 import QRCodeModal from '../components/QRCodeModal'
 import SearchModal from '../components/SearchModal'
 import BackupModal from '../components/BackupModal'
+import { formatRelativeTimestamp } from '../utils/format'
 
 interface Conversation {
   id: string
@@ -127,21 +128,6 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
     }
   }
 
-  const formatTimestamp = (timestamp: number | null): string => {
-    if (!timestamp) return '—'
-    const date = new Date(timestamp * 1000)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString()
-  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
@@ -249,7 +235,7 @@ export default function ConversationsView({ localPeerId }: ConversationsViewProp
                         {(conv.display_name || conv.peer_id || 'Contato').substring(0, 16)}...
                       </p>
                       <p className="text-xs text-gray-500 ml-2">
-                        {formatTimestamp(conv.last_message_at)}
+                        {formatRelativeTimestamp(conv.last_message_at)}
                       </p>
                     </div>
                     <p className="text-sm text-gray-600 truncate">

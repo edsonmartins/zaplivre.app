@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { useVoipState } from '../state/voipState'
+import { formatDuration } from '../utils/format'
 import '../styles/CallView.css'
 
 interface CallViewProps {
@@ -31,12 +32,6 @@ export default function CallView({ localPeerId: _localPeerId }: CallViewProps) {
 
     return () => clearInterval(interval)
   }, [isCallActive])
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
 
   const handleMuteToggle = async () => {
     if (!callId) return

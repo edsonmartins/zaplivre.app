@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { formatMessageTime } from '../utils/format'
 
 interface Message {
   id: string
@@ -323,12 +324,6 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
     // no-op: reserved for future scroll indicators
   }
 
-  const formatTime = (timestamp: number): string => {
-    // created_at vem do SQLite em SEGUNDOS (unixepoch)
-    const date = new Date(timestamp * 1000)
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-
   const isSentByMe = (msg: Message): boolean => {
     return msg.sender_peer_id === localPeerId
   }
@@ -468,7 +463,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
                       isSentByMe(msg) ? 'text-primary-100' : 'text-gray-500'
                     }`}
                   >
-                    {formatTime(msg.created_at)}
+                    {formatMessageTime(msg.created_at)}
                   </p>
                   {(reactions[msg.id]?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
