@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mepassa.core.MePassaClientWrapper
@@ -120,7 +121,10 @@ fun GroupChatScreen(
                 },
                 actions = {
                     // Botão de informações do grupo
-                    IconButton(onClick = { onGroupInfo(groupId) }) {
+                    IconButton(
+                        onClick = { onGroupInfo(groupId) },
+                        modifier = Modifier.testTag("groupchat_info")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = "Informações do grupo",
@@ -256,7 +260,9 @@ fun GroupMessageInputBar(
             OutlinedTextField(
                 value = messageInput,
                 onValueChange = onMessageInputChange,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("groupchat_input"),
                 placeholder = {
                     Text("Mensagem")
                 },
@@ -267,7 +273,8 @@ fun GroupMessageInputBar(
 
             IconButton(
                 onClick = onSendClick,
-                enabled = messageInput.isNotBlank() && !isSending
+                enabled = messageInput.isNotBlank() && !isSending,
+                modifier = Modifier.testTag("groupchat_send")
             ) {
                 if (isSending) {
                     CircularProgressIndicator(

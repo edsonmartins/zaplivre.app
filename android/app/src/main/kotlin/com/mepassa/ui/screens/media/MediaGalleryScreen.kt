@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.mepassa.core.MePassaClientWrapper
 import kotlinx.coroutines.Dispatchers
@@ -118,7 +119,9 @@ fun MediaGalleryScreen(
             } else if (mediaItems.isEmpty()) {
                 // Empty state
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("mediagallery_empty"),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -144,7 +147,9 @@ fun MediaGalleryScreen(
                     contentPadding = PaddingValues(2.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("mediagallery_grid")
                 ) {
                     items(mediaItems) { media ->
                         MediaGridItem(

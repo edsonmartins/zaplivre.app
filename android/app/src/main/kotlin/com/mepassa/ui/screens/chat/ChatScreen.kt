@@ -23,9 +23,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mepassa.R
 import com.mepassa.core.MePassaClientWrapper
 import com.mepassa.core.VoiceRecorderViewModel
@@ -52,17 +54,22 @@ fun ChatScreen(
     onNavigateBack: () -> Unit,
     onStartCall: () -> Unit,
     onOpenMediaGallery: () -> Unit = {},
-    onOpenSearch: () -> Unit = {}
+    onOpenSearch: () -> Unit = {},
+    chatViewModel: ChatViewModel = viewModel(key = "chat_$peerId") { ChatViewModel(peerId) }
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val context = androidx.compose.ui.platform.LocalContext.current
     val haptic = rememberHapticFeedback()
 
-    var messages by remember { mutableStateOf<List<FfiMessage>>(emptyList()) }
+    // Mensagens de texto (load/send/markRead/eventos) vivem no ViewModel;
+    // os fluxos de mídia/reações continuam aqui e usam chatViewModel.refresh()
+    val messages by chatViewModel.messages.collectAsState()
     var messageInput by remember { mutableStateOf("") }
-    var isSending by remember { mutableStateOf(false) }
-    val localPeerId by MePassaClientWrapper.localPeerId.collectAsState()
+    val isSendingText by chatViewModel.isSending.collectAsState()
+    var isSendingMedia by remember { mutableStateOf(false) }
+    val isSending = isSendingText || isSendingMedia
+    val localPeerId by chatViewModel.localPeerId.collectAsState()
 
     // Image selection state
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
@@ -80,46 +87,27 @@ fun ChatScreen(
     var showReactionPicker by remember { mutableStateOf(false) }
     var reactionPickerMessageId by remember { mutableStateOf<String?>(null) }
 
-    // Carregar mensagens (filtrando mensagens legadas do hack de sender key -
-    // a distribuição agora é in-band no core e não gera mensagens de chat)
-    LaunchedEffect(peerId) {
-        scope.launch {
-            val fetched = MePassaClientWrapper.getConversationMessages(peerId)
-            messages = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
-            // Scroll para última mensagem
-            if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(messages.lastIndex)
-            }
+    // Scroll para última mensagem quando a lista muda (load inicial,
+    // envio ou mensagem recebida)
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
-    // EVT-01: eventos do core substituem o polling de 2s. Recarrega sempre
-    // (também em mudança de status/deleção - o filtro "size >" escondia isso)
-    LaunchedEffect(peerId) {
-        MePassaClientWrapper.messageEvents.collect { event ->
-            val relevant = when (event) {
-                is MePassaClientWrapper.MessageUiEvent.Received -> event.fromPeerId == peerId
-                is MePassaClientWrapper.MessageUiEvent.StatusChanged ->
-                    event.peerId == null || event.peerId == peerId
-                is MePassaClientWrapper.MessageUiEvent.Typing -> false
-            }
-            if (relevant) {
-                val fetched = MePassaClientWrapper.getConversationMessages(peerId)
-                val hadNew = fetched.size > messages.size
-                messages = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
-                if (hadNew && messages.isNotEmpty()) {
-                    listState.animateScrollToItem(messages.lastIndex)
+    // Feedback do envio de texto: haptics + restaura o input em caso de
+    // falha (não perde a mensagem digitada)
+    LaunchedEffect(Unit) {
+        chatViewModel.sendResults.collect { result ->
+            when (result) {
+                is ChatViewModel.SendResult.Success -> haptic.light()
+                is ChatViewModel.SendResult.Failure -> {
+                    haptic.reject()
+                    if (messageInput.isBlank()) {
+                        messageInput = result.content
+                    }
                 }
             }
-        }
-    }
-
-    // Safety net: refresh lento caso algum evento se perca
-    LaunchedEffect(peerId) {
-        while (true) {
-            kotlinx.coroutines.delay(30000)
-            val fetched = MePassaClientWrapper.getConversationMessages(peerId)
-            messages = fetched.filterNot { MePassaClientWrapper.isLegacyGroupKeyMessage(it) }
         }
     }
 
@@ -212,7 +200,10 @@ fun ChatScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.testTag("chat_back")
+                    ) {
                         Icon(
                             Icons.Filled.ArrowBack,
                             contentDescription = "Voltar"
@@ -221,7 +212,10 @@ fun ChatScreen(
                 },
                 actions = {
                     // Botão de busca
-                    IconButton(onClick = onOpenSearch) {
+                    IconButton(
+                        onClick = onOpenSearch,
+                        modifier = Modifier.testTag("chat_search")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Buscar mensagens",
@@ -230,7 +224,10 @@ fun ChatScreen(
                     }
 
                     // Botão de galeria de mídia
-                    IconButton(onClick = onOpenMediaGallery) {
+                    IconButton(
+                        onClick = onOpenMediaGallery,
+                        modifier = Modifier.testTag("chat_media_gallery")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Photo,
                             contentDescription = "Galeria de mídia",
@@ -293,10 +290,7 @@ fun ChatScreen(
                                     selectedImages = emptyList()
 
                                     // Reload messages to show sent images
-                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                    if (messages.isNotEmpty()) {
-                                        listState.animateScrollToItem(messages.lastIndex)
-                                    }
+                                    chatViewModel.refresh()
                                 } catch (e: Exception) {
                                     // TODO: Show error to user
                                     android.util.Log.e("ChatScreen", "Error sending images", e)
@@ -314,21 +308,7 @@ fun ChatScreen(
                         if (messageInput.isNotBlank() && !isSending) {
                             val content = messageInput.trim()
                             messageInput = ""
-                            isSending = true
-
-                            scope.launch {
-                                val result = MePassaClientWrapper.sendTextMessage(peerId, content)
-                                isSending = false
-
-                                if (result.isSuccess) {
-                                    haptic.light()  // Haptic feedback on send
-                                    // Recarregar mensagens
-                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                    listState.animateScrollToItem(messages.lastIndex)
-                                } else {
-                                    haptic.reject()  // Haptic feedback on error
-                                }
-                            }
+                            chatViewModel.sendTextMessage(content)
                         }
                     },
                     onSelectImages = { uris ->
@@ -350,10 +330,7 @@ fun ChatScreen(
                                 )
 
                                 // Reload messages to show sent voice message
-                                messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                if (messages.isNotEmpty()) {
-                                    listState.animateScrollToItem(messages.lastIndex)
-                                }
+                                chatViewModel.refresh()
                             } catch (e: Exception) {
                                 // TODO: Show error to user
                                 android.util.Log.e("ChatScreen", "Error sending voice message", e)
@@ -388,10 +365,7 @@ fun ChatScreen(
                                     )
 
                                     // Reload messages
-                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                    if (messages.isNotEmpty()) {
-                                        listState.animateScrollToItem(messages.lastIndex)
-                                    }
+                                    chatViewModel.refresh()
                                 }
                             } catch (e: Exception) {
                                 android.util.Log.e("ChatScreen", "Error sending file", e)
@@ -400,7 +374,7 @@ fun ChatScreen(
                     },
                     onVideoPicked = { uri ->
                         scope.launch {
-                            isSending = true
+                            isSendingMedia = true
                             try {
                                 val videoBytes = context.contentResolver
                                     .openInputStream(uri)?.use { it.readBytes() }
@@ -431,15 +405,12 @@ fun ChatScreen(
                                         durationSeconds = duration.toInt()
                                     )
 
-                                    messages = MePassaClientWrapper.getConversationMessages(peerId)
-                                    if (messages.isNotEmpty()) {
-                                        listState.animateScrollToItem(messages.lastIndex)
-                                    }
+                                    chatViewModel.refresh()
                                 }
                             } catch (e: Exception) {
                                 android.util.Log.e("ChatScreen", "Error sending video", e)
                             } finally {
-                                isSending = false
+                                isSendingMedia = false
                             }
                         }
                     },
@@ -466,7 +437,8 @@ fun ChatScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(paddingValues)
+                    .testTag("chat_messages_list"),
                 state = listState,
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -526,7 +498,7 @@ fun ChatScreen(
                             try {
                                 MePassaClientWrapper.deleteMessage(selectedMessage!!.messageId)
                                 // Reload messages
-                                messages = MePassaClientWrapper.getConversationMessages(peerId)
+                                chatViewModel.refresh()
                             } catch (e: Exception) {
                                 android.util.Log.e("ChatScreen", "Error deleting message", e)
                             }
@@ -661,7 +633,9 @@ fun MessageInputBar(
             OutlinedTextField(
                 value = messageInput,
                 onValueChange = onMessageInputChange,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("chat_input"),
                 placeholder = {
                     Text(stringResource(R.string.chat_input_hint))
                 },
@@ -674,7 +648,8 @@ fun MessageInputBar(
             if (messageInput.isNotBlank()) {
                 IconButton(
                     onClick = onSendClick,
-                    enabled = !isSending
+                    enabled = !isSending,
+                    modifier = Modifier.testTag("chat_send")
                 ) {
                     if (isSending) {
                         CircularProgressIndicator(
