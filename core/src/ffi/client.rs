@@ -1,6 +1,6 @@
 //! FFI Client implementation using UniFFI (channel-based architecture)
 //!
-//! This module provides a thread-safe FFI wrapper around the MePassa Client.
+//! This module provides a thread-safe FFI wrapper around the ZapLivre Client.
 //! Since libp2p::Swarm is !Sync by design, we use a channel-based architecture
 //! where the Client runs in a dedicated tokio task and receives commands via channels.
 
@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 use tokio::sync::{mpsc, oneshot};
 
 use super::types::{
-    self as types, FfiConversation, FfiGroup, FfiMessage, FfiReaction, MePassaFfiError,
+    self as types, FfiConversation, FfiGroup, FfiMessage, FfiReaction, ZapLivreFfiError,
 };
 use crate::api::events::{ClientEvent, EventCallback};
 use crate::api::{Client, ClientBuilder};
@@ -108,85 +108,85 @@ enum ClientCommand {
         response: oneshot::Sender<String>,
     },
     GetPrekeyBundleJson {
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     SetContactPrekeyBundle {
         peer_id: String,
         prekey_bundle_json: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     ListenOn {
         multiaddr: libp2p::Multiaddr,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     ConnectToPeer {
         peer_id: libp2p::PeerId,
         multiaddr: libp2p::Multiaddr,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     SendTextMessage {
         to: libp2p::PeerId,
         content: String,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     GetConversationMessages {
         peer_id: String,
         limit: Option<usize>,
         offset: Option<usize>,
-        response: oneshot::Sender<Result<Vec<FfiMessage>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<FfiMessage>, ZapLivreFfiError>>,
     },
     ListConversations {
-        response: oneshot::Sender<Result<Vec<FfiConversation>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<FfiConversation>, ZapLivreFfiError>>,
     },
     SearchMessages {
         query: String,
         limit: Option<usize>,
-        response: oneshot::Sender<Result<Vec<FfiMessage>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<FfiMessage>, ZapLivreFfiError>>,
     },
     MarkConversationRead {
         peer_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     ConnectedPeersCount {
-        response: oneshot::Sender<Result<u32, MePassaFfiError>>,
+        response: oneshot::Sender<Result<u32, ZapLivreFfiError>>,
     },
     ListeningAddresses {
-        response: oneshot::Sender<Result<Vec<String>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<String>, ZapLivreFfiError>>,
     },
     Bootstrap {
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     // VoIP commands
     #[cfg(feature = "voip")]
     StartCall {
         to_peer_id: String,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     #[cfg(feature = "voip")]
     AcceptCall {
         call_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(feature = "voip")]
     RejectCall {
         call_id: String,
         reason: Option<String>,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(feature = "voip")]
     HangupCall {
         call_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(feature = "voip")]
     ToggleMute {
         call_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(feature = "voip")]
     ToggleSpeakerphone {
         call_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(feature = "voip")]
     SendAudioFrame {
@@ -194,19 +194,19 @@ enum ClientCommand {
         audio_data: Vec<u8>,
         sample_rate: u32,
         channels: u32,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     // Video commands (FASE 14)
     #[cfg(any(feature = "voip", feature = "video"))]
     EnableVideo {
         call_id: String,
         codec: types::FfiVideoCodec,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(any(feature = "voip", feature = "video"))]
     DisableVideo {
         call_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(any(feature = "voip", feature = "video"))]
     SendVideoFrame {
@@ -214,12 +214,12 @@ enum ClientCommand {
         frame_data: Vec<u8>,
         width: u32,
         height: u32,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(any(feature = "voip", feature = "video"))]
     SwitchCamera {
         call_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     #[cfg(any(feature = "voip", feature = "video"))]
     RegisterVideoFrameCallback {
@@ -244,60 +244,60 @@ enum ClientCommand {
     CreateGroup {
         name: String,
         description: Option<String>,
-        response: oneshot::Sender<Result<FfiGroup, MePassaFfiError>>,
+        response: oneshot::Sender<Result<FfiGroup, ZapLivreFfiError>>,
     },
     JoinGroup {
         group_id: String,
         group_name: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     LeaveGroup {
         group_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     AddGroupMember {
         group_id: String,
         peer_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     RemoveGroupMember {
         group_id: String,
         peer_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     GetGroups {
-        response: oneshot::Sender<Result<Vec<FfiGroup>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<FfiGroup>, ZapLivreFfiError>>,
     },
     GetGroupMembers {
         group_id: String,
-        response: oneshot::Sender<Result<Vec<String>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<String>, ZapLivreFfiError>>,
     },
     UpdateGroup {
         group_id: String,
         name: Option<String>,
         description: Option<String>,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     GetGroupMessages {
         group_id: String,
         limit: Option<usize>,
         offset: Option<usize>,
-        response: oneshot::Sender<Result<Vec<FfiMessage>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<FfiMessage>, ZapLivreFfiError>>,
     },
     SendGroupMessage {
         group_id: String,
         content: String,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     GetGroupSenderKeySeed {
         group_id: String,
-        response: oneshot::Sender<Result<Vec<u8>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<u8>, ZapLivreFfiError>>,
     },
     AddGroupSenderKey {
         group_id: String,
         sender_peer_id: String,
         sender_key_seed: Vec<u8>,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     // Media commands (FASE 16 - Mídia & Polimento)
     SendImageMessage {
@@ -305,21 +305,21 @@ enum ClientCommand {
         image_data: Vec<u8>,
         file_name: String,
         quality: u8,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     SendVoiceMessage {
         to_peer_id: String,
         audio_data: Vec<u8>,
         file_name: String,
         duration_seconds: i32,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     SendDocumentMessage {
         to_peer_id: String,
         file_data: Vec<u8>,
         file_name: String,
         mime_type: String,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     SendVideoMessage {
         to_peer_id: String,
@@ -329,42 +329,42 @@ enum ClientCommand {
         height: Option<i32>,
         duration_seconds: i32,
         thumbnail_data: Option<Vec<u8>>,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     DownloadMedia {
         media_hash: String,
-        response: oneshot::Sender<Result<Vec<u8>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<u8>, ZapLivreFfiError>>,
     },
     GetConversationMedia {
         conversation_id: String,
         media_type: Option<types::FfiMediaType>,
         limit: Option<u32>,
-        response: oneshot::Sender<Result<Vec<types::FfiMedia>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<types::FfiMedia>, ZapLivreFfiError>>,
     },
     // Message action commands (FASE 16 - Forward & Delete)
     DeleteMessage {
         message_id: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     ForwardMessage {
         message_id: String,
         to_peer_id: String,
-        response: oneshot::Sender<Result<String, MePassaFfiError>>,
+        response: oneshot::Sender<Result<String, ZapLivreFfiError>>,
     },
     // Reaction commands (FASE 16 - TRACK 8)
     AddReaction {
         message_id: String,
         emoji: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     RemoveReaction {
         message_id: String,
         emoji: String,
-        response: oneshot::Sender<Result<(), MePassaFfiError>>,
+        response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
     GetMessageReactions {
         message_id: String,
-        response: oneshot::Sender<Result<Vec<FfiReaction>, MePassaFfiError>>,
+        response: oneshot::Sender<Result<Vec<FfiReaction>, ZapLivreFfiError>>,
     },
 }
 
@@ -743,7 +743,7 @@ async fn run_client_task_arc(
                 let to: libp2p::PeerId = match to_peer_id.parse() {
                     Ok(peer_id) => peer_id,
                     Err(_) => {
-                        let _ = response.send(Err(MePassaFfiError::Network {
+                        let _ = response.send(Err(ZapLivreFfiError::Network {
                             details: "Invalid peer ID".to_string(),
                         }));
                         continue;
@@ -766,7 +766,7 @@ async fn run_client_task_arc(
                 let to: libp2p::PeerId = match to_peer_id.parse() {
                     Ok(peer_id) => peer_id,
                     Err(_) => {
-                        let _ = response.send(Err(MePassaFfiError::Network {
+                        let _ = response.send(Err(ZapLivreFfiError::Network {
                             details: "Invalid peer ID".to_string(),
                         }));
                         continue;
@@ -789,7 +789,7 @@ async fn run_client_task_arc(
                 let to: libp2p::PeerId = match to_peer_id.parse() {
                     Ok(peer_id) => peer_id,
                     Err(_) => {
-                        let _ = response.send(Err(MePassaFfiError::Network {
+                        let _ = response.send(Err(ZapLivreFfiError::Network {
                             details: "Invalid peer ID".to_string(),
                         }));
                         continue;
@@ -815,7 +815,7 @@ async fn run_client_task_arc(
                 let to: libp2p::PeerId = match to_peer_id.parse() {
                     Ok(peer_id) => peer_id,
                     Err(_) => {
-                        let _ = response.send(Err(MePassaFfiError::Network {
+                        let _ = response.send(Err(ZapLivreFfiError::Network {
                             details: "Invalid peer ID".to_string(),
                         }));
                         continue;
@@ -883,7 +883,7 @@ async fn run_client_task_arc(
                 let to: libp2p::PeerId = match to_peer_id.parse() {
                     Ok(peer_id) => peer_id,
                     Err(_) => {
-                        let _ = response.send(Err(MePassaFfiError::Network {
+                        let _ = response.send(Err(ZapLivreFfiError::Network {
                             details: "Invalid peer ID".to_string(),
                         }));
                         continue;
@@ -935,15 +935,15 @@ async fn run_client_task_arc(
     }
 }
 
-/// MePassa client (exposed via interface pattern)
-pub struct MePassaClient {
+/// ZapLivre client (exposed via interface pattern)
+pub struct ZapLivreClient {
     #[allow(dead_code)]
     data_dir: String,
 }
 
-impl MePassaClient {
+impl ZapLivreClient {
     /// Create new client and initialize the global client task
-    pub fn new(data_dir: String) -> Result<Self, MePassaFfiError> {
+    pub fn new(data_dir: String) -> Result<Self, ZapLivreFfiError> {
         // Initialize the client task if not already done
         CLIENT_HANDLE.get_or_init(|| {
             let (sender, receiver) = mpsc::unbounded_channel();
@@ -991,9 +991,9 @@ impl MePassaClient {
                     ];
 
                     // Override por env p/ dev/local:
-                    // MEPASSA_BOOTSTRAP="/ip4/127.0.0.1/tcp/4001|12D3KooW...,addr|peer"
+                    // ZAPLIVRE_BOOTSTRAP="/ip4/127.0.0.1/tcp/4001|12D3KooW...,addr|peer"
                     let env_bootstrap_peers: Vec<(String, String)> =
-                        std::env::var("MEPASSA_BOOTSTRAP")
+                        std::env::var("ZAPLIVRE_BOOTSTRAP")
                             .ok()
                             .map(|v| {
                                 v.split(',')
@@ -1009,7 +1009,7 @@ impl MePassaClient {
                     let bootstrap_peers: Vec<(String, String)> = if !env_bootstrap_peers
                         .is_empty()
                     {
-                        tracing::info!("🌐 Using bootstrap peers from MEPASSA_BOOTSTRAP env");
+                        tracing::info!("🌐 Using bootstrap peers from ZAPLIVRE_BOOTSTRAP env");
                         env_bootstrap_peers
                     } else if custom_bootstrap_peers.is_empty() {
                         default_bootstrap_peers
@@ -1103,31 +1103,31 @@ impl MePassaClient {
     }
 
     /// Get local peer ID
-    pub fn local_peer_id(&self) -> Result<String, MePassaFfiError> {
+    pub fn local_peer_id(&self) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::LocalPeerId { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })
     }
 
     /// Export prekey bundle as JSON (for sharing)
-    pub async fn get_prekey_bundle_json(&self) -> Result<String, MePassaFfiError> {
+    pub async fn get_prekey_bundle_json(&self) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::GetPrekeyBundleJson { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1137,7 +1137,7 @@ impl MePassaClient {
         &self,
         peer_id: String,
         prekey_bundle_json: String,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1146,18 +1146,18 @@ impl MePassaClient {
                 prekey_bundle_json,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Start listening on an address
-    pub async fn listen_on(&self, multiaddr: String) -> Result<(), MePassaFfiError> {
-        let addr: libp2p::Multiaddr = multiaddr.parse().map_err(|_| MePassaFfiError::Network {
+    pub async fn listen_on(&self, multiaddr: String) -> Result<(), ZapLivreFfiError> {
+        let addr: libp2p::Multiaddr = multiaddr.parse().map_err(|_| ZapLivreFfiError::Network {
             details: "Invalid multiaddr".to_string(),
         })?;
 
@@ -1168,11 +1168,11 @@ impl MePassaClient {
                 multiaddr: addr,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1182,12 +1182,12 @@ impl MePassaClient {
         &self,
         peer_id: String,
         multiaddr: String,
-    ) -> Result<(), MePassaFfiError> {
-        let peer_id: libp2p::PeerId = peer_id.parse().map_err(|_| MePassaFfiError::Network {
+    ) -> Result<(), ZapLivreFfiError> {
+        let peer_id: libp2p::PeerId = peer_id.parse().map_err(|_| ZapLivreFfiError::Network {
             details: "Invalid peer ID".to_string(),
         })?;
 
-        let addr: libp2p::Multiaddr = multiaddr.parse().map_err(|_| MePassaFfiError::Network {
+        let addr: libp2p::Multiaddr = multiaddr.parse().map_err(|_| ZapLivreFfiError::Network {
             details: "Invalid multiaddr".to_string(),
         })?;
 
@@ -1199,11 +1199,11 @@ impl MePassaClient {
                 multiaddr: addr,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1213,8 +1213,8 @@ impl MePassaClient {
         &self,
         to_peer_id: String,
         content: String,
-    ) -> Result<String, MePassaFfiError> {
-        let to: libp2p::PeerId = to_peer_id.parse().map_err(|_| MePassaFfiError::Network {
+    ) -> Result<String, ZapLivreFfiError> {
+        let to: libp2p::PeerId = to_peer_id.parse().map_err(|_| ZapLivreFfiError::Network {
             details: "Invalid peer ID".to_string(),
         })?;
 
@@ -1226,11 +1226,11 @@ impl MePassaClient {
                 content,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1241,7 +1241,7 @@ impl MePassaClient {
         peer_id: String,
         limit: Option<u32>,
         offset: Option<u32>,
-    ) -> Result<Vec<FfiMessage>, MePassaFfiError> {
+    ) -> Result<Vec<FfiMessage>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1251,26 +1251,26 @@ impl MePassaClient {
                 offset: offset.map(|o| o as usize),
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// List all conversations
-    pub fn list_conversations(&self) -> Result<Vec<FfiConversation>, MePassaFfiError> {
+    pub fn list_conversations(&self) -> Result<Vec<FfiConversation>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::ListConversations { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1280,7 +1280,7 @@ impl MePassaClient {
         &self,
         query: String,
         limit: Option<u32>,
-    ) -> Result<Vec<FfiMessage>, MePassaFfiError> {
+    ) -> Result<Vec<FfiMessage>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1289,17 +1289,17 @@ impl MePassaClient {
                 limit: limit.map(|l| l as usize),
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Mark conversation as read
-    pub fn mark_conversation_read(&self, peer_id: String) -> Result<(), MePassaFfiError> {
+    pub fn mark_conversation_read(&self, peer_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1307,56 +1307,56 @@ impl MePassaClient {
                 peer_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        execute_future(rx).map_err(|_| MePassaFfiError::Other {
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Get connected peers count
-    pub async fn connected_peers_count(&self) -> Result<u32, MePassaFfiError> {
+    pub async fn connected_peers_count(&self) -> Result<u32, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::ConnectedPeersCount { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Get current listening addresses
-    pub async fn listening_addresses(&self) -> Result<Vec<String>, MePassaFfiError> {
+    pub async fn listening_addresses(&self) -> Result<Vec<String>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::ListeningAddresses { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Bootstrap DHT
-    pub async fn bootstrap(&self) -> Result<(), MePassaFfiError> {
+    pub async fn bootstrap(&self) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::Bootstrap { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1365,7 +1365,7 @@ impl MePassaClient {
 
     #[cfg(feature = "voip")]
     /// Start a voice call to a peer
-    pub async fn start_call(&self, to_peer_id: String) -> Result<String, MePassaFfiError> {
+    pub async fn start_call(&self, to_peer_id: String) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1373,18 +1373,18 @@ impl MePassaClient {
                 to_peer_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     #[cfg(feature = "voip")]
     /// Accept an incoming call
-    pub async fn accept_call(&self, call_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn accept_call(&self, call_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1392,18 +1392,18 @@ impl MePassaClient {
                 call_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     #[cfg(feature = "voip")]
     /// Reject an incoming call
-    pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<(), MePassaFfiError> {
+    pub async fn reject_call(&self, call_id: String, reason: Option<String>) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1412,18 +1412,18 @@ impl MePassaClient {
                 reason,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     #[cfg(feature = "voip")]
     /// Hang up an active call
-    pub async fn hangup_call(&self, call_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn hangup_call(&self, call_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1431,18 +1431,18 @@ impl MePassaClient {
                 call_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     #[cfg(feature = "voip")]
     /// Toggle audio mute
-    pub async fn toggle_mute(&self, call_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn toggle_mute(&self, call_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1450,18 +1450,18 @@ impl MePassaClient {
                 call_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     #[cfg(feature = "voip")]
     /// Toggle speakerphone
-    pub async fn toggle_speakerphone(&self, call_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn toggle_speakerphone(&self, call_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1469,11 +1469,11 @@ impl MePassaClient {
                 call_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1486,7 +1486,7 @@ impl MePassaClient {
         audio_data: Vec<u8>,
         sample_rate: u32,
         channels: u32,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1497,11 +1497,11 @@ impl MePassaClient {
                 channels,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1514,7 +1514,7 @@ impl MePassaClient {
         &self,
         call_id: String,
         codec: types::FfiVideoCodec,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1523,18 +1523,18 @@ impl MePassaClient {
                 codec,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     #[cfg(any(feature = "voip", feature = "video"))]
     /// Disable video for an active call
-    pub async fn disable_video(&self, call_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn disable_video(&self, call_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1542,11 +1542,11 @@ impl MePassaClient {
                 call_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1562,7 +1562,7 @@ impl MePassaClient {
         frame_data: Vec<u8>,
         width: u32,
         height: u32,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1573,11 +1573,11 @@ impl MePassaClient {
                 height,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1587,7 +1587,7 @@ impl MePassaClient {
     ///
     /// Only applicable on mobile devices with multiple cameras.
     /// Desktop platforms may ignore this call or return an error.
-    pub async fn switch_camera(&self, call_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn switch_camera(&self, call_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1595,11 +1595,11 @@ impl MePassaClient {
                 call_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1619,14 +1619,14 @@ impl MePassaClient {
     pub fn register_video_frame_callback(
         &self,
         callback: Box<dyn crate::FfiVideoFrameCallback>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         #[cfg(any(feature = "voip", feature = "video"))]
         {
             return self
                 .handle()
                 .sender
                 .send(ClientCommand::RegisterVideoFrameCallback { callback })
-                .map_err(|_| MePassaFfiError::Other {
+                .map_err(|_| ZapLivreFfiError::Other {
                     details: "Failed to send command".to_string(),
                 });
         }
@@ -1634,7 +1634,7 @@ impl MePassaClient {
         #[cfg(not(any(feature = "voip", feature = "video")))]
         {
             let _ = callback;
-            Err(MePassaFfiError::Other {
+            Err(ZapLivreFfiError::Other {
                 details: "VoIP/video feature disabled".to_string(),
             })
         }
@@ -1644,14 +1644,14 @@ impl MePassaClient {
     pub fn register_audio_frame_callback(
         &self,
         callback: Box<dyn crate::FfiAudioFrameCallback>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         #[cfg(feature = "voip")]
         {
             return self
                 .handle()
                 .sender
                 .send(ClientCommand::RegisterAudioFrameCallback { callback })
-                .map_err(|_| MePassaFfiError::Other {
+                .map_err(|_| ZapLivreFfiError::Other {
                     details: "Failed to send command".to_string(),
                 });
         }
@@ -1659,7 +1659,7 @@ impl MePassaClient {
         #[cfg(not(feature = "voip"))]
         {
             let _ = callback;
-            Err(MePassaFfiError::Other {
+            Err(ZapLivreFfiError::Other {
                 details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
             })
         }
@@ -1669,14 +1669,14 @@ impl MePassaClient {
     pub fn register_voip_event_callback(
         &self,
         callback: Box<dyn crate::FfiVoipEventCallback>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         #[cfg(any(feature = "voip", feature = "video"))]
         {
             return self
                 .handle()
                 .sender
                 .send(ClientCommand::RegisterVoipEventCallback { callback })
-                .map_err(|_| MePassaFfiError::Other {
+                .map_err(|_| ZapLivreFfiError::Other {
                     details: "Failed to send command".to_string(),
                 });
         }
@@ -1684,7 +1684,7 @@ impl MePassaClient {
         #[cfg(not(any(feature = "voip", feature = "video")))]
         {
             let _ = callback;
-            Err(MePassaFfiError::Other {
+            Err(ZapLivreFfiError::Other {
                 details: "VoIP/video feature disabled".to_string(),
             })
         }
@@ -1694,14 +1694,14 @@ impl MePassaClient {
     pub fn register_call_event_callback(
         &self,
         callback: Box<dyn crate::FfiCallEventCallback>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         #[cfg(any(feature = "voip", feature = "video"))]
         {
             return self
                 .handle()
                 .sender
                 .send(ClientCommand::RegisterCallEventCallback { callback })
-                .map_err(|_| MePassaFfiError::Other {
+                .map_err(|_| ZapLivreFfiError::Other {
                     details: "Failed to send command".to_string(),
                 });
         }
@@ -1709,7 +1709,7 @@ impl MePassaClient {
         #[cfg(not(any(feature = "voip", feature = "video")))]
         {
             let _ = callback;
-            Err(MePassaFfiError::Other {
+            Err(ZapLivreFfiError::Other {
                 details: "VoIP/video feature disabled".to_string(),
             })
         }
@@ -1720,11 +1720,11 @@ impl MePassaClient {
     pub fn register_message_event_callback(
         &self,
         callback: Box<dyn crate::FfiMessageEventCallback>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         self.handle()
             .sender
             .send(ClientCommand::RegisterMessageEventCallback { callback })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })
     }
@@ -1733,48 +1733,48 @@ impl MePassaClient {
 
     #[cfg(not(feature = "voip"))]
     /// Start a voice call (stub - VoIP feature disabled)
-    pub async fn start_call(&self, _to_peer_id: String) -> Result<String, MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn start_call(&self, _to_peer_id: String) -> Result<String, ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
     #[cfg(not(feature = "voip"))]
     /// Accept an incoming call (stub - VoIP feature disabled)
-    pub async fn accept_call(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn accept_call(&self, _call_id: String) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
     #[cfg(not(feature = "voip"))]
     /// Reject an incoming call (stub - VoIP feature disabled)
-    pub async fn reject_call(&self, _call_id: String, _reason: Option<String>) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn reject_call(&self, _call_id: String, _reason: Option<String>) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
     #[cfg(not(feature = "voip"))]
     /// Hang up an active call (stub - VoIP feature disabled)
-    pub async fn hangup_call(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn hangup_call(&self, _call_id: String) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
     #[cfg(not(feature = "voip"))]
     /// Toggle audio mute (stub - VoIP feature disabled)
-    pub async fn toggle_mute(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn toggle_mute(&self, _call_id: String) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
     #[cfg(not(feature = "voip"))]
     /// Toggle speakerphone (stub - VoIP feature disabled)
-    pub async fn toggle_speakerphone(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn toggle_speakerphone(&self, _call_id: String) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
@@ -1787,24 +1787,24 @@ impl MePassaClient {
         _audio_data: Vec<u8>,
         _sample_rate: u32,
         _channels: u32,
-    ) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    ) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP feature is not enabled. Rebuild with --features voip".to_string(),
         })
     }
 
     #[cfg(not(any(feature = "voip", feature = "video")))]
     /// Enable video (stub - VoIP/video features disabled)
-    pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn enable_video(&self, _call_id: String, _codec: types::FfiVideoCodec) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
     #[cfg(not(any(feature = "voip", feature = "video")))]
     /// Disable video (stub - VoIP/video features disabled)
-    pub async fn disable_video(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn disable_video(&self, _call_id: String) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
@@ -1817,16 +1817,16 @@ impl MePassaClient {
         _frame_data: Vec<u8>,
         _width: u32,
         _height: u32,
-    ) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    ) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
 
     #[cfg(not(any(feature = "voip", feature = "video")))]
     /// Switch camera (stub - VoIP/video features disabled)
-    pub async fn switch_camera(&self, _call_id: String) -> Result<(), MePassaFfiError> {
-        Err(MePassaFfiError::Other {
+    pub async fn switch_camera(&self, _call_id: String) -> Result<(), ZapLivreFfiError> {
+        Err(ZapLivreFfiError::Other {
             details: "VoIP/video features are not enabled. Rebuild with --features voip or --features video".to_string(),
         })
     }
@@ -1838,7 +1838,7 @@ impl MePassaClient {
         &self,
         name: String,
         description: Option<String>,
-    ) -> Result<FfiGroup, MePassaFfiError> {
+    ) -> Result<FfiGroup, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1847,11 +1847,11 @@ impl MePassaClient {
                 description,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1861,7 +1861,7 @@ impl MePassaClient {
         &self,
         group_id: String,
         group_name: String,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1870,17 +1870,17 @@ impl MePassaClient {
                 group_name,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Leave a group
-    pub async fn leave_group(&self, group_id: String) -> Result<(), MePassaFfiError> {
+    pub async fn leave_group(&self, group_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1888,11 +1888,11 @@ impl MePassaClient {
                 group_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1902,7 +1902,7 @@ impl MePassaClient {
         &self,
         group_id: String,
         peer_id: String,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1911,11 +1911,11 @@ impl MePassaClient {
                 peer_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1925,7 +1925,7 @@ impl MePassaClient {
         &self,
         group_id: String,
         peer_id: String,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1934,40 +1934,40 @@ impl MePassaClient {
                 peer_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Get all groups
-    pub async fn get_groups(&self) -> Result<Vec<FfiGroup>, MePassaFfiError> {
+    pub async fn get_groups(&self) -> Result<Vec<FfiGroup>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::GetGroups { response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
-    pub async fn get_group_members(&self, group_id: String) -> Result<Vec<String>, MePassaFfiError> {
+    pub async fn get_group_members(&self, group_id: String) -> Result<Vec<String>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
             .send(ClientCommand::GetGroupMembers { group_id, response: tx })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -1977,7 +1977,7 @@ impl MePassaClient {
         group_id: String,
         name: Option<String>,
         description: Option<String>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -1987,11 +1987,11 @@ impl MePassaClient {
                 description,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2001,7 +2001,7 @@ impl MePassaClient {
         group_id: String,
         limit: Option<u32>,
         offset: Option<u32>,
-    ) -> Result<Vec<FfiMessage>, MePassaFfiError> {
+    ) -> Result<Vec<FfiMessage>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2011,11 +2011,11 @@ impl MePassaClient {
                 offset: offset.map(|v| v as usize),
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2024,7 +2024,7 @@ impl MePassaClient {
         &self,
         group_id: String,
         content: String,
-    ) -> Result<String, MePassaFfiError> {
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2033,11 +2033,11 @@ impl MePassaClient {
                 content,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2045,7 +2045,7 @@ impl MePassaClient {
     pub async fn get_group_sender_key_seed(
         &self,
         group_id: String,
-    ) -> Result<Vec<u8>, MePassaFfiError> {
+    ) -> Result<Vec<u8>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2053,11 +2053,11 @@ impl MePassaClient {
                 group_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2067,7 +2067,7 @@ impl MePassaClient {
         group_id: String,
         sender_peer_id: String,
         sender_key_seed: Vec<u8>,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2077,11 +2077,11 @@ impl MePassaClient {
                 sender_key_seed,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2097,7 +2097,7 @@ impl MePassaClient {
         image_data: Vec<u8>,
         file_name: String,
         quality: u32,
-    ) -> Result<String, MePassaFfiError> {
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2108,11 +2108,11 @@ impl MePassaClient {
                 quality: quality as u8,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2124,7 +2124,7 @@ impl MePassaClient {
         audio_data: Vec<u8>,
         file_name: String,
         duration_seconds: i32,
-    ) -> Result<String, MePassaFfiError> {
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2135,11 +2135,11 @@ impl MePassaClient {
                 duration_seconds,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2151,7 +2151,7 @@ impl MePassaClient {
         file_data: Vec<u8>,
         file_name: String,
         mime_type: String,
-    ) -> Result<String, MePassaFfiError> {
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2162,11 +2162,11 @@ impl MePassaClient {
                 mime_type,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2181,7 +2181,7 @@ impl MePassaClient {
         height: Option<i32>,
         duration_seconds: i32,
         thumbnail_data: Option<Vec<u8>>,
-    ) -> Result<String, MePassaFfiError> {
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2195,17 +2195,17 @@ impl MePassaClient {
                 thumbnail_data,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     /// Download media by hash
-    pub async fn download_media(&self, media_hash: String) -> Result<Vec<u8>, MePassaFfiError> {
+    pub async fn download_media(&self, media_hash: String) -> Result<Vec<u8>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2213,11 +2213,11 @@ impl MePassaClient {
                 media_hash,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2228,7 +2228,7 @@ impl MePassaClient {
         conversation_id: String,
         media_type: Option<types::FfiMediaType>,
         limit: Option<u32>,
-    ) -> Result<Vec<types::FfiMedia>, MePassaFfiError> {
+    ) -> Result<Vec<types::FfiMedia>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2238,11 +2238,11 @@ impl MePassaClient {
                 limit,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2252,7 +2252,7 @@ impl MePassaClient {
     // ═════════════════════════════════════════════════════════════════════
 
     /// Delete message (soft delete - marks as deleted locally)
-    pub fn delete_message(&self, message_id: String) -> Result<(), MePassaFfiError> {
+    pub fn delete_message(&self, message_id: String) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2260,11 +2260,11 @@ impl MePassaClient {
                 message_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2274,7 +2274,7 @@ impl MePassaClient {
         &self,
         message_id: String,
         to_peer_id: String,
-    ) -> Result<String, MePassaFfiError> {
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2283,11 +2283,11 @@ impl MePassaClient {
                 to_peer_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.await.map_err(|_| MePassaFfiError::Other {
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2301,7 +2301,7 @@ impl MePassaClient {
         &self,
         message_id: String,
         emoji: String,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2310,11 +2310,11 @@ impl MePassaClient {
                 emoji,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2324,7 +2324,7 @@ impl MePassaClient {
         &self,
         message_id: String,
         emoji: String,
-    ) -> Result<(), MePassaFfiError> {
+    ) -> Result<(), ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2333,11 +2333,11 @@ impl MePassaClient {
                 emoji,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
@@ -2346,7 +2346,7 @@ impl MePassaClient {
     pub fn get_message_reactions(
         &self,
         message_id: String,
-    ) -> Result<Vec<FfiReaction>, MePassaFfiError> {
+    ) -> Result<Vec<FfiReaction>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
@@ -2354,16 +2354,16 @@ impl MePassaClient {
                 message_id,
                 response: tx,
             })
-            .map_err(|_| MePassaFfiError::Other {
+            .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
 
-        rx.blocking_recv().map_err(|_| MePassaFfiError::Other {
+        rx.blocking_recv().map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
     }
 
     // TODO: Re-enable when enum types are fixed
-    // pub fn get_current_call(&self) -> Result<Option<FfiCall>, MePassaFfiError>
-    // pub fn get_call_stats(&self, _call_id: String) -> Result<Option<FfiCallStats>, MePassaFfiError>
+    // pub fn get_current_call(&self) -> Result<Option<FfiCall>, ZapLivreFfiError>
+    // pub fn get_call_stats(&self, _call_id: String) -> Result<Option<FfiCallStats>, ZapLivreFfiError>
 }

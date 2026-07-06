@@ -1,4 +1,4 @@
-# MePassa Bootstrap Node Dockerfile
+# ZapLivre Bootstrap Node Dockerfile
 
 FROM rust:1.88-slim-bookworm AS builder
 
@@ -16,7 +16,7 @@ COPY core ./core
 COPY server ./server
 
 # Build bootstrap node
-RUN cargo build --release --package mepassa-bootstrap
+RUN cargo build --release --package zaplivre-bootstrap
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -30,12 +30,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy binary
-COPY --from=builder /app/target/release/mepassa-bootstrap /usr/local/bin/mepassa-bootstrap
+COPY --from=builder /app/target/release/zaplivre-bootstrap /usr/local/bin/zaplivre-bootstrap
 
 # Create data directory
 RUN mkdir -p /app/data \
-    && useradd -r -u 10001 -g nogroup -d /app -s /usr/sbin/nologin mepassa \
-    && chown -R mepassa:nogroup /app
+    && useradd -r -u 10001 -g nogroup -d /app -s /usr/sbin/nologin zaplivre \
+    && chown -R zaplivre:nogroup /app
 
 EXPOSE 4001 8000
 
@@ -44,6 +44,6 @@ ENV BOOTSTRAP_PORT=4001
 ENV HEALTH_PORT=8000
 ENV DATA_DIR=/app/data
 
-USER mepassa
+USER zaplivre
 
-CMD ["mepassa-bootstrap"]
+CMD ["zaplivre-bootstrap"]

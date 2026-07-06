@@ -1,4 +1,4 @@
--- MePassa Client Database Schema (SQLite)
+-- ZapLivre Client Database Schema (SQLite)
 -- Local storage for messages, contacts, groups, and user data
 
 -- Enable foreign keys

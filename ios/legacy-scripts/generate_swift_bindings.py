@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate Swift bindings for mepassa-core using uniffi-bindgen
+Generate Swift bindings for zaplivre-core using uniffi-bindgen
 This script uses the uniffi Python package to generate bindings
 """
 
@@ -12,11 +12,11 @@ def main():
     # Setup paths
     project_root = Path(__file__).parent.parent
     core_dir = project_root / "core"
-    udl_file = core_dir / "src" / "mepassa.udl"
-    lib_file = project_root / "target" / "release" / "libmepassa_core.dylib"
-    out_dir = Path(__file__).parent / "MePassa" / "Generated"
+    udl_file = core_dir / "src" / "zaplivre.udl"
+    lib_file = project_root / "target" / "release" / "libzaplivre_core.dylib"
+    out_dir = Path(__file__).parent / "ZapLivre" / "Generated"
 
-    print("🔨 Generating Swift bindings for MePassa Core...")
+    print("🔨 Generating Swift bindings for ZapLivre Core...")
     print(f"📄 UDL file: {udl_file}")
     print(f"📚 Library: {lib_file}")
     print(f"📂 Output: {out_dir}")
@@ -49,7 +49,7 @@ def main():
             out_dir=str(out_dir),
             language="swift",
             library_file=str(lib_file),
-            crate_name="mepassa"
+            crate_name="zaplivre"
         )
 
         print("✅ Swift bindings generated successfully!")
@@ -98,8 +98,8 @@ def main():
 
     print("\n🎯 Next steps:")
     print("   1. Add generated files to Xcode project")
-    print("   2. Add libmepassa_core.a to 'Frameworks and Libraries'")
-    print("   3. Import mepassa in Swift: import mepassa")
+    print("   2. Add libzaplivre_core.a to 'Frameworks and Libraries'")
+    print("   3. Import zaplivre in Swift: import zaplivre")
 
 if __name__ == "__main__":
     main()

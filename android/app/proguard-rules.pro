@@ -3,7 +3,7 @@
 # proguardFiles setting in build.gradle.
 
 # Keep UniFFI generated classes
--keep class uniffi.mepassa.** { *; }
+-keep class uniffi.zaplivre.** { *; }
 
 # Keep JNA classes (required by UniFFI)
 -keep class com.sun.jna.** { *; }
@@ -31,7 +31,7 @@
 }
 
 # Keep data classes and their fields
--keepclassmembers class com.mepassa.** {
+-keepclassmembers class com.zaplivre.** {
     <fields>;
 }
 

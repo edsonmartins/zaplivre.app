@@ -1,4 +1,4 @@
-# Firebase Setup - MePassa Android
+# Firebase Setup - ZapLivre Android
 
 Este documento explica como configurar Firebase Cloud Messaging (FCM) para notificações push no app Android.
 
@@ -15,7 +15,7 @@ Este documento explica como configurar Firebase Cloud Messaging (FCM) para notif
 
 1. Acesse [Firebase Console](https://console.firebase.google.com/)
 2. Clique em **"Add project"** (Adicionar projeto)
-3. Nome do projeto: **MePassa** (ou outro nome de sua preferência)
+3. Nome do projeto: **ZapLivre** (ou outro nome de sua preferência)
 4. (Opcional) Desabilite Google Analytics se não for usar
 5. Clique em **"Create project"**
 
@@ -23,8 +23,8 @@ Este documento explica como configurar Firebase Cloud Messaging (FCM) para notif
 
 1. No painel do projeto Firebase, clique no ícone **Android** (robot icon)
 2. Preencha os dados:
-   - **Android package name:** `com.mepassa` (IMPORTANTE: deve ser exatamente este)
-   - **App nickname:** MePassa Android (opcional)
+   - **Android package name:** `com.zaplivre` (IMPORTANTE: deve ser exatamente este)
+   - **App nickname:** ZapLivre Android (opcional)
    - **Debug signing certificate SHA-1:** (opcional, pode pular por enquanto)
 3. Clique em **"Register app"**
 
@@ -33,7 +33,7 @@ Este documento explica como configurar Firebase Cloud Messaging (FCM) para notif
 1. Após registrar o app, clique em **"Download google-services.json"**
 2. Salve o arquivo no diretório:
    ```
-   /Users/edsonmartins/desenvolvimento/mepassa/android/app/google-services.json
+   /Users/edsonmartins/desenvolvimento/zaplivre/android/app/google-services.json
    ```
 3. **IMPORTANTE:** Este arquivo contém credenciais do Firebase e NÃO deve ser commitado no Git
    - Já está no `.gitignore`
@@ -45,7 +45,7 @@ O projeto já possui as dependências Firebase instaladas:
 - ✅ `build.gradle.kts` (raiz) - Plugin google-services configurado
 - ✅ `app/build.gradle.kts` - Firebase BoM e firebase-messaging-ktx adicionados
 - ✅ `AndroidManifest.xml` - FirebaseMessagingService registrado
-- ✅ `MePassaFirebaseMessagingService.kt` - Service criado
+- ✅ `ZapLivreFirebaseMessagingService.kt` - Service criado
 - ✅ `NotificationHelper.kt` - Helper de notificações criado
 
 Você só precisa adicionar o `google-services.json` conforme passo 3.
@@ -70,7 +70,7 @@ Você só precisa adicionar o `google-services.json` conforme passo 3.
 
 1. Build e instale o app no dispositivo/emulador:
    ```bash
-   cd /Users/edsonmartins/desenvolvimento/mepassa/android
+   cd /Users/edsonmartins/desenvolvimento/zaplivre/android
    ./gradlew installDebug
    ```
 
@@ -87,7 +87,7 @@ Você só precisa adicionar o `google-services.json` conforme passo 3.
 5. Preencha:
    - **Notification title:** Teste
    - **Notification text:** Mensagem de teste
-   - **Target:** App: com.mepassa (MePassa Android)
+   - **Target:** App: com.zaplivre (ZapLivre Android)
 
 6. Clique em **"Send test message"**
 
@@ -108,10 +108,10 @@ android/
 │   ├── build.gradle.kts               ✅ Firebase dependencies adicionadas
 │   └── src/main/
 │       ├── AndroidManifest.xml        ✅ FCM Service registrado
-│       └── kotlin/com/mepassa/
+│       └── kotlin/com/zaplivre/
 │           ├── service/
-│           │   ├── MePassaFirebaseMessagingService.kt  ✅ Criado
-│           │   └── MePassaService.kt
+│           │   ├── ZapLivreFirebaseMessagingService.kt  ✅ Criado
+│           │   └── ZapLivreService.kt
 │           └── util/
 │               └── NotificationHelper.kt  ✅ Criado
 └── build.gradle.kts                   ✅ google-services plugin adicionado

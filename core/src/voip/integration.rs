@@ -15,7 +15,7 @@ use super::{
     Result, // Use voip::Result instead of utils::error::Result
 };
 use crate::network::swarm::NetworkManager;
-use crate::utils::error::MePassaError;
+use crate::utils::error::ZapLivreError;
 
 /// VoIP network integration coordinator
 ///

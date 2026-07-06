@@ -19,7 +19,7 @@ impl Config {
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self> {
         let turn_static_secret = std::env::var("TURN_STATIC_SECRET")
-            .unwrap_or_else(|_| "mepassa_turn_dev_secret".to_string());
+            .unwrap_or_else(|_| "zaplivre_turn_dev_secret".to_string());
 
         // In production, these should be the actual external IPs/domains
         let turn_host = std::env::var("TURN_HOST")

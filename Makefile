@@ -1,15 +1,15 @@
-# MePassa Makefile
+# ZapLivre Makefile
 # Quick commands for development
 
 .PHONY: help setup up down logs clean build test fmt lint dmg
 
 help: ## Show this help
-	@echo "MePassa Development Commands:"
+	@echo "ZapLivre Development Commands:"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 setup: check-prereqs ## Initial setup (copy .env, install deps)
-	@echo "Setting up MePassa development environment..."
+	@echo "Setting up ZapLivre development environment..."
 	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env file"; fi
 	@echo "Installing Rust dependencies..."
 	@cd core && cargo fetch
@@ -113,10 +113,10 @@ lint: ## Run clippy
 check: fmt lint test ## Run format, lint, and test
 
 db-shell: ## Open PostgreSQL shell
-	docker compose exec postgres psql -U mepassa -d mepassa
+	docker compose exec postgres psql -U zaplivre -d zaplivre
 
 redis-cli: ## Open Redis CLI
-	docker compose exec redis redis-cli -a mepassa_redis_dev
+	docker compose exec redis redis-cli -a zaplivre_redis_dev
 
 db-reset: ## Reset database (WARNING: deletes all data)
 	@echo "WARNING: This will delete all database data!"
@@ -138,7 +138,7 @@ dev-core: ## Run core development server
 	@cd core && cargo watch -x 'run --example simple_chat'
 
 dev-android: ## Run Android app
-	@cd android && ./gradlew installDebug && adb shell am start -n com.mepassa/.MainActivity
+	@cd android && ./gradlew installDebug && adb shell am start -n com.zaplivre/.MainActivity
 
 dev-desktop: ## Run Desktop app
 	@cd desktop && npm run tauri dev
@@ -147,9 +147,9 @@ dev-desktop: ## Run Desktop app
 health: ## Check service health
 	@echo "Checking service health..."
 	@echo -n "PostgreSQL:       "
-	@docker compose exec -T postgres pg_isready -U mepassa > /dev/null 2>&1 && echo "✓ OK" || echo "✗ FAILED"
+	@docker compose exec -T postgres pg_isready -U zaplivre > /dev/null 2>&1 && echo "✓ OK" || echo "✗ FAILED"
 	@echo -n "Redis:            "
-	@docker compose exec -T redis redis-cli -a mepassa_redis_dev ping > /dev/null 2>&1 && echo "✓ OK" || echo "✗ FAILED"
+	@docker compose exec -T redis redis-cli -a zaplivre_redis_dev ping > /dev/null 2>&1 && echo "✓ OK" || echo "✗ FAILED"
 	@echo -n "Message Store:    "
 	@curl -sf http://localhost:8080/health > /dev/null 2>&1 && echo "✓ OK" || echo "✗ FAILED"
 	@echo -n "Push Server:      "

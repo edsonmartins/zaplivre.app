@@ -23,7 +23,7 @@ use crate::{
         TypingIndicator,
     },
     storage::{Database, MediaType, MessageStatus, NewMedia, NewMessage, NewReaction, UpdateMessage},
-    utils::error::{MePassaError, Result},
+    utils::error::{ZapLivreError, Result},
 };
 use tokio::sync::RwLock;
 use crate::identity::Identity;
@@ -128,7 +128,7 @@ impl MessageHandler {
             }
             None => {
                 tracing::warn!("Message {} has no payload", message.id);
-                Err(MePassaError::Protocol(
+                Err(ZapLivreError::Protocol(
                     "Message has no payload".to_string(),
                 ))
             }
@@ -227,17 +227,17 @@ impl MessageHandler {
     fn validate_message(&self, message: &Message) -> Result<()> {
         // Check message ID
         if message.id.is_empty() {
-            return Err(MePassaError::Protocol("Empty message ID".to_string()));
+            return Err(ZapLivreError::Protocol("Empty message ID".to_string()));
         }
 
         // Check sender
         if message.sender_peer_id.is_empty() {
-            return Err(MePassaError::Protocol("Empty sender peer ID".to_string()));
+            return Err(ZapLivreError::Protocol("Empty sender peer ID".to_string()));
         }
 
         // Check recipient (should be us)
         if message.recipient_peer_id != self.local_peer_id {
-            return Err(MePassaError::Protocol(format!(
+            return Err(ZapLivreError::Protocol(format!(
                 "Message not addressed to us (expected: {}, got: {})",
                 self.local_peer_id, message.recipient_peer_id
             )));
@@ -345,7 +345,7 @@ impl MessageHandler {
             .decrypt_from(&peer_id, device_id, &crypto_msg)
             .await?;
         let text = String::from_utf8(plaintext)
-            .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+            .map_err(|_| ZapLivreError::Protocol("Invalid UTF-8 content".to_string()))?;
 
         if let Some(envelope) = ReactionEnvelope::decode(&text) {
             return self.handle_reaction_envelope(message, envelope).await;
@@ -513,23 +513,23 @@ impl MessageHandler {
 
         let tmp_dir = self.data_dir.join("media").join("tmp");
         std::fs::create_dir_all(&tmp_dir)
-            .map_err(|e| MePassaError::Storage(format!("Failed to create tmp dir: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to create tmp dir: {}", e)))?;
         let tmp_path = tmp_dir.join(format!("{}.part", chunk.media_hash));
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .open(&tmp_path)
-            .map_err(|e| MePassaError::Storage(format!("Failed to open temp file: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to open temp file: {}", e)))?;
         file.seek(SeekFrom::Start(chunk.offset as u64))
-            .map_err(|e| MePassaError::Storage(format!("Failed to seek temp file: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to seek temp file: {}", e)))?;
         file.write_all(&chunk.data)
-            .map_err(|e| MePassaError::Storage(format!("Failed to write chunk: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to write chunk: {}", e)))?;
 
         if chunk.is_last {
             let media = self
                 .database
                 .get_media_by_hash(&chunk.media_hash)?
-                .ok_or_else(|| MePassaError::NotFound("Media record not found".to_string()))?;
+                .ok_or_else(|| ZapLivreError::NotFound("Media record not found".to_string()))?;
 
             // SEC-03: verificar a integridade do arquivo remontado contra o
             // media_hash antes de aceitá-lo (o hash pode ser SHA-256(dados) ou
@@ -537,7 +537,7 @@ impl MessageHandler {
             {
                 use sha2::{Digest, Sha256};
                 let data = std::fs::read(&tmp_path).map_err(|e| {
-                    MePassaError::Storage(format!("Failed to read reassembled media: {}", e))
+                    ZapLivreError::Storage(format!("Failed to read reassembled media: {}", e))
                 })?;
 
                 let plain_hash = format!("{:x}", Sha256::new_with_prefix(&data).finalize());
@@ -555,7 +555,7 @@ impl MessageHandler {
                         chunk.media_hash,
                         plain_hash
                     );
-                    return Err(MePassaError::Crypto(
+                    return Err(ZapLivreError::Crypto(
                         "Media integrity verification failed - file discarded".to_string(),
                     ));
                 }
@@ -572,13 +572,13 @@ impl MessageHandler {
             };
             let final_path = self.data_dir.join("media").join(file_name);
             std::fs::create_dir_all(self.data_dir.join("media"))
-                .map_err(|e| MePassaError::Storage(format!("Failed to create media dir: {}", e)))?;
+                .map_err(|e| ZapLivreError::Storage(format!("Failed to create media dir: {}", e)))?;
             std::fs::rename(&tmp_path, &final_path)
-                .map_err(|e| MePassaError::Storage(format!("Failed to finalize media file: {}", e)))?;
+                .map_err(|e| ZapLivreError::Storage(format!("Failed to finalize media file: {}", e)))?;
 
             self.database
                 .update_media_local_path(media.id, &final_path.to_string_lossy())
-                .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         }
 
         Ok(())
@@ -592,7 +592,7 @@ impl MessageHandler {
         let media = self
             .database
             .get_media_by_hash(&request.media_hash)?
-            .ok_or_else(|| MePassaError::NotFound("Media not found".to_string()))?;
+            .ok_or_else(|| ZapLivreError::NotFound("Media not found".to_string()))?;
 
         // SEC-02: só servir mídia a peers que participam da conversa da mídia
         // (antes qualquer peer conectado podia baixar qualquer mídia pelo hash)
@@ -611,13 +611,13 @@ impl MessageHandler {
                 request.media_hash,
                 from_peer
             );
-            return Err(MePassaError::Permission(
+            return Err(ZapLivreError::Permission(
                 "Peer not authorized for this media".to_string(),
             ));
         }
         let local_path = media
             .local_path
-            .ok_or_else(|| MePassaError::NotFound("Media file missing".to_string()))?;
+            .ok_or_else(|| ZapLivreError::NotFound("Media file missing".to_string()))?;
         let data = std::fs::read(&local_path)?;
 
         let chunk_size = if request.chunk_size > 0 {
@@ -693,7 +693,7 @@ impl MessageHandler {
     fn decrypt_for_storage(&self, blob: &[u8]) -> Result<String> {
         let bytes = decrypt_for_storage(&self.storage_key, blob)?;
         let text = String::from_utf8(bytes)
-            .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+            .map_err(|_| ZapLivreError::Protocol("Invalid UTF-8 content".to_string()))?;
         Ok(text)
     }
 
@@ -703,7 +703,7 @@ impl MessageHandler {
         hasher.update(&media_bytes);
         let computed_hash = format!("{:x}", hasher.finalize());
         if computed_hash != envelope.media_hash {
-            return Err(MePassaError::Protocol("Media hash mismatch".to_string()));
+            return Err(ZapLivreError::Protocol("Media hash mismatch".to_string()));
         }
 
         let media_type = MediaType::from_str(&envelope.media_type);
@@ -726,7 +726,7 @@ impl MessageHandler {
 
         let media_dir = self.data_dir.join("media");
         std::fs::create_dir_all(&media_dir)
-            .map_err(|e| MePassaError::Storage(format!("Failed to create media dir: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to create media dir: {}", e)))?;
 
         let extension = envelope
             .file_name
@@ -739,17 +739,17 @@ impl MessageHandler {
         };
         let media_path = media_dir.join(file_name);
         std::fs::write(&media_path, &media_bytes)
-            .map_err(|e| MePassaError::Storage(format!("Failed to write media file: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to write media file: {}", e)))?;
 
         let mut thumbnail_path = None;
         if let Some(thumbnail_bytes) = envelope.thumbnail_bytes()? {
             let thumb_dir = media_dir.join("thumbnails");
             std::fs::create_dir_all(&thumb_dir).map_err(|e| {
-                MePassaError::Storage(format!("Failed to create thumbnail dir: {}", e))
+                ZapLivreError::Storage(format!("Failed to create thumbnail dir: {}", e))
             })?;
             let thumb_path = thumb_dir.join(format!("{}.jpg", envelope.media_hash));
             std::fs::write(&thumb_path, &thumbnail_bytes).map_err(|e| {
-                MePassaError::Storage(format!("Failed to write thumbnail file: {}", e))
+                ZapLivreError::Storage(format!("Failed to write thumbnail file: {}", e))
             })?;
             thumbnail_path = Some(thumb_path.to_string_lossy().to_string());
         }
@@ -911,7 +911,7 @@ mod tests {
         let handler = MessageHandler::new(
             local_peer_id.clone(),
             db_arc,
-            std::env::temp_dir().join("mepassa_test_media"),
+            std::env::temp_dir().join("zaplivre_test_media"),
             identity,
             session_manager,
             storage_key,
@@ -1013,7 +1013,7 @@ mod tests {
         let handler = MessageHandler::new(
             local_peer_id,
             Arc::clone(&db_arc),
-            std::env::temp_dir().join("mepassa_test_media"),
+            std::env::temp_dir().join("zaplivre_test_media"),
             identity,
             session_manager,
             storage_key,

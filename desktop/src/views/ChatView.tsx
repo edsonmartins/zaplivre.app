@@ -113,7 +113,7 @@ export default function ChatView({ localPeerId }: ChatViewProps) {
   const previousMessageCount = useRef<number>(0)
   // Filtro de exibição para mensagens LEGADAS do hack antigo de sender key
   // (a distribuição agora é in-band no core e não gera mensagens de chat)
-  const legacyGroupKeyPrefix = 'mepassa-group-key:v1:'
+  const legacyGroupKeyPrefix = 'zaplivre-group-key:v1:'
 
   useEffect(() => {
     if (!peerId) return

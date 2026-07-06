@@ -1,4 +1,4 @@
--- MePassa Identity Server Database Schema
+-- ZapLivre Identity Server Database Schema
 -- PostgreSQL 15+
 --
 -- NOTE: the canonical schema lives in server/postgres/init.sql (loaded by

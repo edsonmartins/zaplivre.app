@@ -1,6 +1,6 @@
 # Self-Hosting (VPS) - Bootstrap/DHT
 
-Este guia publica os servidores de Bootstrap/DHT do MePassa em uma VPS usando Docker + Swarm + Traefik.
+Este guia publica os servidores de Bootstrap/DHT do ZapLivre em uma VPS usando Docker + Swarm + Traefik.
 
 ## ✅ Pré-requisitos
 
@@ -24,17 +24,17 @@ Crie registros A:
 Na VPS, dentro do repositório:
 
 ```bash
-docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
+docker build -f server/bootstrap/Dockerfile -t zaplivre-bootstrap:latest .
 ```
 
 ## 3) Configurar envs
 
 ```bash
-sudo mkdir -p /etc/mepassa
-sudo cp server/bootstrap/.env.example /etc/mepassa/bootstrap.env
-sudo cp server/bootstrap/.env.bootstrap-2.example /etc/mepassa/bootstrap-2.env
-sudo nano /etc/mepassa/bootstrap.env
-sudo nano /etc/mepassa/bootstrap-2.env
+sudo mkdir -p /etc/zaplivre
+sudo cp server/bootstrap/.env.example /etc/zaplivre/bootstrap.env
+sudo cp server/bootstrap/.env.bootstrap-2.example /etc/zaplivre/bootstrap-2.env
+sudo nano /etc/zaplivre/bootstrap.env
+sudo nano /etc/zaplivre/bootstrap-2.env
 ```
 
 Edite:
@@ -44,7 +44,7 @@ Edite:
 ## 4) Deploy com Docker Stack
 
 ```bash
-docker stack deploy -c server/bootstrap/stack.yml mepassa
+docker stack deploy -c server/bootstrap/stack.yml zaplivre
 ```
 
 ## 5) Verificação
@@ -52,9 +52,9 @@ docker stack deploy -c server/bootstrap/stack.yml mepassa
 ```bash
 docker service ls
 
-docker service logs -f mepassa_bootstrap-node
+docker service logs -f zaplivre_bootstrap-node
 
-docker service logs -f mepassa_bootstrap-node-2
+docker service logs -f zaplivre_bootstrap-node-2
 ```
 
 Health checks:
@@ -108,8 +108,8 @@ Peer ID: 12D3KooW...
 Exemplos de comandos:
 
 ```bash
-docker service logs mepassa_bootstrap-node | grep -m1 "Peer ID"
-docker service logs mepassa_bootstrap-node-2 | grep -m1 "Peer ID"
+docker service logs zaplivre_bootstrap-node | grep -m1 "Peer ID"
+docker service logs zaplivre_bootstrap-node-2 | grep -m1 "Peer ID"
 ```
 
 Multiaddrs para os clientes:
@@ -154,8 +154,8 @@ Configure os secrets no repositório:
 Para atualizar a imagem:
 
 ```bash
-docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
-docker stack deploy -c server/bootstrap/stack.yml mepassa
+docker build -f server/bootstrap/Dockerfile -t zaplivre-bootstrap:latest .
+docker stack deploy -c server/bootstrap/stack.yml zaplivre
 ```
 
 ## Stack Swarm (todos os serviços)
@@ -166,16 +166,16 @@ Ele espera imagens locais já buildadas (não usa `build:`).
 ### 1) Build das imagens
 
 ```bash
-docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
-docker build -f server/store/Dockerfile -t mepassa-store:latest .
-docker build -f server/push/Dockerfile -t mepassa-push:latest .
-docker build -f server/turn-credentials/Dockerfile -t mepassa-turn-credentials:latest .
+docker build -f server/bootstrap/Dockerfile -t zaplivre-bootstrap:latest .
+docker build -f server/store/Dockerfile -t zaplivre-store:latest .
+docker build -f server/push/Dockerfile -t zaplivre-push:latest .
+docker build -f server/turn-credentials/Dockerfile -t zaplivre-turn-credentials:latest .
 ```
 
 ### 2) Deploy do stack completo
 
 ```bash
-docker stack deploy -c stack.yml mepassa
+docker stack deploy -c stack.yml zaplivre
 ```
 
 ### 3) Serviços opcionais (monitoramento)
@@ -183,8 +183,8 @@ docker stack deploy -c stack.yml mepassa
 Prometheus e Grafana vêm com `replicas: 0`. Para habilitar:
 
 ```bash
-docker service scale mepassa_prometheus=1
-docker service scale mepassa_grafana=1
+docker service scale zaplivre_prometheus=1
+docker service scale zaplivre_grafana=1
 ```
 
 ## Troubleshooting

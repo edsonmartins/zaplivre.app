@@ -2,11 +2,11 @@
 
 ## iOS (APNs)
 
-- [ ] App ID `app.mepassa.ios` com Push Notifications habilitado no Apple Developer.
+- [ ] App ID `app.zaplivre.ios` com Push Notifications habilitado no Apple Developer.
 - [ ] APNs Auth Key (`.p8`) criado e configurado no servidor.
 - [ ] Entitlements configurados:
-  - `ios/MePassa/MePassa.dev.entitlements`
-  - `ios/MePassa/MePassa.prod.entitlements`
+  - `ios/ZapLivre/ZapLivre.dev.entitlements`
+  - `ios/ZapLivre/ZapLivre.prod.entitlements`
 - [ ] App instalado em device físico e token APNs logado:
   - `🍎 APNs device token: ...`
 - [ ] Token registrado no push server:

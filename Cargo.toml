@@ -1,4 +1,4 @@
-# MePassa Platform - Rust Workspace
+# ZapLivre Platform - Rust Workspace
 # Arquitetura Híbrida: P2P + Servidor
 
 [workspace]
@@ -18,8 +18,8 @@ version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0"
 authors = ["IntegrallTech <contato@integralltech.com.br>"]
-repository = "https://github.com/integralltech/mepassa"
-homepage = "https://mepassa.app"
+repository = "https://github.com/integralltech/zaplivre"
+homepage = "https://zaplivre.app"
 
 [workspace.dependencies]
 # Async runtime

@@ -4,7 +4,7 @@
 //! Direct Connection → Hole Punching → Relay
 
 use libp2p::{identity, Multiaddr, PeerId};
-use mepassa_core::network::{
+use zaplivre_core::network::{
     connection::{ConnectionManager, ConnectionState, ConnectionStrategy, ConnectionType},
     nat_detection::{ConnectionStrategy as NatStrategy, NatDetector, NatType},
     relay::{RelayManager, ReservationStatus},
@@ -280,14 +280,14 @@ fn test_success_rate_calculation() {
     assert_eq!(strategy.success_rate(&ConnectionType::Direct), 0.0);
 
     // Record some attempts manually
-    strategy.attempts.push(mepassa_core::network::connection::ConnectionAttempt {
+    strategy.attempts.push(zaplivre_core::network::connection::ConnectionAttempt {
         started_at: std::time::Instant::now(),
         duration: Duration::from_secs(1),
         success: true,
         connection_type: ConnectionType::Direct,
     });
 
-    strategy.attempts.push(mepassa_core::network::connection::ConnectionAttempt {
+    strategy.attempts.push(zaplivre_core::network::connection::ConnectionAttempt {
         started_at: std::time::Instant::now(),
         duration: Duration::from_secs(1),
         success: false,

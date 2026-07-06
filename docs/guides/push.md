@@ -1,6 +1,6 @@
 # Push Notifications (iOS + Android)
 
-Guia rápido para configurar, registrar e testar push notifications no MePassa.
+Guia rápido para configurar, registrar e testar push notifications no ZapLivre.
 
 ## 1) Visão geral
 
@@ -16,7 +16,7 @@ Guia rápido para configurar, registrar e testar push notifications no MePassa.
 
 ### 2.1 Apple Developer
 
-1. App ID: `app.mepassa.ios` com **Push Notifications** habilitado.  
+1. App ID: `app.zaplivre.ios` com **Push Notifications** habilitado.  
 2. Gerar **APNs Auth Key** (`.p8`).  
 3. Anotar:
    - Key ID
@@ -31,14 +31,14 @@ Guia rápido para configurar, registrar e testar push notifications no MePassa.
   - Background Modes: Remote notifications
 
 Entitlements no repo:
-- `ios/MePassa/MePassa.dev.entitlements`
-- `ios/MePassa/MePassa.prod.entitlements`
+- `ios/ZapLivre/ZapLivre.dev.entitlements`
+- `ios/ZapLivre/ZapLivre.prod.entitlements`
 
 ### 2.3 Build e device físico
 
 ```bash
 cd ios
-xcodebuild -scheme MePassa -configuration Debug -destination 'platform=iOS,name=SEU_IPHONE' build
+xcodebuild -scheme ZapLivre -configuration Debug -destination 'platform=iOS,name=SEU_IPHONE' build
 ```
 
 ### 2.4 Token e registro

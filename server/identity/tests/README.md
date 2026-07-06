@@ -34,8 +34,8 @@ docker-compose up -d postgres redis
 ### 2. Criar database
 
 ```bash
-createdb mepassa_identity
-psql mepassa_identity < schema.sql
+createdb zaplivre_identity
+psql zaplivre_identity < schema.sql
 ```
 
 ### 3. Iniciar Identity Server
@@ -139,8 +139,8 @@ Verifica headers de rate limiting:
 **Solução:**
 ```bash
 brew services start postgresql@15
-createdb mepassa_identity
-psql mepassa_identity < schema.sql
+createdb zaplivre_identity
+psql zaplivre_identity < schema.sql
 ```
 
 ### Erro: "redis error"
@@ -187,9 +187,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: mepassa_identity
-          POSTGRES_USER: mepassa
-          POSTGRES_PASSWORD: mepassa
+          POSTGRES_DB: zaplivre_identity
+          POSTGRES_USER: zaplivre
+          POSTGRES_PASSWORD: zaplivre
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -214,9 +214,9 @@ jobs:
 
       - name: Setup database
         run: |
-          psql -h localhost -U mepassa -d mepassa_identity < server/identity/schema.sql
+          psql -h localhost -U zaplivre -d zaplivre_identity < server/identity/schema.sql
         env:
-          PGPASSWORD: mepassa
+          PGPASSWORD: zaplivre
 
       - name: Start Identity Server
         run: |
@@ -224,7 +224,7 @@ jobs:
           cargo run &
           sleep 5
         env:
-          DATABASE_URL: postgres://mepassa:mepassa@localhost/mepassa_identity
+          DATABASE_URL: postgres://zaplivre:zaplivre@localhost/zaplivre_identity
           REDIS_URL: redis://localhost
 
       - name: Run integration tests

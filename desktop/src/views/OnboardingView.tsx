@@ -29,7 +29,7 @@ export default function OnboardingView({ localPeerId }: OnboardingViewProps) {
       const home = await homeDir()
       await invoke('import_identity_backup', {
         backup,
-        dataDir: `${home}/.mepassa`,
+        dataDir: `${home}/.zaplivre`,
       })
       // import_identity_backup reinicia o app; nada mais a fazer aqui
     } catch (error) {

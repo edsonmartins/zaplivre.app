@@ -1,14 +1,14 @@
-//! Error types for MePassa
+//! Error types for ZapLivre
 
 use thiserror::Error;
 use crate::storage::StorageError;
 
 /// Result type alias
-pub type Result<T> = std::result::Result<T, MePassaError>;
+pub type Result<T> = std::result::Result<T, ZapLivreError>;
 
-/// Main error type for MePassa
+/// Main error type for ZapLivre
 #[derive(Error, Debug)]
-pub enum MePassaError {
+pub enum ZapLivreError {
     #[error("Identity error: {0}")]
     Identity(String),
 
@@ -40,14 +40,14 @@ pub enum MePassaError {
     Other(String),
 }
 
-impl From<StorageError> for MePassaError {
+impl From<StorageError> for ZapLivreError {
     fn from(err: StorageError) -> Self {
-        MePassaError::Storage(err.to_string())
+        ZapLivreError::Storage(err.to_string())
     }
 }
 
-impl From<rusqlite::Error> for MePassaError {
+impl From<rusqlite::Error> for ZapLivreError {
     fn from(err: rusqlite::Error) -> Self {
-        MePassaError::Storage(err.to_string())
+        ZapLivreError::Storage(err.to_string())
     }
 }

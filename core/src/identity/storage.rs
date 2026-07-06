@@ -13,7 +13,7 @@ use rand::{rngs::StdRng, SeedableRng};
 use sha2::Sha256;
 
 use crate::identity::{Keypair, PreKeyPool};
-use crate::utils::error::{Result, MePassaError};
+use crate::utils::error::{Result, ZapLivreError};
 use libsignal_protocol_syft::IdentityKeyPair;
 
 /// Identity with keypair and prekey pool
@@ -41,7 +41,7 @@ impl Identity {
     /// # Example
     ///
     /// ```no_run
-    /// use mepassa_core::identity::Identity;
+    /// use zaplivre_core::identity::Identity;
     ///
     /// let identity = Identity::generate(100);
     /// println!("Peer ID: {}", identity.peer_id());
@@ -155,10 +155,10 @@ impl Identity {
     /// Derive a stable storage encryption key from the identity keypair
     pub fn storage_key(&self) -> Result<[u8; 32]> {
         let key_bytes = self.keypair.to_bytes();
-        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-storage-v1"), &key_bytes);
+        let hkdf = Hkdf::<Sha256>::new(Some(b"zaplivre-storage-v1"), &key_bytes);
         let mut out = [0u8; 32];
         hkdf.expand(b"storage-key", &mut out)
-            .map_err(|e| MePassaError::Crypto(format!("Storage key derivation failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Storage key derivation failed: {}", e)))?;
         Ok(out)
     }
 }
@@ -232,7 +232,7 @@ impl IdentityStorage for FileIdentityStorage {
     fn save_identity(&self, identity: &Identity) -> Result<()> {
         // Ensure data directory exists
         std::fs::create_dir_all(&self.data_dir).map_err(|e| {
-            MePassaError::Storage(format!("Failed to create data directory: {}", e))
+            ZapLivreError::Storage(format!("Failed to create data directory: {}", e))
         })?;
 
         let data = IdentityData {
@@ -243,10 +243,10 @@ impl IdentityStorage for FileIdentityStorage {
         };
 
         let json = serde_json::to_string_pretty(&data)
-            .map_err(|e| MePassaError::Storage(format!("Failed to serialize identity: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to serialize identity: {}", e)))?;
 
         std::fs::write(self.identity_path(), json)
-            .map_err(|e| MePassaError::Storage(format!("Failed to write identity: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to write identity: {}", e)))?;
 
         Ok(())
     }
@@ -259,10 +259,10 @@ impl IdentityStorage for FileIdentityStorage {
         }
 
         let json = std::fs::read_to_string(&path)
-            .map_err(|e| MePassaError::Storage(format!("Failed to read identity: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to read identity: {}", e)))?;
 
         let data: IdentityData = serde_json::from_str(&json)
-            .map_err(|e| MePassaError::Storage(format!("Failed to deserialize identity: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to deserialize identity: {}", e)))?;
 
         let keypair = Keypair::from_bytes(&data.keypair_bytes)?;
         let mut identity = Identity::from_keypair(keypair);
@@ -281,7 +281,7 @@ impl IdentityStorage for FileIdentityStorage {
 
         if path.exists() {
             std::fs::remove_file(&path)
-                .map_err(|e| MePassaError::Storage(format!("Failed to delete identity: {}", e)))?;
+                .map_err(|e| ZapLivreError::Storage(format!("Failed to delete identity: {}", e)))?;
         }
 
         Ok(())
@@ -325,7 +325,7 @@ impl IdentityStorage for MemoryIdentityStorage {
         let mut guard = self
             .identity
             .lock()
-            .map_err(|e| MePassaError::Storage(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Lock poisoned: {}", e)))?;
 
         *guard = Some(identity.clone());
         Ok(())
@@ -335,7 +335,7 @@ impl IdentityStorage for MemoryIdentityStorage {
         let guard = self
             .identity
             .lock()
-            .map_err(|e| MePassaError::Storage(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Lock poisoned: {}", e)))?;
 
         Ok(guard.clone())
     }
@@ -344,7 +344,7 @@ impl IdentityStorage for MemoryIdentityStorage {
         let mut guard = self
             .identity
             .lock()
-            .map_err(|e| MePassaError::Storage(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Lock poisoned: {}", e)))?;
 
         *guard = None;
         Ok(())
@@ -354,7 +354,7 @@ impl IdentityStorage for MemoryIdentityStorage {
         let guard = self
             .identity
             .lock()
-            .map_err(|e| MePassaError::Storage(format!("Lock poisoned: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Lock poisoned: {}", e)))?;
 
         Ok(guard.is_some())
     }
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn test_identity_generation() {
         let identity = Identity::generate(10);
-        assert!(identity.peer_id().starts_with("mepassa_"));
+        assert!(identity.peer_id().starts_with("zaplivre_"));
         assert!(identity.prekey_pool().is_some());
     }
 
@@ -376,7 +376,7 @@ mod tests {
         let keypair = Keypair::generate();
         let identity = Identity::from_keypair(keypair);
 
-        assert!(identity.peer_id().starts_with("mepassa_"));
+        assert!(identity.peer_id().starts_with("zaplivre_"));
         assert!(identity.prekey_pool().is_none());
     }
 
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn test_file_storage() {
-        let temp_dir = std::env::temp_dir().join("mepassa_test_identity");
+        let temp_dir = std::env::temp_dir().join("zaplivre_test_identity");
         let storage = FileIdentityStorage::new(&temp_dir);
 
         // Clean up before test
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn test_identity_sign_verify() {
         let identity = Identity::generate(10);
-        let message = b"Hello, MePassa!";
+        let message = b"Hello, ZapLivre!";
 
         let signature = identity.sign(message);
         let result = identity.verify(message, &signature);

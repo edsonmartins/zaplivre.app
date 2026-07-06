@@ -1,6 +1,6 @@
 //! Client Builder
 //!
-//! Builder pattern for creating MePassa clients.
+//! Builder pattern for creating ZapLivre clients.
 
 use libp2p::{identity::Keypair, PeerId};
 use base64::{engine::general_purpose, Engine as _};
@@ -13,14 +13,14 @@ use crate::{
     identity::Identity,
     network::{MessageEvent, NetworkManager},
     storage::{Database, migrate, needs_migration},
-    utils::error::{MePassaError, Result},
+    utils::error::{ZapLivreError, Result},
 };
 #[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::{CallManager, VoIPIntegration};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
-/// Builder for creating a MePassa client
+/// Builder for creating a ZapLivre client
 pub struct ClientBuilder {
     data_dir: Option<PathBuf>,
     keypair: Option<Keypair>,
@@ -75,12 +75,12 @@ impl ClientBuilder {
     pub async fn build(self) -> Result<Client> {
         // Get or create data directory
         let data_dir = self.data_dir.ok_or_else(|| {
-            MePassaError::Other("Data directory is required".to_string())
+            ZapLivreError::Other("Data directory is required".to_string())
         })?;
 
         // Create data directory if it doesn't exist
         std::fs::create_dir_all(&data_dir).map_err(|e| {
-            MePassaError::Other(format!("Failed to create data directory: {}", e))
+            ZapLivreError::Other(format!("Failed to create data directory: {}", e))
         })?;
 
         // Get or generate keypair
@@ -127,7 +127,7 @@ impl ClientBuilder {
         let storage_key = identity.storage_key()?;
 
         // Open database
-        let db_path = data_dir.join("mepassa.db");
+        let db_path = data_dir.join("zaplivre.db");
         let database = Database::open(&db_path)?;
 
         // Run migrations if needed
@@ -262,12 +262,12 @@ impl ClientBuilder {
                 Arc::new(database.clone()),
                 storage_key,
             )
-            .map_err(|e| MePassaError::Other(format!("Failed to create group manager: {}", e)))?
+            .map_err(|e| ZapLivreError::Other(format!("Failed to create group manager: {}", e)))?
         );
 
         // Initialize group manager (load existing groups)
         let group_topics = group_manager.init().await.map_err(|e| {
-            MePassaError::Other(format!("Failed to initialize group manager: {}", e))
+            ZapLivreError::Other(format!("Failed to initialize group manager: {}", e))
         })?;
 
         {
@@ -692,18 +692,18 @@ fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> 
 /// Load a keypair from a file
 fn load_keypair_from_file(path: &std::path::Path) -> Result<Keypair> {
     let bytes = std::fs::read(path).map_err(|e| {
-        MePassaError::Other(format!("Failed to read keypair file: {}", e))
+        ZapLivreError::Other(format!("Failed to read keypair file: {}", e))
     })?;
 
     // Try to parse as protobuf-encoded keypair
     Keypair::from_protobuf_encoding(&bytes).map_err(|e| {
-        MePassaError::Other(format!("Failed to decode keypair: {}", e))
+        ZapLivreError::Other(format!("Failed to decode keypair: {}", e))
     })
 }
 
 /// Load a keypair from environment variable (base64-encoded protobuf)
 fn load_keypair_from_env() -> Result<Option<Keypair>> {
-    let encoded = match std::env::var("MEPASSA_IDENTITY_B64") {
+    let encoded = match std::env::var("ZAPLIVRE_IDENTITY_B64") {
         Ok(value) => value,
         Err(_) => return Ok(None),
     };
@@ -714,11 +714,11 @@ fn load_keypair_from_env() -> Result<Option<Keypair>> {
     }
 
     let bytes = general_purpose::STANDARD.decode(encoded).map_err(|e| {
-        MePassaError::Other(format!("Failed to decode identity from env: {}", e))
+        ZapLivreError::Other(format!("Failed to decode identity from env: {}", e))
     })?;
 
     let keypair = Keypair::from_protobuf_encoding(&bytes).map_err(|e| {
-        MePassaError::Other(format!("Failed to decode keypair from env: {}", e))
+        ZapLivreError::Other(format!("Failed to decode keypair from env: {}", e))
     })?;
 
     Ok(Some(keypair))
@@ -727,11 +727,11 @@ fn load_keypair_from_env() -> Result<Option<Keypair>> {
 /// Save a keypair to a file
 fn save_keypair_to_file(keypair: &Keypair, path: &std::path::Path) -> Result<()> {
     let bytes = keypair.to_protobuf_encoding().map_err(|e| {
-        MePassaError::Other(format!("Failed to encode keypair: {}", e))
+        ZapLivreError::Other(format!("Failed to encode keypair: {}", e))
     })?;
 
     std::fs::write(path, bytes).map_err(|e| {
-        MePassaError::Other(format!("Failed to write keypair file: {}", e))
+        ZapLivreError::Other(format!("Failed to write keypair file: {}", e))
     })
 }
 
@@ -764,7 +764,7 @@ fn ensure_local_contact_exists(database: &Database, peer_id: &str, keypair: &Key
     };
 
     database.insert_contact(&local_contact).map_err(|e| {
-        MePassaError::Other(format!("Failed to create local contact: {}", e))
+        ZapLivreError::Other(format!("Failed to create local contact: {}", e))
     })?;
 
     tracing::info!("Created local contact for peer: {}", peer_id);
@@ -796,7 +796,7 @@ mod tests {
                 assert!(client.local_peer_id().to_string().len() > 0);
 
                 // Database should be created
-                assert!(data_dir.join("mepassa.db").exists());
+                assert!(data_dir.join("zaplivre.db").exists());
             })
             .await;
     }

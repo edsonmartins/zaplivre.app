@@ -1,7 +1,7 @@
-//! Keypair management for MePassa
+//! Keypair management for ZapLivre
 //!
 //! This module handles the generation and management of Ed25519 signing keypairs
-//! used for identity and authentication in the MePassa network.
+//! used for identity and authentication in the ZapLivre network.
 
 use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
 use rand_core06::OsRng;
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
-use crate::utils::error::{Result, MePassaError};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// A cryptographic keypair (Ed25519) for signing and verification
 ///
@@ -29,7 +29,7 @@ impl Keypair {
     /// # Example
     ///
     /// ```no_run
-    /// use mepassa_core::identity::Keypair;
+    /// use zaplivre_core::identity::Keypair;
     ///
     /// let keypair = Keypair::generate();
     /// println!("Generated peer ID: {}", keypair.peer_id());
@@ -55,7 +55,7 @@ impl Keypair {
     /// Returns error if bytes length is not exactly 32
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 32 {
-            return Err(MePassaError::Identity(format!(
+            return Err(ZapLivreError::Identity(format!(
                 "Invalid key length: expected 32 bytes, got {}",
                 bytes.len()
             )));
@@ -89,7 +89,7 @@ impl Keypair {
         // Try to convert to Ed25519 keypair
         let ed25519_kp = kp_clone
             .try_into_ed25519()
-            .map_err(|_| MePassaError::Identity("Only Ed25519 keypairs are supported".to_string()))?;
+            .map_err(|_| ZapLivreError::Identity("Only Ed25519 keypairs are supported".to_string()))?;
 
         // Get the keypair bytes (64 bytes: 32 secret + 32 public)
         let keypair_bytes = ed25519_kp.to_bytes();
@@ -150,15 +150,15 @@ impl Keypair {
 
     /// Get the peer ID derived from this keypair
     ///
-    /// Format: `mepassa_<base58(public_key)>`
+    /// Format: `zaplivre_<base58(public_key)>`
     ///
     /// # Example
     ///
     /// ```no_run
-    /// # use mepassa_core::identity::Keypair;
+    /// # use zaplivre_core::identity::Keypair;
     /// let keypair = Keypair::generate();
     /// let peer_id = keypair.peer_id();
-    /// assert!(peer_id.starts_with("mepassa_"));
+    /// assert!(peer_id.starts_with("zaplivre_"));
     /// ```
     pub fn peer_id(&self) -> String {
         self.public_key().peer_id()
@@ -192,7 +192,7 @@ impl PublicKey {
     /// Returns error if bytes are invalid
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 32 {
-            return Err(MePassaError::Identity(format!(
+            return Err(ZapLivreError::Identity(format!(
                 "Invalid public key length: expected 32 bytes, got {}",
                 bytes.len()
             )));
@@ -202,7 +202,7 @@ impl PublicKey {
         key_bytes.copy_from_slice(bytes);
 
         let key = VerifyingKey::from_bytes(&key_bytes)
-            .map_err(|e| MePassaError::Identity(format!("Invalid public key: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("Invalid public key: {}", e)))?;
 
         Ok(Self { key })
     }
@@ -224,7 +224,7 @@ impl PublicKey {
     /// `Ok(())` if signature is valid, `Err` otherwise
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<()> {
         if signature.len() != 64 {
-            return Err(MePassaError::Crypto(format!(
+            return Err(ZapLivreError::Crypto(format!(
                 "Invalid signature length: expected 64 bytes, got {}",
                 signature.len()
             )));
@@ -237,35 +237,35 @@ impl PublicKey {
 
         self.key
             .verify(message, &signature)
-            .map_err(|e| MePassaError::Crypto(format!("Signature verification failed: {}", e)))
+            .map_err(|e| ZapLivreError::Crypto(format!("Signature verification failed: {}", e)))
     }
 
     /// Get the peer ID derived from this public key
     ///
-    /// Format: `mepassa_<base58(public_key)>`
+    /// Format: `zaplivre_<base58(public_key)>`
     pub fn peer_id(&self) -> String {
         let encoded = bs58::encode(self.to_bytes()).into_string();
-        format!("mepassa_{}", encoded)
+        format!("zaplivre_{}", encoded)
     }
 
     /// Parse a peer ID back to a PublicKey
     ///
     /// # Arguments
     ///
-    /// * `peer_id` - Peer ID in format `mepassa_<base58>`
+    /// * `peer_id` - Peer ID in format `zaplivre_<base58>`
     ///
     /// # Errors
     ///
     /// Returns error if peer ID format is invalid
     pub fn from_peer_id(peer_id: &str) -> Result<Self> {
-        if !peer_id.starts_with("mepassa_") {
-            return Err(MePassaError::Identity("Invalid peer ID format: must start with 'mepassa_'".to_string()));
+        if !peer_id.starts_with("zaplivre_") {
+            return Err(ZapLivreError::Identity("Invalid peer ID format: must start with 'zaplivre_'".to_string()));
         }
 
-        let encoded = &peer_id[8..]; // Skip "mepassa_" prefix
+        let encoded = &peer_id[8..]; // Skip "zaplivre_" prefix
         let bytes = bs58::decode(encoded)
             .into_vec()
-            .map_err(|e| MePassaError::Identity(format!("Invalid base58 encoding: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("Invalid base58 encoding: {}", e)))?;
 
         Self::from_bytes(&bytes)
     }
@@ -289,7 +289,7 @@ impl SignalKeypair {
     /// Create from raw secret bytes (32 bytes)
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 32 {
-            return Err(MePassaError::Identity(format!(
+            return Err(ZapLivreError::Identity(format!(
                 "Invalid Signal key length: expected 32 bytes, got {}",
                 bytes.len()
             )));
@@ -337,7 +337,7 @@ mod tests {
         let keypair = Keypair::generate();
         let peer_id = keypair.peer_id();
 
-        assert!(peer_id.starts_with("mepassa_"));
+        assert!(peer_id.starts_with("zaplivre_"));
         assert!(peer_id.len() > 8);
     }
 
@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn test_sign_and_verify() {
         let keypair = Keypair::generate();
-        let message = b"Hello, MePassa!";
+        let message = b"Hello, ZapLivre!";
 
         let signature = keypair.sign(message);
         assert_eq!(signature.len(), 64);
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn test_verify_invalid_signature() {
         let keypair = Keypair::generate();
-        let message = b"Hello, MePassa!";
+        let message = b"Hello, ZapLivre!";
         let wrong_signature = [0u8; 64];
 
         let result = keypair.verify(message, &wrong_signature);
@@ -383,8 +383,8 @@ mod tests {
     #[test]
     fn test_verify_with_different_message() {
         let keypair = Keypair::generate();
-        let message1 = b"Hello, MePassa!";
-        let message2 = b"Goodbye, MePassa!";
+        let message1 = b"Hello, ZapLivre!";
+        let message2 = b"Goodbye, ZapLivre!";
 
         let signature = keypair.sign(message1);
         let result = keypair.verify(message2, &signature);
@@ -430,7 +430,7 @@ mod tests {
         let result = PublicKey::from_peer_id("invalid_peer_id");
         assert!(result.is_err());
 
-        let result = PublicKey::from_peer_id("notmepassa_abc123");
+        let result = PublicKey::from_peer_id("notzaplivre_abc123");
         assert!(result.is_err());
     }
 
@@ -449,6 +449,6 @@ mod tests {
         let public_key = keypair.public_key();
         let display_str = format!("{}", public_key);
 
-        assert!(display_str.starts_with("mepassa_"));
+        assert!(display_str.starts_with("zaplivre_"));
     }
 }

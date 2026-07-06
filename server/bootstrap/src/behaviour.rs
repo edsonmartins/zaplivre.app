@@ -47,7 +47,7 @@ impl BootstrapBehaviour {
         // Identify configuration
         let identify = identify::Behaviour::new(
             identify::Config::new(
-                "/mepassa/1.0.0".to_string(),
+                "/zaplivre/1.0.0".to_string(),
                 local_public_key,
             )
         );

@@ -1,6 +1,6 @@
-# Build & Test Guide - MePassa VoIP
+# Build & Test Guide - ZapLivre VoIP
 
-Este guia descreve como buildar e testar o MePassa com funcionalidades VoIP (FASE 12).
+Este guia descreve como buildar e testar o ZapLivre com funcionalidades VoIP (FASE 12).
 
 ## 📋 Pré-requisitos
 
@@ -41,7 +41,7 @@ docker compose version
 
 ## 🔧 Build Android APK
 
-### 1. Build Rust Core (libmepassa_core.so)
+### 1. Build Rust Core (libzaplivre_core.so)
 
 ```bash
 cd core
@@ -53,8 +53,8 @@ cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release
 cargo ndk -t x86_64 -o ../android/app/src/main/jniLibs build --release
 
 # Verificar se as libs foram geradas
-ls -lh ../android/app/src/main/jniLibs/arm64-v8a/libmepassa_core.so
-ls -lh ../android/app/src/main/jniLibs/x86_64/libmepassa_core.so
+ls -lh ../android/app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so
+ls -lh ../android/app/src/main/jniLibs/x86_64/libzaplivre_core.so
 ```
 
 **Tamanho esperado:** ~6-8 MB (release)
@@ -63,7 +63,7 @@ ls -lh ../android/app/src/main/jniLibs/x86_64/libmepassa_core.so
 
 ```bash
 cd core
-cargo run --bin uniffi-bindgen generate --library target/release/libmepassa_core.so --language kotlin --out-dir ../android/app/src/main/kotlin/uniffi/mepassa
+cargo run --bin uniffi-bindgen generate --library target/release/libzaplivre_core.so --language kotlin --out-dir ../android/app/src/main/kotlin/uniffi/zaplivre
 ```
 
 ### 3. Build Android APK
@@ -118,9 +118,9 @@ npm run tauri dev
 npm run tauri build
 
 # Binários em:
-# src-tauri/target/release/mepassa-desktop (Linux)
-# src-tauri/target/release/mepassa-desktop.app (macOS)
-# src-tauri/target/release/mepassa-desktop.exe (Windows)
+# src-tauri/target/release/zaplivre-desktop (Linux)
+# src-tauri/target/release/zaplivre-desktop.app (macOS)
+# src-tauri/target/release/zaplivre-desktop.exe (Windows)
 ```
 
 **DMG note (macOS):** If the `.app` builds but the `.dmg` fails with `hdiutil create failed - Dispositivo não configurado`, use the helper script from the repo root:
@@ -170,8 +170,8 @@ SIGNALING_SERVER_URL=wss://signaling.associahub.com.br/ws
 ### Teste 1: P2P Direto (Mesma Rede)
 
 **Setup:**
-1. Dispositivo A: Abrir MePassa, anotar Peer ID
-2. Dispositivo B: Abrir MePassa, anotar Peer ID
+1. Dispositivo A: Abrir ZapLivre, anotar Peer ID
+2. Dispositivo B: Abrir ZapLivre, anotar Peer ID
 
 **Passos:**
 1. Device A: Ir em Conversations > Add Contact (colar Peer ID do Device B)
@@ -194,7 +194,7 @@ SIGNALING_SERVER_URL=wss://signaling.associahub.com.br/ws
 **Logs Esperados:**
 ```
 # Device A (caller)
-MePassaClient: Starting call to <peer_id_B>
+ZapLivreClient: Starting call to <peer_id_B>
 WebRTC: Creating PeerConnection
 WebRTC: Local SDP offer created
 Signaling: Sending offer to <peer_id_B>
@@ -320,14 +320,14 @@ adb shell ping <ip_do_outro_dispositivo>
 
 ## 🐛 Troubleshooting
 
-### Problema: "Failed to initialize MePassaClient"
+### Problema: "Failed to initialize ZapLivreClient"
 
 **Causa:** Biblioteca Rust não carregada
 
 **Solução:**
 ```bash
-# Verificar se libmepassa_core.so existe
-ls android/app/src/main/jniLibs/arm64-v8a/libmepassa_core.so
+# Verificar se libzaplivre_core.so existe
+ls android/app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so
 
 # Re-build se necessário
 cd core && cargo ndk -t arm64-v8a build --release
@@ -366,7 +366,7 @@ adb logcat | grep AudioFocus
 **Solução:**
 ```bash
 # Verificar permissões concedidas
-adb shell dumpsys package com.mepassa | grep permission
+adb shell dumpsys package com.zaplivre | grep permission
 
 # Deve conter:
 # android.permission.BLUETOOTH_CONNECT: granted=true

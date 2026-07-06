@@ -1,4 +1,4 @@
--- MePassa Database Initialization Script
+-- ZapLivre Database Initialization Script
 -- PostgreSQL 16+
 
 -- Enable extensions
@@ -276,10 +276,10 @@ ON CONFLICT (date) DO NOTHING;
 -- GRANTS (for production)
 -- ============================================================================
 
--- Grant permissions to mepassa user
--- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO mepassa;
--- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO mepassa;
--- GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO mepassa;
+-- Grant permissions to zaplivre user
+-- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO zaplivre;
+-- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO zaplivre;
+-- GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO zaplivre;
 
 -- ============================================================================
 -- COMMENTS
@@ -309,9 +309,9 @@ VACUUM ANALYZE;
 DO $$
 BEGIN
     RAISE NOTICE '==========================================================';
-    RAISE NOTICE 'MePassa Database Initialization Complete';
+    RAISE NOTICE 'ZapLivre Database Initialization Complete';
     RAISE NOTICE '==========================================================';
-    RAISE NOTICE 'Database: mepassa';
+    RAISE NOTICE 'Database: zaplivre';
     RAISE NOTICE 'Tables created: 5 (offline_messages, push_tokens, user_presence, message_stats, usernames)';
     RAISE NOTICE 'Functions created: 4';
     RAISE NOTICE 'TTL: 14 days for offline messages';

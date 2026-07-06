@@ -1,4 +1,4 @@
-# Auditoria Técnica V3 — MePassa
+# Auditoria Técnica V3 — ZapLivre
 
 Data: 2026-01-28
 Escopo: core (Rust), desktop (Tauri/React), iOS (Swift), Android (Kotlin), servidores.
@@ -9,19 +9,19 @@ A base está funcional para mensagens P2P 1:1 e persistência local, porém aind
 ## P0 — Bloqueadores (funcionalidade incompleta ou risco sistêmico)
 - **Envio de mídia não vai para a rede**: métodos de imagem/áudio/documento/vídeo persistem apenas localmente e deixam TODOs para envio e armazenamento em disco. Isso quebra a experiência multi‑device e a consistência entre peers. (`core/src/api/client.rs`)
 - **VoIP incompleto (stubs e pipeline parcial)**: integração de signaling, eventos e controle de áudio/vídeo ainda estão pendentes; FFI expõe funções stub quando feature desabilitada e a pipeline de vídeo é placeholder. (`core/src/voip/*`, `core/src/network/swarm.rs`, `core/src/ffi/*`, iOS/Android UI)
-- **Grupos não implementados nos clientes**: telas de grupos no desktop/iOS/Android estão com TODOs e sem ligação com API real. (`desktop/src/views/GroupChatView.tsx`, `ios/MePassa/MePassa/Views/Group*`, `android/app/src/main/kotlin/com/mepassa/ui/screens/group/*`)
+- **Grupos não implementados nos clientes**: telas de grupos no desktop/iOS/Android estão com TODOs e sem ligação com API real. (`desktop/src/views/GroupChatView.tsx`, `ios/ZapLivre/ZapLivre/Views/Group*`, `android/app/src/main/kotlin/com/zaplivre/ui/screens/group/*`)
 
 ## P1 — Alta prioridade (segurança, confiabilidade, produção)
 - **Criptografia E2E simplificada**: X3DH usa apenas prekeys X25519 (sem identidade) e sem libsignal; precisa hardening para produção. (`core/src/crypto/signal.rs`)
-- **Identidade e storage key não usam secure storage nativo**: iOS/Android ainda gravam identidade em arquivo no data_dir, não em Keychain/Keystore; risco de perda/roubo. (`ios/MePassa/MePassa/Core/MePassaCore.swift`, `android/.../MePassaClientWrapper.kt`, `core/src/identity/storage.rs`)
-- **Push notifications com URL local e sem configuração real**: endpoint de push usa localhost e há erros de APS no iOS. (`ios/MePassa/MePassa/Core/PushNotificationManager.swift`)
+- **Identidade e storage key não usam secure storage nativo**: iOS/Android ainda gravam identidade em arquivo no data_dir, não em Keychain/Keystore; risco de perda/roubo. (`ios/ZapLivre/ZapLivre/Core/ZapLivreCore.swift`, `android/.../ZapLivreClientWrapper.kt`, `core/src/identity/storage.rs`)
+- **Push notifications com URL local e sem configuração real**: endpoint de push usa localhost e há erros de APS no iOS. (`ios/ZapLivre/ZapLivre/Core/PushNotificationManager.swift`)
 - **Relay/DCUtR e signaling incompletos**: TODOs em swarm e integração de relay/upgrade e encaminhamento de sinais para VoIP ainda não feito. (`core/src/network/swarm.rs`)
 - **Download de mídia limitado a local**: `download_media` só lê arquivo local e não solicita ao peer. (`core/src/api/client.rs`)
 
 ## P2 — Média prioridade (UX, consistência, dívida técnica)
 - **Reações/forward sem broadcast**: ações são locais e não propagam pela rede. (`core/src/api/client.rs`)
 - **Fallbacks e panics**: existem caminhos com `panic!` em testes/handlers que deveriam virar erro controlado. (`core/src/network/message_handler.rs`)
-- **Mocks de UI e fluxos incompletos**: logout, limpeza de cache, ícones, etc. (`ios/MePassa/MePassa/Views/SettingsView.swift`, `android/.../SettingsScreen.kt`, `android/.../MePassaService.kt`)
+- **Mocks de UI e fluxos incompletos**: logout, limpeza de cache, ícones, etc. (`ios/ZapLivre/ZapLivre/Views/SettingsView.swift`, `android/.../SettingsScreen.kt`, `android/.../ZapLivreService.kt`)
 - **Testes end‑to‑end ignorados**: testes de integração estão marcados como ignore. (`core/tests/message_integration.rs`)
 
 ## P3 — Baixa prioridade (polimento)

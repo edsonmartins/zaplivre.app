@@ -1,9 +1,9 @@
 [package]
-name = "mepassa-push"
+name = "zaplivre-push"
 version = "0.1.0"
 edition = "2021"
 authors = ["Integrall Tech <contato@integralltech.com.br>"]
-description = "Push notification service for MePassa"
+description = "Push notification service for ZapLivre"
 license = "AGPL-3.0"
 
 [dependencies]
@@ -36,8 +36,8 @@ http-body-util = "0.1"
 dotenvy = "0.15"
 
 # Local dependencies
-# mepassa-core = { path = "../../core" }  # TODO: adicionar depois
+# zaplivre-core = { path = "../../core" }  # TODO: adicionar depois
 
 [[bin]]
-name = "mepassa-push"
+name = "zaplivre-push"
 path = "src/main.rs"

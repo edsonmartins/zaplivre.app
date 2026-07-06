@@ -1,6 +1,6 @@
 # Info do grupo: criar/abrir grupo → tela "Informações do Grupo" acessível,
 # nome do grupo e botão de sair visíveis. NÃO sai do grupo.
-appId: com.mepassa
+appId: com.zaplivre
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

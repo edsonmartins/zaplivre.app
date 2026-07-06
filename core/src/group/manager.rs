@@ -7,7 +7,7 @@ use super::types::{Group, GroupEvent, GroupMessage, GroupRole};
 use crate::crypto::group::{EncryptedMessage, GroupSessionManager};
 use crate::identity::PublicKey;
 use crate::storage::{Database, MessageStatus, NewMessage};
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 use libp2p::gossipsub::{self, IdentTopic, TopicHash};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -115,7 +115,7 @@ impl GroupManager {
         let my_seed = self
             .group_sessions
             .create_group(group_id.clone())
-            .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
         storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
 
         // Store in memory
@@ -154,7 +154,7 @@ impl GroupManager {
         let my_seed = self
             .group_sessions
             .create_group(group_id.clone())
-            .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
         storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
 
         // Store in memory
@@ -200,16 +200,16 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(MePassaError::Permission("Only admins can add members".to_string()));
+            return Err(ZapLivreError::Permission("Only admins can add members".to_string()));
         }
 
         // Check if already a member
         if group.is_member(peer_id) {
-            return Err(MePassaError::AlreadyExists("User is already a member".to_string()));
+            return Err(ZapLivreError::AlreadyExists("User is already a member".to_string()));
         }
 
         // Add to group
@@ -232,16 +232,16 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(MePassaError::Permission("Only admins can remove members".to_string()));
+            return Err(ZapLivreError::Permission("Only admins can remove members".to_string()));
         }
 
         // Can't remove creator
         if peer_id == group.creator_peer_id {
-            return Err(MePassaError::Permission("Can't remove group creator".to_string()));
+            return Err(ZapLivreError::Permission("Can't remove group creator".to_string()));
         }
 
         // Remove from group
@@ -316,7 +316,7 @@ impl GroupManager {
         let my_seed = self
             .group_sessions
             .create_group(group_id.clone())
-            .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
         storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
 
         self.groups.write().await.insert(group_id.clone(), group.clone());
@@ -342,10 +342,10 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         if !group.is_admin(actor_peer_id) {
-            return Err(MePassaError::Permission(
+            return Err(ZapLivreError::Permission(
                 "Remote member_added from non-admin".to_string(),
             ));
         }
@@ -375,10 +375,10 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         if !group.is_admin(actor_peer_id) {
-            return Err(MePassaError::Permission(
+            return Err(ZapLivreError::Permission(
                 "Remote member_removed from non-admin".to_string(),
             ));
         }
@@ -419,7 +419,7 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         if !group.is_member(actor_peer_id) {
             return Ok(());
@@ -458,16 +458,16 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(MePassaError::Permission("Only admins can promote members".to_string()));
+            return Err(ZapLivreError::Permission("Only admins can promote members".to_string()));
         }
 
         // Check if member exists
         if !group.is_member(peer_id) {
-            return Err(MePassaError::NotFound("User is not a member".to_string()));
+            return Err(ZapLivreError::NotFound("User is not a member".to_string()));
         }
 
         // Add to admins
@@ -484,16 +484,16 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(MePassaError::Permission("Only admins can demote members".to_string()));
+            return Err(ZapLivreError::Permission("Only admins can demote members".to_string()));
         }
 
         // Can't demote creator
         if peer_id == group.creator_peer_id {
-            return Err(MePassaError::Permission("Can't demote group creator".to_string()));
+            return Err(ZapLivreError::Permission("Can't demote group creator".to_string()));
         }
 
         // Remove from admins
@@ -516,11 +516,11 @@ impl GroupManager {
         let mut groups = self.groups.write().await;
         let group = groups
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+            .ok_or_else(|| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(MePassaError::Permission("Only admins can update group".to_string()));
+            return Err(ZapLivreError::Permission("Only admins can update group".to_string()));
         }
 
         // Update fields
@@ -569,7 +569,7 @@ impl GroupManager {
     ) -> Result<()> {
         // Deserialize message
         let group_msg: GroupMessage = serde_json::from_slice(&message.data)
-            .map_err(|e| MePassaError::Protocol(format!("Invalid group message: {}", e)))?;
+            .map_err(|e| ZapLivreError::Protocol(format!("Invalid group message: {}", e)))?;
 
         // Verify message is from a group member
         let groups = self.groups.read().await;
@@ -577,7 +577,7 @@ impl GroupManager {
 
         if let Some(group) = group {
             if !group.is_member(&group_msg.sender_peer_id) {
-                return Err(MePassaError::Permission("Sender is not a group member".to_string()));
+                return Err(ZapLivreError::Permission("Sender is not a group member".to_string()));
             }
 
             if !group_msg.signature.is_empty() {
@@ -585,12 +585,12 @@ impl GroupManager {
                     let public_key = PublicKey::from_bytes(&contact.public_key)?;
                     group_msg.verify_signature(&public_key)?;
                 } else if group_msg.sender_peer_id != self.local_peer_id {
-                    return Err(MePassaError::Permission(
+                    return Err(ZapLivreError::Permission(
                         "Missing sender public key for signature verification".to_string(),
                     ));
                 }
             } else {
-                return Err(MePassaError::Permission(
+                return Err(ZapLivreError::Permission(
                     "Missing group message signature".to_string(),
                 ));
             }
@@ -637,7 +637,7 @@ impl GroupManager {
         );
 
         serde_json::to_vec(&encrypted)
-            .map_err(|e| MePassaError::Protocol(format!("Failed to encode group payload: {}", e)))
+            .map_err(|e| ZapLivreError::Protocol(format!("Failed to encode group payload: {}", e)))
     }
 
     /// Decrypt a group message payload using sender keys
@@ -648,7 +648,7 @@ impl GroupManager {
         encrypted_payload: &[u8],
     ) -> Result<Vec<u8>> {
         let encrypted: EncryptedMessage = serde_json::from_slice(encrypted_payload).map_err(|e| {
-            MePassaError::Protocol(format!("Invalid group payload encoding: {}", e))
+            ZapLivreError::Protocol(format!("Invalid group payload encoding: {}", e))
         })?;
 
         let plaintext = self
@@ -735,7 +735,7 @@ impl GroupManager {
         sender_key_seed: &[u8],
     ) -> Result<()> {
         if sender_key_seed.len() != 32 {
-            return Err(MePassaError::Crypto(
+            return Err(ZapLivreError::Crypto(
                 "Invalid sender key seed length".to_string(),
             ));
         }
@@ -773,7 +773,7 @@ impl GroupManager {
             let seed = self
                 .group_sessions
                 .create_group(group.id.clone())
-                .map_err(|e| MePassaError::Crypto(format!("Failed to create sender key: {}", e)))?;
+                .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
             storage::save_sender_key_seed(&self.db, &self.storage_key, &group.id, &self.local_peer_id, &seed)?;
             (seed, 0)
         };

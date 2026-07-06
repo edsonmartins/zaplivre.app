@@ -1,6 +1,6 @@
-# MePassa Android App
+# ZapLivre Android App
 
-App Android nativo com Jetpack Compose para a plataforma MePassa.
+App Android nativo com Jetpack Compose para a plataforma ZapLivre.
 
 ## 📋 Requisitos
 
@@ -15,13 +15,13 @@ App Android nativo com Jetpack Compose para a plataforma MePassa.
 ```
 app/src/main/
 ├── kotlin/
-│   ├── com/mepassa/
-│   │   ├── MePassaApplication.kt       # Application class
+│   ├── com/zaplivre/
+│   │   ├── ZapLivreApplication.kt       # Application class
 │   │   ├── MainActivity.kt             # Entry point
 │   │   ├── core/
-│   │   │   └── MePassaClientWrapper.kt # Wrapper do UniFFI client
+│   │   │   └── ZapLivreClientWrapper.kt # Wrapper do UniFFI client
 │   │   ├── service/
-│   │   │   └── MePassaService.kt       # Foreground service P2P
+│   │   │   └── ZapLivreService.kt       # Foreground service P2P
 │   │   └── ui/
 │   │       ├── theme/                  # Material3 theme
 │   │       ├── navigation/             # Navigation Compose
@@ -29,11 +29,11 @@ app/src/main/
 │   │           ├── onboarding/         # Primeira tela
 │   │           ├── conversations/      # Lista de conversas
 │   │           └── chat/               # Chat individual
-│   └── uniffi/mepassa/
-│       └── mepassa.kt                  # Bindings gerados (UniFFI)
+│   └── uniffi/zaplivre/
+│       └── zaplivre.kt                  # Bindings gerados (UniFFI)
 ├── jniLibs/
 │   └── arm64-v8a/
-│       └── libmepassa_core.so          # Biblioteca nativa
+│       └── libzaplivre_core.so          # Biblioteca nativa
 └── AndroidManifest.xml
 ```
 
@@ -49,7 +49,7 @@ cd core
 cargo build --target aarch64-linux-android --release --lib
 
 # Copiar para Android
-cp target/aarch64-linux-android/release/libmepassa_core.so \
+cp target/aarch64-linux-android/release/libzaplivre_core.so \
    ../android/app/src/main/jniLibs/arm64-v8a/
 ```
 
@@ -115,7 +115,7 @@ Android Studio automaticamente fará sync do Gradle. Se não, clique em:
 - Exibe Peer ID gerado
 
 ### 2. Uso Normal
-- Inicia `MePassaService` (foreground)
+- Inicia `ZapLivreService` (foreground)
 - Conecta a bootstrap nodes
 - Lista conversas existentes
 - Permite enviar/receber mensagens P2P
@@ -152,35 +152,35 @@ cp android/gradle.properties.example android/gradle.properties
 
 ```bash
 # Ver logs do app
-adb logcat | grep MePassa
+adb logcat | grep ZapLivre
 
 # Filtros específicos
-adb logcat | grep "MePassaClient"
-adb logcat | grep "MePassaService"
+adb logcat | grep "ZapLivreClient"
+adb logcat | grep "ZapLivreService"
 ```
 
 ### Verificar biblioteca carregada
 
 ```bash
-adb shell run-as com.mepassa ls -l /data/data/com.mepassa/lib/
+adb shell run-as com.zaplivre ls -l /data/data/com.zaplivre/lib/
 ```
 
 ### Verificar dados persistidos
 
 ```bash
-adb shell run-as com.mepassa ls -lR /data/data/com.mepassa/files/mepassa_data/
+adb shell run-as com.zaplivre ls -lR /data/data/com.zaplivre/files/zaplivre_data/
 ```
 
 ## ⚠️ Problemas Comuns
 
-### `UnsatisfiedLinkError: couldn't find libmepassa_core.so`
+### `UnsatisfiedLinkError: couldn't find libzaplivre_core.so`
 
 **Solução:**
 1. Verificar se `.so` está em `jniLibs/arm64-v8a/`
 2. Verificar se ABI do dispositivo é compatível (ARM64)
 3. Fazer Clean Build: `Build > Clean Project` + `Build > Rebuild Project`
 
-### `Failed to initialize MePassaClient`
+### `Failed to initialize ZapLivreClient`
 
 **Possíveis causas:**
 1. Permissões de storage negadas (Android 10+)
@@ -190,7 +190,7 @@ adb shell run-as com.mepassa ls -lR /data/data/com.mepassa/files/mepassa_data/
 **Solução:**
 ```bash
 # Limpar dados do app
-adb shell pm clear com.mepassa
+adb shell pm clear com.zaplivre
 ```
 
 ### Service não inicia
@@ -198,7 +198,7 @@ adb shell pm clear com.mepassa
 **Verificar:**
 1. Permissão POST_NOTIFICATIONS (Android 13+)
 2. Bateria otimizada desabilitada para o app
-3. Logs: `adb logcat | grep MePassaService`
+3. Logs: `adb logcat | grep ZapLivreService`
 
 ## 🔒 Permissões
 
@@ -218,17 +218,17 @@ adb shell pm clear com.mepassa
 ### 1. Gerar Keystore
 
 ```bash
-keytool -genkey -v -keystore mepassa-release.jks \
+keytool -genkey -v -keystore zaplivre-release.jks \
   -keyalg RSA -keysize 2048 -validity 10000 \
-  -alias mepassa
+  -alias zaplivre
 ```
 
 ### 2. Configurar `keystore.properties`
 
 ```properties
-storeFile=mepassa-release.jks
+storeFile=zaplivre-release.jks
 storePassword=****
-keyAlias=mepassa
+keyAlias=zaplivre
 keyPassword=****
 ```
 

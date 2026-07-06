@@ -48,7 +48,7 @@ function App() {
       try {
         console.log('🔵 initializeApp STARTED')
         const home = await homeDir()
-        const dataDir = `${home}/.mepassa`
+        const dataDir = `${home}/.zaplivre`
 
         console.log('🔵 Initializing ZapLivre with data_dir:', dataDir)
 

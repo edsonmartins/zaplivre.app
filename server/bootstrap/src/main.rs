@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
         .with_env_filter(&config.log_level)
         .init();
 
-    info!("🚀 MePassa Bootstrap Node starting...");
+    info!("🚀 ZapLivre Bootstrap Node starting...");
     info!("   P2P Port: {}", config.p2p_port);
     info!("   Health Port: {}", config.health_port);
     info!("   Data Dir: {:?}", config.data_dir);

@@ -1,4 +1,4 @@
-# GitHub Secrets Setup (MePassa)
+# GitHub Secrets Setup (ZapLivre)
 
 Este guia explica como configurar os secrets usados nos workflows do GitHub Actions.
 

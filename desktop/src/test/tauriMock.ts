@@ -20,7 +20,7 @@ type CommandHandler = (args: Record<string, unknown> | undefined) => unknown
 
 /** Defaults inofensivos para comandos de infraestrutura */
 const infraDefaults: Record<string, CommandHandler> = {
-  'plugin:path|resolve_directory': () => '/tmp/mepassa-test-home',
+  'plugin:path|resolve_directory': () => '/tmp/zaplivre-test-home',
   show_notification: () => null,
   mark_conversation_read: () => null,
   get_conversation_media: () => [],

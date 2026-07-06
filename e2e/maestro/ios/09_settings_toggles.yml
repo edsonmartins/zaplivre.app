@@ -1,7 +1,7 @@
 # Toggles de Settings: alternar não pode derrubar a tela
 # NOTA: os toggles são @State local (NÃO persistem) — de propósito este flow
 # não assere persistência, só que a UI aguenta a interação
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

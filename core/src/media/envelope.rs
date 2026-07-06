@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 pub const MEDIA_ENVELOPE_PREFIX: &str = "MP_MEDIA_V1:";
 
@@ -22,7 +22,7 @@ pub struct MediaEnvelope {
 impl MediaEnvelope {
     pub fn encode(&self) -> Result<String> {
         let json = serde_json::to_string(self)
-            .map_err(|e| MePassaError::Protocol(format!("Failed to encode media envelope: {}", e)))?;
+            .map_err(|e| ZapLivreError::Protocol(format!("Failed to encode media envelope: {}", e)))?;
         Ok(format!("{}{}", MEDIA_ENVELOPE_PREFIX, json))
     }
 
@@ -37,7 +37,7 @@ impl MediaEnvelope {
     pub fn media_bytes(&self) -> Result<Vec<u8>> {
         general_purpose::STANDARD
             .decode(&self.bytes_b64)
-            .map_err(|e| MePassaError::Protocol(format!("Invalid media base64: {}", e)))
+            .map_err(|e| ZapLivreError::Protocol(format!("Invalid media base64: {}", e)))
     }
 
     pub fn thumbnail_bytes(&self) -> Result<Option<Vec<u8>>> {
@@ -45,7 +45,7 @@ impl MediaEnvelope {
             Some(b64) => general_purpose::STANDARD
                 .decode(b64)
                 .map(Some)
-                .map_err(|e| MePassaError::Protocol(format!("Invalid thumbnail base64: {}", e))),
+                .map_err(|e| ZapLivreError::Protocol(format!("Invalid thumbnail base64: {}", e))),
             None => Ok(None),
         }
     }

@@ -1,8 +1,8 @@
-# MePassa Hybrid Architecture
+# ZapLivre Hybrid Architecture
 
 ## Overview
 
-MePassa uses a **HYBRID P2P + Server** architecture that combines the best aspects of peer-to-peer communication with the reliability of centralized infrastructure.
+ZapLivre uses a **HYBRID P2P + Server** architecture that combines the best aspects of peer-to-peer communication with the reliability of centralized infrastructure.
 
 ## Architecture Philosophy
 
@@ -12,7 +12,7 @@ MePassa uses a **HYBRID P2P + Server** architecture that combines the best aspec
             │
     P2P Puro│
             │              ← Sweet Spot
-            │         HÍBRIDO (MePassa)
+            │         HÍBRIDO (ZapLivre)
             │
             │
             │    Centralizado
@@ -21,7 +21,7 @@ MePassa uses a **HYBRID P2P + Server** architecture that combines the best aspec
                  Usabilidade
 ```
 
-**MePassa escolhe o "sweet spot":**
+**ZapLivre escolhe o "sweet spot":**
 - Não sacrifica usabilidade completamente (como P2P puro)
 - Não sacrifica privacidade completamente (como centralizado)
 - Balanceado para adoção real
@@ -159,7 +159,7 @@ TOTAL:       R$ 4.000/mês (1000 users)
 Per user:    R$ 4,00/mês
 ```
 
-### Híbrido (MePassa):
+### Híbrido (ZapLivre):
 ```
 Bootstrap:   R$ 150/mês (3 VPS pequenos)
 TURN:        R$ 250/mês (só 15% uso)
@@ -189,17 +189,17 @@ ECONOMIA: 85% 🎯
 
 **Comparison:**
 - WhatsApp: Server sees 100% metadata
-- MePassa: Server sees ~20% metadata
+- ZapLivre: Server sees ~20% metadata
 - Briar (P2P pure): Server sees 0% but doesn't work offline
 
 ## Trade-offs
 
 ### vs Pure P2P (Briar, Jami, Tox):
 
-**MePassa sacrifices:**
+**ZapLivre sacrifices:**
 - ❌ 100% metadata privacy (only 80%)
 
-**MePassa gains:**
+**ZapLivre gains:**
 - ✅ Works offline (store-and-forward)
 - ✅ 100% NAT traversal success
 - ✅ Fast discovery
@@ -208,10 +208,10 @@ ECONOMIA: 85% 🎯
 
 ### vs Centralized (WhatsApp, Telegram):
 
-**MePassa sacrifices:**
+**ZapLivre sacrifices:**
 - ❌ Some UX conveniences (server features)
 
-**MePassa gains:**
+**ZapLivre gains:**
 - ✅ 80% better privacy (P2P direct)
 - ✅ 85% lower cost
 - ✅ Self-hosting possible
@@ -251,8 +251,8 @@ ECONOMIA: 85% 🎯
 
 ## References
 
-- [Comparação de Arquiteturas](../../documentos/start/mepassa_comparacao_arquiteturas.md)
-- [Arquitetura Híbrida Detalhada](../../documentos/start/mepassa_arquitetura_hibrida.md)
+- [Comparação de Arquiteturas](../../documentos/start/zaplivre_comparacao_arquiteturas.md)
+- [Arquitetura Híbrida Detalhada](../../documentos/start/zaplivre_arquitetura_hibrida.md)
 - [libp2p Documentation](https://docs.libp2p.io)
 - [Signal Protocol Specifications](https://signal.org/docs/)
 

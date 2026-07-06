@@ -1,6 +1,6 @@
 //! Client API
 //!
-//! Public API for MePassa client.
+//! Public API for ZapLivre client.
 
 use libp2p::{Multiaddr, PeerId};
 use std::path::{Path, PathBuf};
@@ -19,7 +19,7 @@ use crate::{
     protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest, Message, MessageType, TextMessage},
     reactions::ReactionEnvelope,
     storage::{contacts::{NewContact, UpdateContact}, Database, MediaType, MessageStatus, NewMessage, StorageError},
-    utils::error::{MePassaError, Result},
+    utils::error::{ZapLivreError, Result},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -28,9 +28,9 @@ use crate::voip::{CallManager, VoIPIntegration};
 
 const MAX_INLINE_MEDIA_BYTES: usize = 512 * 1024;
 
-/// MePassa Client
+/// ZapLivre Client
 ///
-/// Main entry point for using the MePassa P2P messaging platform.
+/// Main entry point for using the ZapLivre P2P messaging platform.
 pub struct Client {
     /// Local peer ID (libp2p)
     peer_id: PeerId,
@@ -119,16 +119,16 @@ impl Client {
         identity.init_prekey_pool(100);
         let pool = identity
             .prekey_pool_mut()
-            .ok_or_else(|| MePassaError::Identity("Prekey pool not initialized".to_string()))?;
+            .ok_or_else(|| ZapLivreError::Identity("Prekey pool not initialized".to_string()))?;
         let bundle = pool.get_bundle()?;
         serde_json::to_string(&bundle)
-            .map_err(|e| MePassaError::Identity(format!("Failed to serialize prekey bundle: {}", e)))
+            .map_err(|e| ZapLivreError::Identity(format!("Failed to serialize prekey bundle: {}", e)))
     }
 
     /// Store a contact's prekey bundle (JSON) for E2E encryption
     pub fn set_contact_prekey_bundle(&self, peer_id: String, bundle_json: String) -> Result<()> {
         let _bundle: crate::identity::PreKeyBundle = serde_json::from_str(&bundle_json)
-            .map_err(|e| MePassaError::Identity(format!("Invalid prekey bundle JSON: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("Invalid prekey bundle JSON: {}", e)))?;
 
         let update = UpdateContact {
             prekey_bundle_json: Some(Some(bundle_json.clone())),
@@ -148,7 +148,7 @@ impl Client {
                 self.database.insert_contact(&contact)?;
                 Ok(())
             }
-            Err(e) => Err(MePassaError::Storage(format!("Failed to update contact: {}", e))),
+            Err(e) => Err(ZapLivreError::Storage(format!("Failed to update contact: {}", e))),
         }
     }
 
@@ -186,7 +186,7 @@ impl Client {
     fn write_media_file(&self, media_hash: &str, file_name: Option<&str>, data: &[u8]) -> Result<String> {
         let media_dir = self.media_dir();
         std::fs::create_dir_all(&media_dir)
-            .map_err(|e| MePassaError::Storage(format!("Failed to create media dir: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to create media dir: {}", e)))?;
 
         let extension = file_name
             .and_then(|name| Path::new(name).extension())
@@ -197,17 +197,17 @@ impl Client {
         };
         let path = media_dir.join(file_name);
         std::fs::write(&path, data)
-            .map_err(|e| MePassaError::Storage(format!("Failed to write media file: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to write media file: {}", e)))?;
         Ok(path.to_string_lossy().to_string())
     }
 
     fn write_thumbnail_file(&self, media_hash: &str, data: &[u8]) -> Result<String> {
         let thumb_dir = self.media_dir().join("thumbnails");
         std::fs::create_dir_all(&thumb_dir)
-            .map_err(|e| MePassaError::Storage(format!("Failed to create thumbnail dir: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to create thumbnail dir: {}", e)))?;
         let path = thumb_dir.join(format!("{}.jpg", media_hash));
         std::fs::write(&path, data)
-            .map_err(|e| MePassaError::Storage(format!("Failed to write thumbnail file: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to write thumbnail file: {}", e)))?;
         Ok(path.to_string_lossy().to_string())
     }
 
@@ -376,7 +376,7 @@ impl Client {
         };
 
         let bundle: crate::identity::PreKeyBundle = serde_json::from_str(&bundle_json)
-            .map_err(|e| MePassaError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Invalid prekey bundle: {}", e)))?;
 
         let peer_id = to.to_string();
         let device_id = bundle.signal_device_id.unwrap_or(1);
@@ -403,7 +403,7 @@ impl Client {
     /// - Falha na criptografia (`Err`) → **erro, mensagem NÃO é enviada**
     ///   (antes havia downgrade silencioso para plaintext)
     /// - Sem sessão/bundle E2E (`Ok(None)`) → plaintext com warning, a menos
-    ///   que `MEPASSA_REQUIRE_E2E=true` (aí o envio falha)
+    ///   que `ZAPLIVRE_REQUIRE_E2E=true` (aí o envio falha)
     async fn prepare_outgoing_payload(
         &self,
         to: &PeerId,
@@ -428,15 +428,15 @@ impl Client {
             }
             Ok(None) => {
                 if e2e_required() {
-                    return Err(MePassaError::Crypto(format!(
+                    return Err(ZapLivreError::Crypto(format!(
                         "No E2E session with {} and plaintext fallback is disabled \
-                         (MEPASSA_REQUIRE_E2E)",
+                         (ZAPLIVRE_REQUIRE_E2E)",
                         to
                     )));
                 }
                 tracing::warn!(
                     "⚠️ No E2E session with {} - sending PLAINTEXT \
-                     (set MEPASSA_REQUIRE_E2E=true to forbid)",
+                     (set ZAPLIVRE_REQUIRE_E2E=true to forbid)",
                     to
                 );
                 Ok((
@@ -448,7 +448,7 @@ impl Client {
                     }),
                 ))
             }
-            Err(e) => Err(MePassaError::Crypto(format!(
+            Err(e) => Err(ZapLivreError::Crypto(format!(
                 "E2E encryption failed for {}: {} - message NOT sent",
                 to, e
             ))),
@@ -462,7 +462,7 @@ impl Client {
     fn decrypt_for_storage(&self, blob: &[u8]) -> Result<String> {
         let bytes = decrypt_for_storage(&self.storage_key, blob)?;
         let text = String::from_utf8(bytes)
-            .map_err(|_| MePassaError::Protocol("Invalid UTF-8 content".to_string()))?;
+            .map_err(|_| ZapLivreError::Protocol("Invalid UTF-8 content".to_string()))?;
         Ok(text)
     }
 
@@ -557,7 +557,7 @@ impl Client {
             next_attempt_at,
         ) {
             Ok(()) => Ok(DeliveryOutcome { sent: false, stored: false, queued: true }),
-            Err(e) => Err(MePassaError::Network(format!(
+            Err(e) => Err(ZapLivreError::Network(format!(
                 "Peer offline and failed to queue message for retry: {}",
                 e
             ))),
@@ -584,7 +584,7 @@ impl Client {
             .as_ref()
             .map(|url| url.trim_end_matches('/').to_string())
         else {
-            return Err(MePassaError::Network(
+            return Err(ZapLivreError::Network(
                 "Peer offline and message store not configured".to_string(),
             ));
         };
@@ -607,16 +607,16 @@ impl Client {
         .await;
         let resp = message_store_http
             .post(url)
-            .header("x-mepassa-peer", peer)
-            .header("x-mepassa-ts", ts)
-            .header("x-mepassa-sig", sig)
+            .header("x-zaplivre-peer", peer)
+            .header("x-zaplivre-ts", ts)
+            .header("x-zaplivre-sig", sig)
             .json(&request)
             .send()
             .await
-            .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
 
         if !resp.status().is_success() {
-            return Err(MePassaError::Network(format!(
+            return Err(ZapLivreError::Network(format!(
                 "Message store returned {}",
                 resp.status()
             )));
@@ -673,16 +673,16 @@ impl Client {
         let resp = self
             .message_store_http
             .post(url)
-            .header("x-mepassa-peer", peer)
-            .header("x-mepassa-ts", ts)
-            .header("x-mepassa-sig", sig)
+            .header("x-zaplivre-peer", peer)
+            .header("x-zaplivre-ts", ts)
+            .header("x-zaplivre-sig", sig)
             .json(&request)
             .send()
             .await
-            .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
 
         if !resp.status().is_success() {
-            return Err(MePassaError::Network(format!(
+            return Err(ZapLivreError::Network(format!(
                 "Message store returned {}",
                 resp.status()
             )));
@@ -705,12 +705,12 @@ impl Client {
         let resp = self
             .message_store_http
             .get(url)
-            .header("x-mepassa-peer", peer)
-            .header("x-mepassa-ts", ts)
-            .header("x-mepassa-sig", sig)
+            .header("x-zaplivre-peer", peer)
+            .header("x-zaplivre-ts", ts)
+            .header("x-zaplivre-sig", sig)
             .send()
             .await
-            .map_err(|e| MePassaError::Network(format!("Message store error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
 
         if !resp.status().is_success() {
             return Ok(());
@@ -719,7 +719,7 @@ impl Client {
         let body: RetrieveMessagesResponse = resp
             .json()
             .await
-            .map_err(|e| MePassaError::Network(format!("Invalid store response: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Invalid store response: {}", e)))?;
 
         if body.messages.is_empty() {
             return Ok(());
@@ -773,9 +773,9 @@ impl Client {
         let _ = self
             .message_store_http
             .delete(delete_url)
-            .header("x-mepassa-peer", peer)
-            .header("x-mepassa-ts", ts)
-            .header("x-mepassa-sig", sig)
+            .header("x-zaplivre-peer", peer)
+            .header("x-zaplivre-ts", ts)
+            .header("x-zaplivre-sig", sig)
             .json(&DeleteMessagesRequest {
                 message_ids: processed_ids,
             })
@@ -801,7 +801,7 @@ impl Client {
 
         // Compress image
         let compressed_data = compress_image(image_data, quality)
-            .map_err(|e| MePassaError::Other(format!("Image compression failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Other(format!("Image compression failed: {}", e)))?;
 
         // Generate message ID
         let message_id = uuid::Uuid::new_v4().to_string();
@@ -1348,19 +1348,19 @@ impl Client {
             let message = self
                 .database
                 .get_message(&media.message_id)
-                .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
             let peer_id = if message.sender_peer_id == self.local_peer_id().to_string() {
                 message
                     .recipient_peer_id
-                    .ok_or_else(|| MePassaError::Network("Missing recipient peer".to_string()))?
+                    .ok_or_else(|| ZapLivreError::Network("Missing recipient peer".to_string()))?
             } else {
                 message.sender_peer_id
             };
             let peer_id: PeerId = peer_id
                 .parse()
-                .map_err(|_| MePassaError::Network("Invalid peer ID".to_string()))?;
+                .map_err(|_| ZapLivreError::Network("Invalid peer ID".to_string()))?;
 
-            let mut last_error: Option<MePassaError> = None;
+            let mut last_error: Option<ZapLivreError> = None;
 
             for _ in 0..3 {
                 self.ensure_peer_connected(peer_id).await;
@@ -1392,7 +1392,7 @@ impl Client {
                         if let Ok(Some(updated)) = self.database.get_media_by_hash(media_hash) {
                             if let Some(path) = updated.local_path {
                                 if Path::new(&path).exists() {
-                                    return Ok::<String, MePassaError>(path);
+                                    return Ok::<String, ZapLivreError>(path);
                                 }
                             }
                         }
@@ -1410,7 +1410,7 @@ impl Client {
                         last_error = Some(e);
                     }
                     Err(_) => {
-                        last_error = Some(MePassaError::Network(
+                        last_error = Some(ZapLivreError::Network(
                             "Timed out waiting for media".to_string(),
                         ));
                     }
@@ -1420,11 +1420,11 @@ impl Client {
             }
 
             return Err(last_error.unwrap_or_else(|| {
-                MePassaError::Network("Timed out waiting for media".to_string())
+                ZapLivreError::Network("Timed out waiting for media".to_string())
             }));
         }
 
-        Err(MePassaError::NotFound(format!(
+        Err(ZapLivreError::NotFound(format!(
             "Media not found: {}",
             media_hash
         )))
@@ -1439,7 +1439,7 @@ impl Client {
     ) -> Result<Vec<crate::storage::Media>> {
         self.database
             .get_conversation_media(conversation_id, media_type, limit)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// Get messages for a conversation
@@ -1452,7 +1452,7 @@ impl Client {
         let conversation_id = format!("1:1:{}", peer_id);
         let mut messages = self.database
             .get_conversation_messages(&conversation_id, limit, offset)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         for message in &mut messages {
             if message.content_plaintext.is_none() {
@@ -1475,7 +1475,7 @@ impl Client {
     pub fn delete_message(&self, message_id: &str) -> Result<()> {
         self.database
             .delete_message(message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// Forward message to another peer/group
@@ -1488,7 +1488,7 @@ impl Client {
         let original_msg = self
             .database
             .get_message(message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         // Create new message with forwarded content
         let new_message_id = uuid::Uuid::new_v4().to_string();
@@ -1548,11 +1548,11 @@ impl Client {
 
         self.database
             .insert_message(&new_msg)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         self.database
             .update_conversation_last_message(&conversation_id, &new_message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         outcome?;
 
@@ -1577,7 +1577,7 @@ impl Client {
 
         self.database
             .add_reaction(&new_reaction)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         self.broadcast_reaction(message_id, emoji, "add").await?;
 
@@ -1590,7 +1590,7 @@ impl Client {
 
         self.database
             .remove_reaction(message_id, &peer_id, emoji)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         self.broadcast_reaction(message_id, emoji, "remove").await?;
 
@@ -1601,19 +1601,19 @@ impl Client {
         let message = self
             .database
             .get_message(message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         let local_peer_id = self.local_peer_id().to_string();
         let remote_peer_id = if message.sender_peer_id == local_peer_id {
             message
                 .recipient_peer_id
-                .ok_or_else(|| MePassaError::Protocol("Missing recipient peer id".to_string()))?
+                .ok_or_else(|| ZapLivreError::Protocol("Missing recipient peer id".to_string()))?
         } else {
             message.sender_peer_id
         };
 
         PeerId::from_str(&remote_peer_id)
-            .map_err(|_| MePassaError::Network("Invalid peer ID".to_string()))
+            .map_err(|_| ZapLivreError::Network("Invalid peer ID".to_string()))
     }
 
     async fn broadcast_reaction(
@@ -1666,21 +1666,21 @@ impl Client {
     pub fn get_message_reactions(&self, message_id: &str) -> Result<Vec<crate::storage::Reaction>> {
         self.database
             .get_message_reactions(message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// Get aggregated reaction counts for a message
     pub fn get_message_reaction_counts(&self, message_id: &str) -> Result<Vec<(String, u32)>> {
         self.database
             .get_message_reaction_counts(message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// List all conversations
     pub fn list_conversations(&self) -> Result<Vec<crate::storage::Conversation>> {
         self.database
             .list_conversations()
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// Search messages
@@ -1691,7 +1691,7 @@ impl Client {
     ) -> Result<Vec<crate::storage::Message>> {
         self.database
             .search_messages(query, limit)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// Mark conversation as read
@@ -1699,7 +1699,7 @@ impl Client {
         let conversation_id = format!("1:1:{}", peer_id);
         self.database
             .mark_conversation_read(&conversation_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))
     }
 
     /// Get connected peers count
@@ -1739,7 +1739,7 @@ impl Client {
         self.voip_integration
             .start_call(to_peer_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
@@ -1748,7 +1748,7 @@ impl Client {
         self.voip_integration
             .accept_call(call_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
@@ -1757,7 +1757,7 @@ impl Client {
         self.voip_integration
             .reject_call(call_id, reason)
             .await
-            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
@@ -1766,7 +1766,7 @@ impl Client {
         self.voip_integration
             .hangup_call(call_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
@@ -1775,7 +1775,7 @@ impl Client {
         self.call_manager
             .toggle_mute(call_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
@@ -1784,7 +1784,7 @@ impl Client {
         self.call_manager
             .toggle_speakerphone(call_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("VoIP error: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("VoIP error: {}", e)))
     }
 
     #[cfg(feature = "voip")]
@@ -1799,7 +1799,7 @@ impl Client {
         self.call_manager
             .send_audio_frame(&call_id, audio_data, sample_rate, channels)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to send audio frame: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to send audio frame: {}", e)))
     }
 
     // ========== Video Methods (FASE 14) ==========
@@ -1814,7 +1814,7 @@ impl Client {
         self.call_manager
             .enable_video(&call_id, codec)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to enable video: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to enable video: {}", e)))
     }
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1823,7 +1823,7 @@ impl Client {
         self.call_manager
             .disable_video(&call_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to disable video: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to disable video: {}", e)))
     }
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1840,7 +1840,7 @@ impl Client {
         self.call_manager
             .send_video_frame(&call_id, frame_data)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to send video frame: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to send video frame: {}", e)))
     }
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1852,7 +1852,7 @@ impl Client {
         self.call_manager
             .switch_camera(&call_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to switch camera: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to switch camera: {}", e)))
     }
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1918,7 +1918,7 @@ impl Client {
             .group_manager
             .create_group(name, description)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to create group: {}", e)))?;
+            .map_err(|e| ZapLivreError::Other(format!("Failed to create group: {}", e)))?;
 
         {
             let mut network = self.network.write().await;
@@ -2006,7 +2006,7 @@ impl Client {
         let topic = self.group_manager
             .join_group(group_id, group_name)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to join group: {}", e)))?;
+            .map_err(|e| ZapLivreError::Other(format!("Failed to join group: {}", e)))?;
         let mut network = self.network.write().await;
         if let Err(e) = network.subscribe_gossipsub(&topic) {
             tracing::warn!("Failed to subscribe to group topic: {}", e);
@@ -2050,7 +2050,7 @@ impl Client {
         self.group_manager
             .leave_group(&group_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to leave group: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to leave group: {}", e)))
     }
 
     /// Add a member to a group (admin only)
@@ -2062,13 +2062,13 @@ impl Client {
         self.group_manager
             .add_member(&group_id, &peer_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to add member: {}", e)))?;
+            .map_err(|e| ZapLivreError::Other(format!("Failed to add member: {}", e)))?;
 
         let group = self
             .group_manager
             .get_group(&group_id)
             .await
-            .ok_or_else(|| MePassaError::NotFound("Group not found after add".to_string()))?;
+            .ok_or_else(|| ZapLivreError::NotFound("Group not found after add".to_string()))?;
 
         let my_id = self.local_peer_id().to_string();
         let my_seed = self
@@ -2136,7 +2136,7 @@ impl Client {
         self.group_manager
             .remove_member(&group_id, &peer_id)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to remove member: {}", e)))?;
+            .map_err(|e| ZapLivreError::Other(format!("Failed to remove member: {}", e)))?;
 
         let my_id = self.local_peer_id().to_string();
         let envelope = crate::group::GroupControlEnvelope {
@@ -2170,7 +2170,7 @@ impl Client {
             .group_manager
             .get_group(&group_id)
             .await
-            .ok_or_else(|| MePassaError::NotFound("Group not found".to_string()))?;
+            .ok_or_else(|| ZapLivreError::NotFound("Group not found".to_string()))?;
 
         let mut members: Vec<String> = group.members.iter().cloned().collect();
         members.sort();
@@ -2187,7 +2187,7 @@ impl Client {
         self.group_manager
             .update_group(&group_id, name, description, None)
             .await
-            .map_err(|e| MePassaError::Other(format!("Failed to update group: {}", e)))
+            .map_err(|e| ZapLivreError::Other(format!("Failed to update group: {}", e)))
     }
 
     /// Get all groups
@@ -2214,7 +2214,7 @@ impl Client {
         let messages = self
             .database
             .get_conversation_messages(&conversation_id, limit, offset)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         Ok(messages.into_iter().map(|m| m.into()).collect())
     }
 
@@ -2224,7 +2224,7 @@ impl Client {
             .group_manager
             .get_group(&group_id)
             .await
-            .ok_or_else(|| MePassaError::NotFound("Group not found".to_string()))?;
+            .ok_or_else(|| ZapLivreError::NotFound("Group not found".to_string()))?;
 
         let message_id = uuid::Uuid::new_v4().to_string();
         let conversation_id = format!("group:{}", group_id);
@@ -2248,7 +2248,7 @@ impl Client {
         }
 
         let payload = serde_json::to_vec(&group_message)
-            .map_err(|e| MePassaError::Protocol(format!("Invalid group message: {}", e)))?;
+            .map_err(|e| ZapLivreError::Protocol(format!("Invalid group message: {}", e)))?;
 
         {
             let mut network = self.network.write().await;
@@ -2269,10 +2269,10 @@ impl Client {
         };
         self.database
             .insert_message(&new_msg)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         self.database
             .update_conversation_last_message(&conversation_id, &message_id)
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         Ok(message_id)
     }
@@ -2281,7 +2281,7 @@ impl Client {
     pub async fn get_group_sender_key_seed(&self, group_id: String) -> Result<Vec<u8>> {
         self.group_manager
             .get_group_sender_key_seed(&group_id)
-            .map_err(|e| MePassaError::Crypto(format!("Failed to read sender key: {}", e)))
+            .map_err(|e| ZapLivreError::Crypto(format!("Failed to read sender key: {}", e)))
     }
 
     /// Store a sender-key seed for a group member
@@ -2293,7 +2293,7 @@ impl Client {
     ) -> Result<()> {
         self.group_manager
             .add_group_sender_key(&group_id, &sender_peer_id, &sender_key_seed)
-            .map_err(|e| MePassaError::Crypto(format!("Failed to store sender key: {}", e)))
+            .map_err(|e| ZapLivreError::Crypto(format!("Failed to store sender key: {}", e)))
     }
 
     /// Run network event loop (blocking)
@@ -2417,7 +2417,7 @@ impl Client {
 /// caem em plaintext - o envio falha. Default false para o alfa (a troca de
 /// prekeys ainda não é automática nos apps).
 fn e2e_required() -> bool {
-    std::env::var("MEPASSA_REQUIRE_E2E")
+    std::env::var("ZAPLIVRE_REQUIRE_E2E")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
 }

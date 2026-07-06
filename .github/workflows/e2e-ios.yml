@@ -50,10 +50,10 @@ jobs:
       - name: Build Rust core for simulator (arm64 only)
         run: |
           cd core
-          cargo build --release --target aarch64-apple-ios-sim --features voip -p mepassa-core
+          cargo build --release --target aarch64-apple-ios-sim --features voip -p zaplivre-core
           mkdir -p ../ios/Libraries
-          cp ../target/aarch64-apple-ios-sim/release/libmepassa_core.a \
-             ../ios/Libraries/libmepassa_core_sim.a
+          cp ../target/aarch64-apple-ios-sim/release/libzaplivre_core.a \
+             ../ios/Libraries/libzaplivre_core_sim.a
 
       - name: Generate Swift bindings
         run: ./ios/generate-bindings.sh
@@ -67,8 +67,8 @@ jobs:
       - name: Build app for simulator
         run: |
           cd ios
-          xcodebuild -project MePassa.xcodeproj \
-            -scheme MePassa \
+          xcodebuild -project ZapLivre.xcodeproj \
+            -scheme ZapLivre \
             -sdk iphonesimulator \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
@@ -89,7 +89,7 @@ jobs:
                | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(dev['udid'] for devs in d.values() for dev in devs if dev['isAvailable']))")
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" ios/build/Build/Products/Debug-iphonesimulator/MePassa.app
+          xcrun simctl install "$UDID" ios/build/Build/Products/Debug-iphonesimulator/ZapLivre.app
 
       - name: Install Maestro
         run: |

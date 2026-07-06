@@ -1,6 +1,6 @@
 # Backup da identidade: exportar deve mostrar o Base64
 # Regressão: backup implementado mas inacessível (tela órfã)
-appId: com.mepassa
+appId: com.zaplivre
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

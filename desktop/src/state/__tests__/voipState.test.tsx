@@ -1,13 +1,13 @@
 /**
  * Testes do VoipStateProvider: hidratação e persistência do estado de
- * chamadas VoIP em localStorage ('mepassa:voip_state').
+ * chamadas VoIP em localStorage ('zaplivre:voip_state').
  */
 import { act, renderHook } from '@testing-library/react'
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { VoipStateProvider, useVoipState } from '../voipState'
 
-const STORAGE_KEY = 'mepassa:voip_state'
+const STORAGE_KEY = 'zaplivre:voip_state'
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <VoipStateProvider>{children}</VoipStateProvider>

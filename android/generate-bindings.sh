@@ -4,7 +4,7 @@
 
 set -e
 
-echo "🔨 Generating Kotlin bindings for MePassa Core..."
+echo "🔨 Generating Kotlin bindings for ZapLivre Core..."
 echo ""
 
 # Colors
@@ -21,13 +21,13 @@ ANDROID_DIR="$PROJECT_ROOT/android"
 GENERATED_DIR="$ANDROID_DIR/app/src/main/kotlin"
 
 # Files
-UDL_FILE="$CORE_DIR/src/mepassa.udl"
+UDL_FILE="$CORE_DIR/src/zaplivre.udl"
 
 # Detect platform and use appropriate library extension
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    LIB_FILE="$PROJECT_ROOT/target/release/libmepassa_core.dylib"
+    LIB_FILE="$PROJECT_ROOT/target/release/libzaplivre_core.dylib"
 else
-    LIB_FILE="$PROJECT_ROOT/target/release/libmepassa_core.so"
+    LIB_FILE="$PROJECT_ROOT/target/release/libzaplivre_core.so"
 fi
 
 echo -e "${BLUE}Project root:${NC} $PROJECT_ROOT"
@@ -46,7 +46,7 @@ fi
 if [ ! -f "$LIB_FILE" ]; then
     echo -e "${YELLOW}⚠️  Library not found, building for host (x86_64)...${NC}"
     cd "$CORE_DIR"
-    cargo build --release --features voip -p mepassa-core
+    cargo build --release --features voip -p zaplivre-core
     echo ""
 fi
 

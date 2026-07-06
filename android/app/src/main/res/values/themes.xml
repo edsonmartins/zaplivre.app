@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Base application theme (usando Material3) -->
-    <style name="Theme.MePassa" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ZapLivre" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>

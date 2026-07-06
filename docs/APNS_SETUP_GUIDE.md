@@ -1,6 +1,6 @@
-# APNs Setup Guide - MePassa
+# APNs Setup Guide - ZapLivre
 
-Complete guide for setting up Apple Push Notification service (APNs) for the MePassa iOS app.
+Complete guide for setting up Apple Push Notification service (APNs) for the ZapLivre iOS app.
 
 ## 📋 Prerequisites
 
@@ -10,10 +10,10 @@ Complete guide for setting up Apple Push Notification service (APNs) for the MeP
    - Access to [Apple Developer Portal](https://developer.apple.com/account)
 
 2. **Xcode Project**
-   - Bundle ID registered (e.g., `com.mepassa.ios`)
+   - Bundle ID registered (e.g., `com.zaplivre.ios`)
    - App ID configured in Apple Developer Portal
 
-3. **MePassa Push Server**
+3. **ZapLivre Push Server**
    - Running instance with APNs support enabled
    - Access to server configuration files
 
@@ -25,7 +25,7 @@ Complete guide for setting up Apple Push Notification service (APNs) for the MeP
 
 1. Go to [Apple Developer Portal - Keys](https://developer.apple.com/account/resources/authkeys/list)
 2. Click the **"+"** button to create a new key
-3. Enter a **Key Name** (e.g., "MePassa APNs Key")
+3. Enter a **Key Name** (e.g., "ZapLivre APNs Key")
 4. Check **"Apple Push Notifications service (APNs)"**
 5. Click **"Continue"** and then **"Register"**
 6. **Download the .p8 file** immediately
@@ -53,14 +53,14 @@ After creating the key, note down:
 3. Select **"App IDs"** → **"Continue"**
 4. Select **"App"** → **"Continue"**
 5. Fill in details:
-   - **Description:** MePassa iOS App
-   - **Bundle ID:** Explicit (e.g., `com.mepassa.ios`)
+   - **Description:** ZapLivre iOS App
+   - **Bundle ID:** Explicit (e.g., `com.zaplivre.ios`)
    - **Capabilities:** Check **"Push Notifications"**
 6. Click **"Continue"** → **"Register"**
 
 ### 2.2 Xcode Project Configuration
 
-In your Xcode project (`ios/MePassa.xcodeproj`):
+In your Xcode project (`ios/ZapLivre.xcodeproj`):
 
 1. **Signing & Capabilities** tab:
    - Add **"Push Notifications"** capability
@@ -78,12 +78,12 @@ In your Xcode project (`ios/MePassa.xcodeproj`):
 
 ```bash
 # Create secure directory for APNs key
-mkdir -p /etc/mepassa/apns
-chmod 700 /etc/mepassa/apns
+mkdir -p /etc/zaplivre/apns
+chmod 700 /etc/zaplivre/apns
 
 # Copy the .p8 key file
-cp AuthKey_XXXXXXXXXX.p8 /etc/mepassa/apns/
-chmod 600 /etc/mepassa/apns/AuthKey_XXXXXXXXXX.p8
+cp AuthKey_XXXXXXXXXX.p8 /etc/zaplivre/apns/
+chmod 600 /etc/zaplivre/apns/AuthKey_XXXXXXXXXX.p8
 ```
 
 ### 3.2 Update Environment Variables
@@ -92,10 +92,10 @@ Edit `.env` or `docker-compose.yml`:
 
 ```bash
 # APNs Configuration
-APNS_KEY_PATH=/etc/mepassa/apns/AuthKey_XXXXXXXXXX.p8
+APNS_KEY_PATH=/etc/zaplivre/apns/AuthKey_XXXXXXXXXX.p8
 APNS_KEY_ID=AB12CD34EF          # Your 10-character Key ID
 APNS_TEAM_ID=XY98ZW76UV         # Your 10-character Team ID
-APNS_BUNDLE_ID=com.mepassa.ios  # Your app's Bundle ID
+APNS_BUNDLE_ID=com.zaplivre.ios  # Your app's Bundle ID
 APNS_PRODUCTION=false           # Use false for development/sandbox
 ```
 
@@ -110,7 +110,7 @@ Add volume mount for the APNs key:
 ```yaml
 services:
   push-server:
-    image: mepassa/push-server:latest
+    image: zaplivre/push-server:latest
     environment:
       - APNS_KEY_PATH=/etc/apns/AuthKey_XXXXXXXXXX.p8
       - APNS_KEY_ID=${APNS_KEY_ID}
@@ -118,7 +118,7 @@ services:
       - APNS_BUNDLE_ID=${APNS_BUNDLE_ID}
       - APNS_PRODUCTION=${APNS_PRODUCTION:-false}
     volumes:
-      - /etc/mepassa/apns:/etc/apns:ro  # Read-only mount
+      - /etc/zaplivre/apns:/etc/apns:ro  # Read-only mount
 ```
 
 ---
@@ -132,7 +132,7 @@ cd ios
 ./build-all.sh --build
 
 # Or open in Xcode
-open MePassa.xcodeproj
+open ZapLivre.xcodeproj
 ```
 
 ### 4.2 Check Device Token Registration
@@ -159,7 +159,7 @@ curl -X POST http://localhost:8081/api/v1/send \
   -d '{
     "peer_id": "'$PEER_ID'",
     "title": "Test Notification",
-    "body": "Hello from MePassa Push Server!",
+    "body": "Hello from ZapLivre Push Server!",
     "data": {
       "message_id": "test_123",
       "sender_peer_id": "test_sender"
@@ -243,7 +243,7 @@ curl -X POST http://localhost:8081/api/v1/send \
 ```bash
 # Correct permissions
 chmod 600 AuthKey_*.p8
-chown mepassa:mepassa AuthKey_*.p8
+chown zaplivre:zaplivre AuthKey_*.p8
 
 # Never commit to version control
 echo "*.p8" >> .gitignore
@@ -291,7 +291,7 @@ Monitor APNs activity:
 
 ```bash
 # Follow push server logs
-docker logs -f mepassa-push-server
+docker logs -f zaplivre-push-server
 
 # Look for:
 # ✅ "APNs client initialized"
@@ -335,4 +335,4 @@ Before going to production:
 ---
 
 **Last Updated:** 2026-01-21
-**MePassa Version:** FASE 8 - Push Notifications
+**ZapLivre Version:** FASE 8 - Push Notifications

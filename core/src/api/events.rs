@@ -1,12 +1,12 @@
 //! Event System
 //!
-//! Events emitted by the MePassa client.
+//! Events emitted by the ZapLivre client.
 
 use libp2p::PeerId;
 
 use crate::protocol::Message;
 
-/// Events that can be emitted by the MePassa client
+/// Events that can be emitted by the ZapLivre client
 #[derive(Debug, Clone)]
 pub enum ClientEvent {
     /// A new message was received

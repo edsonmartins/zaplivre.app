@@ -1,4 +1,4 @@
-# Audit Report v2 — MePassa Codebase
+# Audit Report v2 — ZapLivre Codebase
 
 ## Scope
 - Core (Rust): networking, storage, identity, protocol, VoIP, FFI
@@ -13,7 +13,7 @@
 - Cross‑app consistency review (features exposed vs implemented)
 
 ## Executive Summary
-Despite recent fixes (ACK sending + event bus + identity import/export), the codebase still contains multiple critical gaps that block production readiness: end‑to‑end encryption is missing, bootstrap configuration is not owned by MePassa, NAT detection is placeholder, group signature verification is incomplete, and media send/receive pipeline is partially stubbed. VoIP remains largely stubbed across core + apps. These should be resolved before bootstrap server deployment.
+Despite recent fixes (ACK sending + event bus + identity import/export), the codebase still contains multiple critical gaps that block production readiness: end‑to‑end encryption is missing, bootstrap configuration is not owned by ZapLivre, NAT detection is placeholder, group signature verification is incomplete, and media send/receive pipeline is partially stubbed. VoIP remains largely stubbed across core + apps. These should be resolved before bootstrap server deployment.
 
 ## Critical Gaps (P0)
 1) **E2E encryption missing**
@@ -38,13 +38,13 @@ Despite recent fixes (ACK sending + event bus + identity import/export), the cod
 
 ## High Priority (P1)
 1) **VoIP/Video stubs** (core + FFI + apps)
-- Evidence: `core/src/ffi/client.rs:1261-1347`, `core/src/voip/manager.rs:501+`, `core/src/voip/video_pipeline.rs:38/95`, `core/src/voip/integration.rs:328/340`, `ios/MePassa/MePassa/VoIP/CallManager.swift:115+`, `android/app/src/main/kotlin/com/mepassa/ui/screens/call/VideoCallScreen.kt:256`.
+- Evidence: `core/src/ffi/client.rs:1261-1347`, `core/src/voip/manager.rs:501+`, `core/src/voip/video_pipeline.rs:38/95`, `core/src/voip/integration.rs:328/340`, `ios/ZapLivre/ZapLivre/VoIP/CallManager.swift:115+`, `android/app/src/main/kotlin/com/zaplivre/ui/screens/call/VideoCallScreen.kt:256`.
 
 2) **Relay integration incomplete**
 - Evidence: `core/src/network/swarm.rs:262`.
 
 3) **Push notifications not production‑ready (iOS)**
-- Evidence: `ios/MePassa/MePassa/Core/PushNotificationManager.swift:18`.
+- Evidence: `ios/ZapLivre/ZapLivre/Core/PushNotificationManager.swift:18`.
 
 ## Medium Priority (P2)
 1) **Reactions/forwarding not broadcast**
@@ -63,7 +63,7 @@ Despite recent fixes (ACK sending + event bus + identity import/export), the cod
 
 ## Recommendations / Fix Order
 1) **Security foundation**: implement Signal protocol (E2E) + encrypted storage.
-2) **Network ownership**: replace IPFS bootstrap with MePassa bootstrap nodes; configurable list.
+2) **Network ownership**: replace IPFS bootstrap with ZapLivre bootstrap nodes; configurable list.
 3) **Connectivity**: implement NAT detection + relay strategy.
 4) **Media pipeline**: send/download/store and path management.
 5) **VoIP**: either implement fully or hide features in UI.
@@ -71,6 +71,6 @@ Despite recent fixes (ACK sending + event bus + identity import/export), the cod
 
 ## Next Step
 Pick the first fix area and implement in priority order. Suggested first actions:
-- Replace bootstrap list with MePassa nodes (config‑driven).
+- Replace bootstrap list with ZapLivre nodes (config‑driven).
 - Add NAT detection + relay reservation strategy.
 - Begin E2E encryption integration plan.

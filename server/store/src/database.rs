@@ -247,7 +247,7 @@ mod tests {
     #[ignore] // Requires database
     async fn test_database_connection() {
         let db_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://mepassa:mepassa_dev_password@localhost:5432/mepassa".to_string());
+            .unwrap_or_else(|_| "postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre".to_string());
 
         let db = Database::new(&db_url).await;
         assert!(db.is_ok());

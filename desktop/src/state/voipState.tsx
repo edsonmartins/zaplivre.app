@@ -14,7 +14,7 @@ type VoipStateContextValue = {
   setVoipState: React.Dispatch<React.SetStateAction<VoipState>>
 }
 
-const STORAGE_KEY = 'mepassa:voip_state'
+const STORAGE_KEY = 'zaplivre:voip_state'
 const VoipStateContext = createContext<VoipStateContextValue | null>(null)
 
 export function VoipStateProvider({ children }: { children: React.ReactNode }) {

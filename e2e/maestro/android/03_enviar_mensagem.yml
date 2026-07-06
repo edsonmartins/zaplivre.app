@@ -2,7 +2,7 @@
 # Valida a fiação UI -> wrapper -> FFI de envio
 # NOTA: use um peer ID real de um segundo device para teste completo;
 # com peer offline a mensagem deve ficar Pending (fila de retry do core)
-appId: com.mepassa
+appId: com.zaplivre
 env:
   PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
 ---

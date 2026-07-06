@@ -5,21 +5,21 @@
 use prost::Message as ProstMessage;
 
 use super::pb::Message;
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 /// Encode a message to bytes (Protocol Buffer format)
 pub fn encode(message: &Message) -> Result<Vec<u8>> {
     let mut buf = Vec::new();
     message
         .encode(&mut buf)
-        .map_err(|e| MePassaError::Protocol(format!("Failed to encode message: {}", e)))?;
+        .map_err(|e| ZapLivreError::Protocol(format!("Failed to encode message: {}", e)))?;
     Ok(buf)
 }
 
 /// Decode a message from bytes (Protocol Buffer format)
 pub fn decode(data: &[u8]) -> Result<Message> {
     Message::decode(data)
-        .map_err(|e| MePassaError::Protocol(format!("Failed to decode message: {}", e)))
+        .map_err(|e| ZapLivreError::Protocol(format!("Failed to decode message: {}", e)))
 }
 
 /// Encode a message to a length-delimited format
@@ -36,14 +36,14 @@ pub fn encode_length_delimited(message: &Message) -> Result<Vec<u8>> {
 /// Decode a message from length-delimited format
 pub fn decode_length_delimited(data: &[u8]) -> Result<Message> {
     if data.len() < 4 {
-        return Err(MePassaError::Protocol(
+        return Err(ZapLivreError::Protocol(
             "Data too short for length-delimited message".to_string(),
         ));
     }
 
     let len = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
     if data.len() < 4 + len {
-        return Err(MePassaError::Protocol(format!(
+        return Err(ZapLivreError::Protocol(format!(
             "Expected {} bytes but got {}",
             4 + len,
             data.len()

@@ -1,9 +1,9 @@
-# Guia de Teste - MePassa Android App
+# Guia de Teste - ZapLivre Android App
 
 **Data:** 2025-01-20
 **Versão:** 0.1.0-alpha
 
-Este guia documenta passo a passo como compilar e testar o app Android MePassa.
+Este guia documenta passo a passo como compilar e testar o app Android ZapLivre.
 
 ## 📋 Pré-requisitos
 
@@ -26,14 +26,14 @@ java -version
 ### 2. Verificar Arquivos Necessários
 
 ```bash
-cd /Users/edsonmartins/desenvolvimento/mepassa/android
+cd /Users/edsonmartins/desenvolvimento/zaplivre/android
 
 # 1. Biblioteca nativa (CRÍTICO)
-ls -lh app/src/main/jniLibs/arm64-v8a/libmepassa_core.so
+ls -lh app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so
 # Esperado: 6.3MB
 
 # 2. Bindings UniFFI (CRÍTICO)
-ls -lh app/src/main/kotlin/uniffi/mepassa/mepassa.kt
+ls -lh app/src/main/kotlin/uniffi/zaplivre/zaplivre.kt
 # Esperado: 80KB
 
 # 3. Gradle wrapper
@@ -49,7 +49,7 @@ Se algum arquivo estiver faltando, execute:
 ```bash
 cd ../core
 cargo run --example generate_bindings
-cp target/aarch64-linux-android/release/libmepassa_core.so \
+cp target/aarch64-linux-android/release/libzaplivre_core.so \
    ../android/app/src/main/jniLibs/arm64-v8a/
 ```
 
@@ -59,13 +59,13 @@ cp target/aarch64-linux-android/release/libmepassa_core.so \
 
 1. Abrir Android Studio
 2. `File > Open...`
-3. Navegar até: `/Users/edsonmartins/desenvolvimento/mepassa/android`
+3. Navegar até: `/Users/edsonmartins/desenvolvimento/zaplivre/android`
 4. Selecionar a pasta `android/` e clicar em `Open`
 
 ### Método 2: Via Terminal
 
 ```bash
-cd /Users/edsonmartins/desenvolvimento/mepassa/android
+cd /Users/edsonmartins/desenvolvimento/zaplivre/android
 open -a "Android Studio" .
 ```
 
@@ -181,7 +181,7 @@ plugins {
 
 5. Configurar AVD:
    ```
-   AVD Name: MePassa_Test
+   AVD Name: ZapLivre_Test
    Startup orientation: Portrait
 
    Avançado (opcional):
@@ -288,12 +288,12 @@ BUILD SUCCESSFUL in 1m 23s
 
 ```bash
 # Verificar se APK foi instalado
-adb shell pm list packages | grep mepassa
-# Esperado: package:com.mepassa
+adb shell pm list packages | grep zaplivre
+# Esperado: package:com.zaplivre
 
 # Verificar se biblioteca nativa foi copiada
-adb shell run-as com.mepassa ls -l /data/data/com.mepassa/lib/
-# Esperado: libmepassa_core.so
+adb shell run-as com.zaplivre ls -l /data/data/com.zaplivre/lib/
+# Esperado: libzaplivre_core.so
 ```
 
 ## 🧪 Passo 5: Testar Funcionalidades
@@ -311,7 +311,7 @@ adb shell run-as com.mepassa ls -l /data/data/com.mepassa/lib/
    ┌─────────────────────────────┐
    │         [ MP ]              │  ← Logo placeholder
    │                             │
-   │   Bem-vindo ao MePassa      │
+   │   Bem-vindo ao ZapLivre      │
    │ Mensagens privadas e        │
    │   seguras via P2P           │
    │                             │
@@ -336,31 +336,31 @@ adb shell run-as com.mepassa ls -l /data/data/com.mepassa/lib/
 #### Verificar nos Logs:
 
 ```bash
-adb logcat | grep MePassa
+adb logcat | grep ZapLivre
 ```
 
 **Logs esperados:**
 ```
-MePassaApplication: Native library loaded successfully
-MePassaApplication: MePassa Application created
+ZapLivreApplication: Native library loaded successfully
+ZapLivreApplication: ZapLivre Application created
 MainActivity: MainActivity created
-MainActivity: MePassaClient initialized successfully
-MainActivity: Starting MePassaService
-MePassaService: Service created
-MePassaService: Initializing MePassaClient from service
-MePassaClientWrapper: Initializing MePassaClient with dataDir: /data/user/0/com.mepassa/files/mepassa_data
-MePassaClientWrapper: Client initialized successfully. PeerId: 12D3KooW...
-MePassaService: Starting P2P listener
-MePassaService: Starting bootstrap
+MainActivity: ZapLivreClient initialized successfully
+MainActivity: Starting ZapLivreService
+ZapLivreService: Service created
+ZapLivreService: Initializing ZapLivreClient from service
+ZapLivreClientWrapper: Initializing ZapLivreClient with dataDir: /data/user/0/com.zaplivre/files/zaplivre_data
+ZapLivreClientWrapper: Client initialized successfully. PeerId: 12D3KooW...
+ZapLivreService: Starting P2P listener
+ZapLivreService: Starting bootstrap
 ```
 
 #### Se Falhar:
 
 **Erro 1: "UnsatisfiedLinkError"**
 ```
-Causa: libmepassa_core.so não foi incluída
+Causa: libzaplivre_core.so não foi incluída
 Verificar:
-adb shell run-as com.mepassa ls -l /data/data/com.mepassa/lib/
+adb shell run-as com.zaplivre ls -l /data/data/com.zaplivre/lib/
 
 Solução:
 1. Clean build: Build > Clean Project
@@ -371,7 +371,7 @@ Solução:
 **Erro 2: "Failed to initialize client"**
 ```
 Logs:
-MePassaClientWrapper: Failed to initialize client
+ZapLivreClientWrapper: Failed to initialize client
 java.lang.RuntimeException: ...
 
 Possíveis causas:
@@ -379,7 +379,7 @@ Possíveis causas:
 2. Diretório de dados inacessível
 
 Solução:
-adb shell pm clear com.mepassa  # Limpa dados do app
+adb shell pm clear com.zaplivre  # Limpa dados do app
 Executar app novamente
 ```
 
@@ -391,7 +391,7 @@ Executar app novamente
    - Puxar barra de notificações
    - Deve ter notificação:
      ```
-     MePassa
+     ZapLivre
      Conectado - 0 peers
      ```
 
@@ -402,13 +402,13 @@ Executar app novamente
 #### Verificar nos Logs:
 
 ```bash
-adb logcat | grep MePassaService
+adb logcat | grep ZapLivreService
 ```
 
 **Logs esperados (a cada 10s):**
 ```
-MePassaService: Connected peers: 0
-MePassaService: Connected peers: 0
+ZapLivreService: Connected peers: 0
+ZapLivreService: Connected peers: 0
 ...
 ```
 
@@ -496,13 +496,13 @@ MePassaService: Connected peers: 0
 #### Verificar nos Logs:
 
 ```bash
-adb logcat | grep -E "(MePassaClientWrapper|ChatScreen)"
+adb logcat | grep -E "(ZapLivreClientWrapper|ChatScreen)"
 ```
 
 **Logs esperados:**
 ```
-MePassaClientWrapper: Sending text message to: 12D3KooWTest123
-MePassaClientWrapper: Message sent successfully: <message_id>
+ZapLivreClientWrapper: Sending text message to: 12D3KooWTest123
+ZapLivreClientWrapper: Message sent successfully: <message_id>
 ```
 
 ### Teste 5: Voltar para Conversas
@@ -531,21 +531,21 @@ MePassaClientWrapper: Message sent successfully: <message_id>
    - App vai para background
 
 2. **Verificar Notificação:**
-   - Notificação "MePassa - Conectado" permanece
+   - Notificação "ZapLivre - Conectado" permanece
    - Service continua rodando
 
 3. **Verificar Logs:**
    ```bash
-   adb logcat | grep MePassaService
+   adb logcat | grep ZapLivreService
 
    # Esperado: Logs a cada 10s continuam
-   MePassaService: Connected peers: 0
+   ZapLivreService: Connected peers: 0
    ```
 
 #### Teste: Retornar ao App
 
 1. **Abrir Recent Apps:**
-   - Selecionar MePassa
+   - Selecionar ZapLivre
 
 2. **Verificar Estado:**
    - App retorna na última tela (Chat ou Conversas)
@@ -557,7 +557,7 @@ MePassaClientWrapper: Message sent successfully: <message_id>
 
 ```bash
 # Forçar parada do app
-adb shell am force-stop com.mepassa
+adb shell am force-stop com.zaplivre
 ```
 
 #### Reabrir App:
@@ -573,11 +573,11 @@ adb shell am force-stop com.mepassa
 3. **Verificar Logs:**
    ```bash
    adb logcat -c  # Limpar logs
-   adb logcat | grep MePassa
+   adb logcat | grep ZapLivre
 
    # Esperado:
-   MainActivity: MePassaClient initialized successfully  ← Client já existe
-   MePassaService: Service created
+   MainActivity: ZapLivreClient initialized successfully  ← Client já existe
+   ZapLivreService: Service created
    ```
 
 ## 📊 Checklist de Validação
@@ -597,8 +597,8 @@ adb shell am force-stop com.mepassa
 
 ### ✅ Biblioteca Nativa
 - [ ] Log "Native library loaded successfully" aparece
-- [ ] libmepassa_core.so está em /data/data/.../lib/
-- [ ] MePassaClient inicializa sem erros
+- [ ] libzaplivre_core.so está em /data/data/.../lib/
+- [ ] ZapLivreClient inicializa sem erros
 
 ### ✅ Foreground Service
 - [ ] Service inicia automaticamente
@@ -682,15 +682,15 @@ adb logcat | grep AndroidRuntime
 
 **A) UnsatisfiedLinkError**
 ```
-java.lang.UnsatisfiedLinkError: couldn't find libmepassa_core.so
+java.lang.UnsatisfiedLinkError: couldn't find libzaplivre_core.so
 ```
 Solução:
 ```bash
 # Verificar se .so existe
-ls app/src/main/jniLibs/arm64-v8a/libmepassa_core.so
+ls app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so
 
 # Se não existir, copiar novamente
-cp ../core/target/aarch64-linux-android/release/libmepassa_core.so \
+cp ../core/target/aarch64-linux-android/release/libzaplivre_core.so \
    app/src/main/jniLibs/arm64-v8a/
 
 # Rebuild
@@ -699,16 +699,16 @@ cp ../core/target/aarch64-linux-android/release/libmepassa_core.so \
 
 **B) ClassNotFoundException (UniFFI)**
 ```
-java.lang.ClassNotFoundException: uniffi.mepassa.MePassaClient
+java.lang.ClassNotFoundException: uniffi.zaplivre.ZapLivreClient
 ```
 Solução:
 ```bash
 # Verificar se bindings existem
-ls app/src/main/kotlin/uniffi/mepassa/mepassa.kt
+ls app/src/main/kotlin/uniffi/zaplivre/zaplivre.kt
 
 # Se não existir
-cp ../core/target/bindings/uniffi/mepassa/mepassa.kt \
-   app/src/main/kotlin/uniffi/mepassa/
+cp ../core/target/bindings/uniffi/zaplivre/zaplivre.kt \
+   app/src/main/kotlin/uniffi/zaplivre/
 
 # Sync Gradle
 ```
@@ -722,7 +722,7 @@ Notificação não aparece
 
 **Verificar:**
 ```bash
-adb logcat | grep MePassaService
+adb logcat | grep ZapLivreService
 
 # Se nenhum log aparece:
 # - Service não foi registrado no AndroidManifest
@@ -733,7 +733,7 @@ adb logcat | grep MePassaService
 ```xml
 <!-- Verificar AndroidManifest.xml -->
 <service
-    android:name=".service.MePassaService"
+    android:name=".service.ZapLivreService"
     android:enabled="true"
     android:exported="false"
     android:foregroundServiceType="dataSync" />
@@ -748,7 +748,7 @@ Clicar em Send não faz nada
 
 **Verificar Logs:**
 ```bash
-adb logcat | grep MePassaClientWrapper
+adb logcat | grep ZapLivreClientWrapper
 ```
 
 **Erros comuns:**
@@ -761,7 +761,7 @@ Solução: Aguardar onboarding completar
 
 **B) Erro de rede**
 ```
-MePassaFfiError.Network: Failed to send message
+ZapLivreFfiError.Network: Failed to send message
 ```
 Causa: Peer ID inválido ou peer offline
 
@@ -793,7 +793,7 @@ Vou documentar como devem ficar as telas:
 ┌─────────────────────────────┐
 │          🎨 MP              │
 │                             │
-│  Bem-vindo ao MePassa       │
+│  Bem-vindo ao ZapLivre       │
 │                             │
 │ Mensagens privadas e        │
 │ seguras via P2P             │
@@ -862,7 +862,7 @@ Vou documentar como devem ficar as telas:
 Após executar todos os testes, preencher:
 
 ```
-# Relatório de Teste - MePassa Android
+# Relatório de Teste - ZapLivre Android
 
 Data: ___/___/______
 Testador: ________________

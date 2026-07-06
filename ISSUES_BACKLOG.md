@@ -10,7 +10,7 @@
    - Avoid UI polling; push updates on incoming messages/acks.
 
 3) **Identity backup/restore (iOS + Android)**
-   - Implement export/import in `ios/MePassa/MePassa/Core/MePassaCore.swift`.
+   - Implement export/import in `ios/ZapLivre/ZapLivre/Core/ZapLivreCore.swift`.
    - Provide UI flows to restore identity and keep stable peerId.
 
 4) **Bootstrap peers configured in apps**
@@ -21,7 +21,7 @@
 4b) **Envio não persiste a mensagem localmente + erro engolido** (descoberto na validação E2E iOS)
    - Ao enviar (1:1 e grupo) com o peer **offline**, a mensagem própria **não é
      salva no SQLite** (tabela `messages` fica vazia após o envio de grupo) e o
-     1:1 mostra `MePassaFfiError.Network`. O esperado é persistir localmente
+     1:1 mostra `ZapLivreFfiError.Network`. O esperado é persistir localmente
      ANTES de distribuir e depois enfileirar para retry (relacionado ao item 10).
    - `GroupChatView.sendMessage` (iOS) tem `catch` que **engole o erro** sem
      nenhum feedback ao usuário — falta estado de erro / indicação de "Pendente".

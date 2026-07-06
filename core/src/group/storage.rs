@@ -4,7 +4,7 @@
 
 use super::types::{Group, GroupRole};
 use crate::storage::Database;
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 use std::collections::HashSet;
 
 /// Save a group to database
@@ -88,7 +88,7 @@ pub fn load_group(db: &Database, group_id: &str) -> Result<Group> {
                 ))
             },
         )
-        .map_err(|_| MePassaError::NotFound(format!("Group {} not found", group_id)))?;
+        .map_err(|_| ZapLivreError::NotFound(format!("Group {} not found", group_id)))?;
 
     // Load members
     let mut members = HashSet::new();
@@ -120,7 +120,7 @@ pub fn load_group(db: &Database, group_id: &str) -> Result<Group> {
         }
     }
 
-    let topic = format!("/mepassa/group/{}", id);
+    let topic = format!("/zaplivre/group/{}", id);
 
     Ok(Group {
         id,
@@ -277,7 +277,7 @@ pub fn save_sender_key_seed(
     }
 
     let blob = crate::crypto::storage::encrypt_for_storage(storage_key, sender_key_seed)
-        .map_err(|e| MePassaError::Crypto(format!("Failed to encrypt sender key seed: {}", e)))?;
+        .map_err(|e| ZapLivreError::Crypto(format!("Failed to encrypt sender key seed: {}", e)))?;
 
     db.conn().execute(
         r#"
@@ -328,7 +328,7 @@ fn decode_seed_blob(storage_key: &[u8; 32], blob: Vec<u8>) -> Result<[u8; 32]> {
         return seed_from_blob(blob);
     }
     let decrypted = crate::crypto::storage::decrypt_for_storage(storage_key, &blob)
-        .map_err(|e| MePassaError::Crypto(format!("Failed to decrypt sender key seed: {}", e)))?;
+        .map_err(|e| ZapLivreError::Crypto(format!("Failed to decrypt sender key seed: {}", e)))?;
     seed_from_blob(decrypted)
 }
 
@@ -395,7 +395,7 @@ pub fn remove_sender_key(db: &Database, group_id: &str, sender_peer_id: &str) ->
 
 fn seed_from_blob(seed: Vec<u8>) -> Result<[u8; 32]> {
     if seed.len() != 32 {
-        return Err(MePassaError::Storage(format!(
+        return Err(ZapLivreError::Storage(format!(
             "Invalid sender key seed length: {}",
             seed.len()
         )));

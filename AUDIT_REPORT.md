@@ -1,4 +1,4 @@
-# Audit Report — MePassa Codebase
+# Audit Report — ZapLivre Codebase
 
 ## Scope
 - Core (Rust): networking, storage, identity, protocol, VoIP, FFI
@@ -34,7 +34,7 @@ The codebase has strong foundations but several critical gaps block reliable mes
 
 5) Identity lifecycle incomplete (iOS)
 - Impact: users cannot restore identity; forced to create new keypairs leading to peer changes.
-- Evidence: `ios/MePassa/MePassa/Core/MePassaCore.swift#L61` and `#L67` (import/export TODO).
+- Evidence: `ios/ZapLivre/ZapLivre/Core/ZapLivreCore.swift#L61` and `#L67` (import/export TODO).
 
 ## High Priority Findings
 1) NAT traversal detection is placeholder
@@ -68,7 +68,7 @@ The codebase has strong foundations but several critical gaps block reliable mes
 
 4) Push notification integration (iOS)
 - Impact: non‑production APNS URL and missing peer ID; push won’t route.
-- Evidence: `ios/MePassa/MePassa/Core/PushNotificationManager.swift#L18` and `#L69`.
+- Evidence: `ios/ZapLivre/ZapLivre/Core/PushNotificationManager.swift#L18` and `#L69`.
 
 ## Low Priority / UI & Docs
 - Group screens and settings include multiple mocks/placeholders across iOS/Android/Desktop.

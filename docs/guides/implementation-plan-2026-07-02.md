@@ -27,7 +27,7 @@ Objetivo: `git clone` → build funcionando em qualquer máquina; `make up` sobe
 
 ### Ambiente/toolchain
 - [x] **ENV-01** (P0) ✅ 2026-07-02 — check de `protoc`/cargo/docker no `make setup` (target `check-prereqs`) + seção de pré-requisitos no `BUILD_AND_TEST.md`.
-- [x] **ENV-02** (P2) ✅ 2026-07-02 — push migrado para sqlx 0.8 do workspace (`server/push/Cargo.toml`); `cargo check -p mepassa-push` OK, uma única árvore sqlx.
+- [x] **ENV-02** (P2) ✅ 2026-07-02 — push migrado para sqlx 0.8 do workspace (`server/push/Cargo.toml`); `cargo check -p zaplivre-push` OK, uma única árvore sqlx.
 
 ### Android build
 - [x] **AND-01** (P0) ✅ 2026-07-02 — task Gradle `buildRustCore` roda `android/build-native.sh` antes do `preBuild` (só quando as `.so` faltam; force com `-PrebuildNative`); NDK resolvido via `ANDROID_NDK_HOME`/`local.properties`/mais novo do SDK (path hardcoded removido); check de `protoc` no script.
@@ -42,14 +42,14 @@ Objetivo: `git clone` → build funcionando em qualquer máquina; `make up` sobe
 - [x] **SRV-01** (P0) ✅ 2026-07-02 — `server/identity/Dockerfile` criado; serviço `identity-server` (porta 8083) adicionado a `docker-compose.yml` e `stack.yml` (traefik `identity.associahub.com.br`).
 - [x] **SRV-02** (P0) ✅ 2026-07-02 — Dockerfile do signaling copia o workspace completo; serviço `signaling-server` adicionado ao `docker-compose.yml` com healthcheck (`/health` existe); `curl` adicionado ao runtime.
 - [x] **SRV-03** (P0) ✅ 2026-07-02 — compose e stack passam `APNS_KEY_PATH`/`APNS_KEY_ID`/`APNS_TEAM_ID`/`APNS_BUNDLE_ID`/`APNS_PRODUCTION`; diretório `server/push/certs/` criado com README; `*.p8` no `.gitignore`.
-- [x] **SRV-04** (P0) ✅ 2026-07-02 — `db.rs` lê `DateTime<Utc>` (compatível com TIMESTAMPTZ do init.sql); `schema.sql` reescrito espelhando o init.sql; `cargo check -p mepassa-identity-server` OK.
+- [x] **SRV-04** (P0) ✅ 2026-07-02 — `db.rs` lê `DateTime<Utc>` (compatível com TIMESTAMPTZ do init.sql); `schema.sql` reescrito espelhando o init.sql; `cargo check -p zaplivre-identity-server` OK.
 - [x] **SRV-05** (P0) ✅ 2026-07-02 — `UNIQUE` removido de `push_tokens.peer_id` no `init.sql` (unique composto `(peer_id, device_id)` mantido). Bancos dev existentes: `make db-reset`.
 - [x] **SRV-06** (P2) ✅ 2026-07-02 — `.env.example` reescrito e sincronizado (APNs, TURN_STATIC_SECRET, PEER_ID_SEED, RELAY_*, ENABLE_TTL_CLEANUP; `APNS_CERT_PASSWORD` removido; URLs locais default com produção comentada).
 - [x] **SRV-07** (P2) ✅ 2026-07-02 — Makefile em `docker compose` V2; `db-reset` corrigido; `make health` cobre postgres/redis/store/push/turn-credentials/identity/bootstrap/signaling/coturn; novos `logs-identity`/`logs-signaling`.
 
 **Extras descobertos e corrigidos durante a Fase 1 (2026-07-02):**
 - **ENV-03** `cmake` também é pré-requisito (audiopus_sys/feature voip) — adicionado ao `check-prereqs` e docs; CMake 4.x quebra o build do opus vendorizado → política pinada em `.cargo/config.toml` (`CMAKE_POLICY_VERSION_MINIMUM=3.5`), válido para o workspace e para `desktop/src-tauri`.
-- **ENV-04** `tokio-tungstenite` sem a feature `connect` — **o fallback de signaling do cliente (`core/src/voip/signaling_server.rs`) nunca compilou com a feature `voip`** (7 erros, invisíveis ao `cargo check` default porque voip é opcional). Corrigido em `core/Cargo.toml`; `cargo check -p mepassa-core --features voip` agora passa. Recomendação: incluir `--features voip` no CI (TST-04).
+- **ENV-04** `tokio-tungstenite` sem a feature `connect` — **o fallback de signaling do cliente (`core/src/voip/signaling_server.rs`) nunca compilou com a feature `voip`** (7 erros, invisíveis ao `cargo check` default porque voip é opcional). Corrigido em `core/Cargo.toml`; `cargo check -p zaplivre-core --features voip` agora passa. Recomendação: incluir `--features voip` no CI (TST-04).
 - **ENV-05** JDK: Gradle 8.5 exige Java 17–21 (o default da máquina era 25) — documentado em `local.properties.example`.
 - **ENV-06** `desktop/dist` precisa existir para `tauri::generate_context!` — basta `npm run build` uma vez (documentar no onboarding de devs).
 
@@ -62,12 +62,12 @@ Objetivo: `git clone` → build funcionando em qualquer máquina; `make up` sobe
 Objetivo: nenhum crash conhecido; wrappers deixam de mentir (stubs com sucesso fake).
 
 ### Android
-- [x] **AND-03** (P0) ✅ 2026-07-02 — `connectedPeers.toInt()` no `getString` (`MePassaService.kt`); crash `IllegalFormatConversionException` eliminado.
-- [x] **AND-04** (P0) ✅ 2026-07-02 — envs `MESSAGE_STORE_URL`/`SIGNALING_SERVER_URL` agora configuradas em `MePassaApplication.onCreate` (`configureCoreEnvironment()`), antes de qualquer `initialize()`; duplicação removida do service.
+- [x] **AND-03** (P0) ✅ 2026-07-02 — `connectedPeers.toInt()` no `getString` (`ZapLivreService.kt`); crash `IllegalFormatConversionException` eliminado.
+- [x] **AND-04** (P0) ✅ 2026-07-02 — envs `MESSAGE_STORE_URL`/`SIGNALING_SERVER_URL` agora configuradas em `ZapLivreApplication.onCreate` (`configureCoreEnvironment()`), antes de qualquer `initialize()`; duplicação removida do service.
 - [x] **AND-05** (P1) ✅ 2026-07-02 — core `ffi/client.rs`: `expect` no build do client substituído por saída graciosa da thread (comandos subsequentes retornam erro FFI controlado em vez de abort do processo).
 
 ### iOS
-- [x] **IOS-04** (P0) ✅ 2026-07-02 — `sendDocumentMessage`/`sendVideoMessage` reais em `MePassaCore.swift` (chamadas FFI com conversão Data→[UInt8]). *Validar com xcodebuild após gerar as libs Rust.*
+- [x] **IOS-04** (P0) ✅ 2026-07-02 — `sendDocumentMessage`/`sendVideoMessage` reais em `ZapLivreCore.swift` (chamadas FFI com conversão Data→[UInt8]). *Validar com xcodebuild após gerar as libs Rust.*
 - [x] **IOS-05** (P1) ✅ 2026-07-02 — reações reais (`getMessageReactions`/`addReaction`/`removeReaction` via FFI síncrono).
 - [x] **IOS-06** (P1) ✅ 2026-07-02 — `AppDelegate.pushManager` com `didSet` que atribui o delegate de `UNUserNotificationCenter` no momento da injeção.
 - [x] **IOS-07** (P1) ✅ 2026-07-02 (antecipado na Fase 1) — `NSLocalNetworkUsageDescription` + `NSBonjourServices` (`_p2p._udp`) adicionados ao `Info.plist` e ao `project.yml`. Validar descoberta LAN em devices físicos no primeiro teste.
@@ -127,7 +127,7 @@ Objetivo: grupo multi-dispositivo funcional e íntegro; sem hack de chave por me
 - [x] **CORE-16** (P0) ✅ 2026-07-02 — `GroupControlEnvelope` (invite/sender_key/member_added/member_removed/leave) via mensagens 1:1 E2E (padrão ReactionEnvelope); `add_group_member` envia invite+member_added automaticamente; convidado entra, subscreve topic e responde sender_key a todos; validações anti-spoofing (sender_key só de membros, membership só de admins — métodos `remote_*`); orquestração na task de eventos do builder. *Nota: envelope com seed sem sessão E2E ainda cai em plaintext com warning — SEC-01 endurece.*
 - [x] **AND-09** (P1) ✅ 2026-07-02 — hack removido do wrapper e telas; mantido só filtro de exibição para mensagens legadas.
 - [x] **DSK-07** (P1) ✅ 2026-07-02 — varredura/parsing/envio manuais removidos; join agora é automático via invite do core.
-- [x] **IOS-10** (P0) ✅ 2026-07-02 (antecipado) — loadGroups/createGroup/leaveGroup reais via MePassaCore (mocks removidos). *Validar com xcodebuild no primeiro build iOS.*
+- [x] **IOS-10** (P0) ✅ 2026-07-02 (antecipado) — loadGroups/createGroup/leaveGroup reais via ZapLivreCore (mocks removidos). *Validar com xcodebuild no primeiro build iOS.*
 - [x] **DSK-08** (P2) ✅ 2026-07-02 — Leave Group funcional + lista de membros no modal (novos comandos tauri).
 - [x] **AND-10** (P2) ✅ 2026-07-02 — lista de membros real (Você/Admin) + edição via novo `update_group` no FFI.
 - [x] **IOS-11** (P2) ✅ 2026-07-02 — `saveChanges` real via `updateGroup`.
@@ -142,18 +142,18 @@ Objetivo: grupo multi-dispositivo funcional e íntegro; sem hack de chave por me
 Objetivo: apto a testes com dados reais. Nada de plaintext silencioso; backend não é um open relay.
 
 ### Core
-- [x] **SEC-01** (P1) ✅ 2026-07-02 — falha de criptografia E2E **aborta o envio** em todos os caminhos (texto, mídia inline, forward, reação, group control) via `prepare_outgoing_payload` unificado; sem sessão (peer sem bundle) plaintext continua com warning alto; `MEPASSA_REQUIRE_E2E=true` proíbe também esse caso (default off — troca de prekeys ainda não é automática nos apps).
+- [x] **SEC-01** (P1) ✅ 2026-07-02 — falha de criptografia E2E **aborta o envio** em todos os caminhos (texto, mídia inline, forward, reação, group control) via `prepare_outgoing_payload` unificado; sem sessão (peer sem bundle) plaintext continua com warning alto; `ZAPLIVRE_REQUIRE_E2E=true` proíbe também esse caso (default off — troca de prekeys ainda não é automática nos apps).
 - [x] **SEC-02** (P1) ✅ 2026-07-02 — chunks só servidos a peers da conversa da mídia (sender/recipient da mensagem dona).
 - [x] **SEC-03** (P1) ✅ 2026-07-02 — hash (puro ou salted) verificado na remontagem; mismatch descarta o arquivo. *E2E dos chunks em si continua pendente (Noise de transporte cobre o wire).*
 - [x] **SEC-04** (P1) ✅ 2026-07-02 — sessões Signal (cifradas com storage key) e identidades TOFU persistidas em SQLite (migration v7), restauradas no startup. Restart não reseta pinning nem sessões.
 - [x] **SEC-05** (P1) ✅ 2026-07-02 — seeds cifradas em repouso (AES-GCM), fallback de leitura para formato legado; preservação de counter movida para Rust.
-- [x] **SEC-06** (P1) **PARCIAL** ✅ 2026-07-02 — `identity.key` legado apagado quando a identidade vem do secure storage; Android limpa `MEPASSA_IDENTITY_B64` do ambiente após o build. *Pendente: eliminar a escrita do arquivo na PRIMEIRA execução (exige API de export no FFI para a migração das plataformas).*
+- [x] **SEC-06** (P1) **PARCIAL** ✅ 2026-07-02 — `identity.key` legado apagado quando a identidade vem do secure storage; Android limpa `ZAPLIVRE_IDENTITY_B64` do ambiente após o build. *Pendente: eliminar a escrita do arquivo na PRIMEIRA execução (exige API de export no FFI para a migração das plataformas).*
 - [x] **SEC-07** (P2) ✅ 2026-07-02 — pool + IDENTIDADE SIGNAL persistidos (migração v8, cifrados com storage key); bundle estável entre restarts com teste de regressão. *Rotação de OPK server-side fica para o beta.*
 - [ ] **SEC-08** (P2) Safety numbers/fingerprint — **adiado para beta** (decisão 2026-07-02).
 - [x] **CORE-18** (P2) ✅ 2026-07-02 — URL sem esquema assume `wss://`; `ws://`/`http://` explícitos geram warning.
 
 ### Backend
-- [x] **SEC-09** (P1) **PARCIAL (store completo)** ✅ 2026-07-02 — message store exige Ed25519 em POST/GET/DELETE (headers `x-mepassa-peer/ts/sig`, chave extraída do peer ID); GET/DELETE restritos ao peer autenticado; core assina as 3 chamadas. *Pendente: push register/send e turn-credentials (exigem API de assinatura no FFI para os apps chamarem — os apps fazem essas chamadas, não o core).*
+- [x] **SEC-09** (P1) **PARCIAL (store completo)** ✅ 2026-07-02 — message store exige Ed25519 em POST/GET/DELETE (headers `x-zaplivre-peer/ts/sig`, chave extraída do peer ID); GET/DELETE restritos ao peer autenticado; core assina as 3 chamadas. *Pendente: push register/send e turn-credentials (exigem API de assinatura no FFI para os apps chamarem — os apps fazem essas chamadas, não o core).*
 - [x] **SEC-10** (P1) ✅ 2026-07-02 — `PUT /prekeys` verifica assinatura contra a chave pública registrada.
 - [x] **SEC-11** (P1) ✅ 2026-07-02 — Register assinado (prova de posse do peer ID); relay só de conexões registradas com `from_peer_id` forçado ao peer autenticado; limite de 64KB; porta via env.
 - [x] **SEC-12** (P1) ✅ 2026-07-02 — TURN secret via linha de comando do compose (fora do conf; stack exige env); bootstrap prefere chave aleatória persistida (`PEER_ID_SEED` mantém compat com warning); store sem credenciais default embutidas.
@@ -192,7 +192,7 @@ Depende de CORE-07 (callback de mensagens no FFI).
 
 ### Identidade: backup/restore funcionais
 - [x] **IDN-01** (P1) ✅ 2026-07-02 — auto-init (MainActivity e service) condicionado à existência de identidade; primeira execução decide criar/restaurar no Onboarding, que inicia o service ao concluir.
-- [x] **IDN-02** (P1) ✅ 2026-07-02 — guard `hasExistingIdentity` no launch; pós-init extraído (`completeCoreSetup`) e disparado pela LoginView via `.mePassaCoreStarted` — criar/restaurar funciona sem reiniciar o app.
+- [x] **IDN-02** (P1) ✅ 2026-07-02 — guard `hasExistingIdentity` no launch; pós-init extraído (`completeCoreSetup`) e disparado pela LoginView via `.zapLivreCoreStarted` — criar/restaurar funciona sem reiniciar o app.
 - [x] **AND-13** (P1) ✅ 2026-07-02 — Settings/Profile/Search no NavHost com ícones na barra de conversas (backup e prekeys acessíveis). MediaGallery/Viewer ficam para UX-09.
 - [x] **DSK-09** (P2) ✅ 2026-07-02 — export (modal Base64 + copiar) e restore no Onboarding; import valida, salva no keychain, limpa o banco antigo e reinicia o app.
 

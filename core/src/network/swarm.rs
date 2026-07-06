@@ -18,7 +18,7 @@ use uuid::Uuid;
 use chrono::Utc;
 
 use super::{
-    behaviour::MePassaBehaviour,
+    behaviour::ZapLivreBehaviour,
     connection::{ConnectionManager, ConnectionType},
     message_handler::MessageHandler,
     relay::RelayManager,
@@ -28,7 +28,7 @@ use super::{
 };
 use crate::{
     protocol::{pb::message::Payload, Message, MessageType},
-    utils::error::{MePassaError, Result},
+    utils::error::{ZapLivreError, Result},
 };
 use crate::group::GroupManager;
 
@@ -41,7 +41,7 @@ pub struct InboundRequest {
 }
 
 pub struct NetworkManager {
-    swarm: Swarm<MePassaBehaviour>,
+    swarm: Swarm<ZapLivreBehaviour>,
     local_peer_id: PeerId,
     connection_manager: ConnectionManager,
     relay_manager: RelayManager,
@@ -91,7 +91,7 @@ impl NetworkManager {
         let (transport, relay_behaviour) = build_transport(&keypair, local_peer_id)?;
 
         // Create behaviour
-        let behaviour = MePassaBehaviour::new(local_peer_id, &keypair, relay_behaviour)?;
+        let behaviour = ZapLivreBehaviour::new(local_peer_id, &keypair, relay_behaviour)?;
 
         // Create swarm
         let swarm = Swarm::new(
@@ -181,7 +181,7 @@ impl NetworkManager {
     pub fn listen_on(&mut self, addr: Multiaddr) -> Result<()> {
         self.swarm
             .listen_on(addr)
-            .map_err(|e| MePassaError::Network(format!("Failed to listen: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Failed to listen: {}", e)))?;
 
         Ok(())
     }
@@ -205,7 +205,7 @@ impl NetworkManager {
             .behaviour_mut()
             .gossipsub
             .subscribe(topic)
-            .map_err(|e| MePassaError::Network(format!("GossipSub subscribe failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("GossipSub subscribe failed: {}", e)))?;
         Ok(())
     }
 
@@ -218,7 +218,7 @@ impl NetworkManager {
             .behaviour_mut()
             .gossipsub
             .unsubscribe(topic)
-            .map_err(|e| MePassaError::Network(format!("GossipSub unsubscribe failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("GossipSub unsubscribe failed: {}", e)))?;
         Ok(())
     }
 
@@ -232,7 +232,7 @@ impl NetworkManager {
             .behaviour_mut()
             .gossipsub
             .publish(topic.clone(), payload)
-            .map_err(|e| MePassaError::Network(format!("GossipSub publish failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("GossipSub publish failed: {}", e)))?;
         Ok(())
     }
 
@@ -267,7 +267,7 @@ impl NetworkManager {
                     tracing::info!("🔄 Falling back to relay for {}", peer_id);
                     self.dial_via_relay(peer_id)
                 } else {
-                    Err(MePassaError::Network(format!("Failed to dial {}: {}", peer_id, e)))
+                    Err(ZapLivreError::Network(format!("Failed to dial {}: {}", peer_id, e)))
                 }
             }
         }
@@ -279,10 +279,10 @@ impl NetworkManager {
             tracing::info!("🌉 Dialing {} via relay circuit", peer_id);
             self.swarm
                 .dial(circuit_addr)
-                .map_err(|e| MePassaError::Network(format!("Failed to dial via relay: {}", e)))?;
+                .map_err(|e| ZapLivreError::Network(format!("Failed to dial via relay: {}", e)))?;
             Ok(())
         } else {
-            Err(MePassaError::Network(
+            Err(ZapLivreError::Network(
                 "No relay configuration available".to_string(),
             ))
         }
@@ -337,7 +337,7 @@ impl NetworkManager {
     }
 
     fn addr_record_key(peer_id: &PeerId) -> RecordKey {
-        let key = format!("mepassa:addr:{}", peer_id);
+        let key = format!("zaplivre:addr:{}", peer_id);
         RecordKey::new(&key)
     }
 
@@ -356,7 +356,7 @@ impl NetworkManager {
             .behaviour_mut()
             .kademlia
             .bootstrap()
-            .map_err(|e| MePassaError::Network(format!("Failed to bootstrap DHT: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Failed to bootstrap DHT: {}", e)))?;
 
         Ok(())
     }
@@ -394,17 +394,17 @@ impl NetworkManager {
 
                 self.swarm
                     .listen_on(listen_addr)
-                    .map_err(|e| MePassaError::Network(format!("Failed to listen via relay: {}", e)))?;
+                    .map_err(|e| ZapLivreError::Network(format!("Failed to listen via relay: {}", e)))?;
 
                 // Mark reservation as pending until relay client confirms it.
                 self.relay_manager.mark_reservation_pending();
 
                 Ok(())
             } else {
-                Err(MePassaError::Network("No relay address configured".to_string()))
+                Err(ZapLivreError::Network("No relay address configured".to_string()))
             }
         } else {
-            Err(MePassaError::Network("No relay peer configured".to_string()))
+            Err(ZapLivreError::Network("No relay peer configured".to_string()))
         }
     }
 
@@ -442,7 +442,7 @@ impl NetworkManager {
             .behaviour_mut()
             .request_response
             .send_response(channel, ack_message)
-            .map_err(|e| MePassaError::Network(format!("Failed to send ACK: {:?}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Failed to send ACK: {:?}", e)))?;
 
         Ok(())
     }
@@ -478,7 +478,7 @@ impl NetworkManager {
             .behaviour_mut()
             .voip_signaling
             .send_response(channel, response)
-            .map_err(|e| MePassaError::Network(format!("Failed to send VoIP response: {:?}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Failed to send VoIP response: {:?}", e)))?;
 
         Ok(())
     }
@@ -517,7 +517,7 @@ impl NetworkManager {
     }
 
     /// Handle swarm events
-    async fn handle_event(&mut self, event: SwarmEvent<MePassaBehaviourEvent>) -> Result<()> {
+    async fn handle_event(&mut self, event: SwarmEvent<ZapLivreBehaviourEvent>) -> Result<()> {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
                 tracing::info!("Listening on {}", address);
@@ -571,9 +571,9 @@ impl NetworkManager {
     }
 
     /// Handle behaviour-specific events
-    async fn handle_behaviour_event(&mut self, event: MePassaBehaviourEvent) -> Result<()> {
+    async fn handle_behaviour_event(&mut self, event: ZapLivreBehaviourEvent) -> Result<()> {
         match event {
-            MePassaBehaviourEvent::Kademlia(kad_event) => {
+            ZapLivreBehaviourEvent::Kademlia(kad_event) => {
                 match kad_event {
                     kad::Event::OutboundQueryProgressed { id, result, .. } => {
                         if let Some(tx) = self.pending_kad_get.remove(&id) {
@@ -599,7 +599,7 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::Mdns(mdns_event) => {
+            ZapLivreBehaviourEvent::Mdns(mdns_event) => {
                 match mdns_event {
                     libp2p::mdns::Event::Discovered(peers) => {
                         for (peer_id, addr) in peers {
@@ -614,7 +614,7 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::Identify(identify_event) => {
+            ZapLivreBehaviourEvent::Identify(identify_event) => {
                 match identify_event {
                     libp2p::identify::Event::Received { info, .. } => {
                         let observed_addr = info.observed_addr;
@@ -636,10 +636,10 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::Ping(ping_event) => {
+            ZapLivreBehaviourEvent::Ping(ping_event) => {
                 tracing::trace!("Ping event: {:?}", ping_event);
             }
-            MePassaBehaviourEvent::Gossipsub(gossipsub_event) => {
+            ZapLivreBehaviourEvent::Gossipsub(gossipsub_event) => {
                 match gossipsub_event {
                     libp2p::gossipsub::Event::Message { message, .. } => {
                         // CORE-04: verificação de assinatura + decrypt + DB
@@ -651,7 +651,7 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::RequestResponse(rr_event) => {
+            ZapLivreBehaviourEvent::RequestResponse(rr_event) => {
                 match rr_event {
                     libp2p::request_response::Event::Message { peer, message } => {
                         match message {
@@ -748,7 +748,7 @@ impl NetworkManager {
                 }
             }
             #[cfg(any(feature = "voip", feature = "video"))]
-            MePassaBehaviourEvent::VoipSignaling(voip_event) => {
+            ZapLivreBehaviourEvent::VoipSignaling(voip_event) => {
                 match voip_event {
                     libp2p::request_response::Event::Message { peer, message } => {
                         match message {
@@ -846,7 +846,7 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::Autonat(autonat_event) => {
+            ZapLivreBehaviourEvent::Autonat(autonat_event) => {
                 // NET-01: alcançabilidade REAL medida por outros peers -
                 // decide a estratégia relay-first no lugar da heurística
                 if let libp2p::autonat::Event::StatusChanged { old, new } = autonat_event {
@@ -867,7 +867,7 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::Dcutr(dcutr_event) => {
+            ZapLivreBehaviourEvent::Dcutr(dcutr_event) => {
                 match dcutr_event.result {
                     Ok(_) => {
                         self.connection_manager
@@ -886,7 +886,7 @@ impl NetworkManager {
                     }
                 }
             }
-            MePassaBehaviourEvent::Relay(relay_event) => {
+            ZapLivreBehaviourEvent::Relay(relay_event) => {
                 match relay_event {
                     libp2p::relay::client::Event::ReservationReqAccepted {
                         relay_peer_id, ..
@@ -908,8 +908,8 @@ impl NetworkManager {
     }
 }
 
-// The MePassaBehaviourEvent type is auto-generated by NetworkBehaviour derive macro
-use super::behaviour::MePassaBehaviourEvent;
+// The ZapLivreBehaviourEvent type is auto-generated by NetworkBehaviour derive macro
+use super::behaviour::ZapLivreBehaviourEvent;
 
 #[cfg(test)]
 mod tests {

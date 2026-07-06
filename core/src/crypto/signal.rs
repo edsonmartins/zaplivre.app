@@ -18,7 +18,7 @@ use libsignal_protocol_syft::{
 use tokio::sync::RwLock;
 
 use crate::identity::{Identity, PreKeyBundle as CorePreKeyBundle};
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 /// Encrypted message payload produced by Signal
 #[derive(Debug, Clone)]
@@ -55,12 +55,12 @@ impl SignalSessionManager {
                 let conn = db.conn();
                 let mut stmt = conn
                     .prepare("SELECT address, record FROM signal_sessions")
-                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
                 let result = stmt
                     .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-                    .map_err(|e| MePassaError::Storage(e.to_string()))?
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))?
                     .collect::<std::result::Result<Vec<_>, _>>()
-                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
                 result
             };
 
@@ -69,7 +69,7 @@ impl SignalSessionManager {
                 match crate::crypto::storage::decrypt_for_storage(&storage_key, &blob)
                     .and_then(|bytes| {
                         SessionRecord::deserialize(&bytes).map_err(|e| {
-                            MePassaError::Crypto(format!("Invalid session record: {}", e))
+                            ZapLivreError::Crypto(format!("Invalid session record: {}", e))
                         })
                     }) {
                     Ok(record) => {
@@ -89,12 +89,12 @@ impl SignalSessionManager {
                 let conn = db.conn();
                 let mut stmt = conn
                     .prepare("SELECT address, identity_key FROM signal_identities")
-                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
                 let result = stmt
                     .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-                    .map_err(|e| MePassaError::Storage(e.to_string()))?
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))?
                     .collect::<std::result::Result<Vec<_>, _>>()
-                    .map_err(|e| MePassaError::Storage(e.to_string()))?;
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
                 result
             };
 
@@ -132,7 +132,7 @@ impl SignalSessionManager {
 
         if !self.has_session(peer_id, device_id).await? {
             let Some(bundle) = bundle else {
-                return Err(MePassaError::Crypto(
+                return Err(ZapLivreError::Crypto(
                     "Missing prekey bundle for Signal session".to_string(),
                 ));
             };
@@ -183,7 +183,7 @@ impl SignalSessionManager {
         let ciphertext_type =
             CiphertextMessageType::try_from(encrypted.ciphertext_type as u8)
                 .map_err(|_| {
-                    MePassaError::Crypto(format!(
+                    ZapLivreError::Crypto(format!(
                         "Unsupported ciphertext type: {}",
                         encrypted.ciphertext_type
                     ))
@@ -201,7 +201,7 @@ impl SignalSessionManager {
                 CiphertextMessage::PreKeySignalMessage(msg)
             }
             _ => {
-                return Err(MePassaError::Crypto(format!(
+                return Err(ZapLivreError::Crypto(format!(
                     "Unsupported ciphertext type: {:?}",
                     ciphertext_type
                 )));
@@ -271,7 +271,7 @@ impl SignalStoreInner {
 
         let result = record
             .serialize()
-            .map_err(|e| MePassaError::Crypto(format!("Session serialize failed: {}", e)))
+            .map_err(|e| ZapLivreError::Crypto(format!("Session serialize failed: {}", e)))
             .and_then(|bytes| crate::crypto::storage::encrypt_for_storage(storage_key, &bytes))
             .and_then(|blob| {
                 db.conn()
@@ -284,7 +284,7 @@ impl SignalStoreInner {
                         "#,
                         rusqlite::params![address, blob],
                     )
-                    .map_err(|e| MePassaError::Storage(e.to_string()))
+                    .map_err(|e| ZapLivreError::Storage(e.to_string()))
             });
 
         if let Err(e) = result {
@@ -533,7 +533,7 @@ fn to_signal_bundle(bundle: &CorePreKeyBundle) -> Result<PreKeyBundle> {
     let signal_identity_key = bundle
         .signal_identity_key
         .as_ref()
-        .ok_or_else(|| MePassaError::Crypto("Missing Signal identity key".to_string()))?;
+        .ok_or_else(|| ZapLivreError::Crypto("Missing Signal identity key".to_string()))?;
     let identity_key = IdentityKey::try_from(signal_identity_key.as_slice())
         .map_err(signal_error)?;
 
@@ -575,11 +575,11 @@ fn to_signal_bundle(bundle: &CorePreKeyBundle) -> Result<PreKeyBundle> {
 fn to_device_id(device_id: u32) -> Result<DeviceId> {
     let id: u8 = device_id
         .try_into()
-        .map_err(|_| MePassaError::Crypto("Invalid device id".to_string()))?;
+        .map_err(|_| ZapLivreError::Crypto("Invalid device id".to_string()))?;
     DeviceId::new(id)
-        .map_err(|_| MePassaError::Crypto("Invalid device id".to_string()))
+        .map_err(|_| ZapLivreError::Crypto("Invalid device id".to_string()))
 }
 
-fn signal_error<E: std::fmt::Display>(err: E) -> MePassaError {
-    MePassaError::Crypto(format!("Signal error: {}", err))
+fn signal_error<E: std::fmt::Display>(err: E) -> ZapLivreError {
+    ZapLivreError::Crypto(format!("Signal error: {}", err))
 }

@@ -4,7 +4,7 @@
 # clearState a cada setup: torna cada flow autossuficiente e determinístico.
 # Uma identidade residual no Keychain faz o app cair no onboarding mas impede
 # criar outra por cima (regressão IDN-02) — partir do zero evita isso.
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - clearState
 # Pré-concede notificações. No simulador iOS o app ainda dispara o diálogo

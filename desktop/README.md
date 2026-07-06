@@ -1,6 +1,6 @@
-# MePassa Desktop
+# ZapLivre Desktop
 
-Desktop application for MePassa built with Tauri 2.0 + React + TypeScript + TailwindCSS.
+Desktop application for ZapLivre built with Tauri 2.0 + React + TypeScript + TailwindCSS.
 
 ## 🚀 Features
 
@@ -10,7 +10,7 @@ Desktop application for MePassa built with Tauri 2.0 + React + TypeScript + Tail
 - **TailwindCSS:** Utility-first CSS framework
 - **System Tray:** Minimize to tray icon
 - **Desktop Notifications:** Native notification support
-- **FFI Integration:** Direct calls to mepassa-core Rust library
+- **FFI Integration:** Direct calls to zaplivre-core Rust library
 - **Cross-Platform:** Windows, macOS, Linux
 
 ## 📋 Prerequisites
@@ -68,8 +68,8 @@ sudo npm run tauri:build
 
 # Option B: run the DMG script directly
 bash desktop/src-tauri/target/release/bundle/dmg/bundle_dmg.sh \
-  desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_x64.dmg \
-  desktop/src-tauri/target/release/bundle/macos/MePassa.app
+  desktop/src-tauri/target/release/bundle/dmg/ZapLivre_0.1.0_x64.dmg \
+  desktop/src-tauri/target/release/bundle/macos/ZapLivre.app
 ```
 
 Alternatively, use the helper script from the repo root (it reads the version from `tauri.conf.json` and falls back to `package.json`):
@@ -82,9 +82,9 @@ Example output:
 
 ```text
 Building DMG for version 0.1.0
-Source: /path/to/desktop/src-tauri/target/release/bundle/macos/MePassa.app
-Output: /path/to/desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_x64.dmg
-DMG created at: /path/to/desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_x64.dmg
+Source: /path/to/desktop/src-tauri/target/release/bundle/macos/ZapLivre.app
+Output: /path/to/desktop/src-tauri/target/release/bundle/dmg/ZapLivre_0.1.0_x64.dmg
+DMG created at: /path/to/desktop/src-tauri/target/release/bundle/dmg/ZapLivre_0.1.0_x64.dmg
 ```
 
 ### DMG troubleshooting (macOS)
@@ -120,13 +120,13 @@ desktop/
 └── tailwind.config.js
 ```
 
-## 🔌 Tauri Commands (FFI → mepassa-core)
+## 🔌 Tauri Commands (FFI → zaplivre-core)
 
 All commands in `src-tauri/src/commands.rs`:
 
 | Command | Description |
 |---------|-------------|
-| `init_client(data_dir)` | Initialize MePassa client |
+| `init_client(data_dir)` | Initialize ZapLivre client |
 | `get_local_peer_id()` | Get local peer ID |
 | `listen_on(multiaddr)` | Start listening on address |
 | `connect_to_peer(peer_id, multiaddr)` | Connect to peer |
@@ -151,7 +151,7 @@ import { invoke } from '@tauri-apps/api/core'
 
 // Initialize client
 const peerId = await invoke<string>('init_client', {
-  dataDir: '/home/user/.mepassa'
+  dataDir: '/home/user/.zaplivre'
 })
 
 // Send message
@@ -200,30 +200,30 @@ Implemented in `src-tauri/src/main.rs`:
 ```toml
 [dependencies]
 tauri = { version = "2.0", features = ["tray-icon", "notification"] }
-mepassa-core = { path = "../../core" }  # Local dependency
+zaplivre-core = { path = "../../core" }  # Local dependency
 ```
 
 ### tauri.conf.json
 
-- **Product Name:** MePassa
-- **Bundle ID:** com.integralltech.mepassa
+- **Product Name:** ZapLivre
+- **Bundle ID:** com.integralltech.zaplivre
 - **Frontend:** Vite dev server (port 5173)
 - **Output:** `../dist`
 - **Bundle Targets:** DMG (macOS), MSI (Windows), AppImage (Linux)
 
 ## 🐛 Troubleshooting
 
-### "Failed to initialize MePassa" error
+### "Failed to initialize ZapLivre" error
 
 **Cause:** Client initialization failed (likely data directory issue)
 
 **Solution:**
 ```bash
 # Check data directory permissions
-ls -la ~/.mepassa
+ls -la ~/.zaplivre
 
 # Try manual initialization
-rm -rf ~/.mepassa  # CAUTION: Deletes all data
+rm -rf ~/.zaplivre  # CAUTION: Deletes all data
 ```
 
 ### Vite dev server not starting

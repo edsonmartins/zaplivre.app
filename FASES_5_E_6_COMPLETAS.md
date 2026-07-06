@@ -7,7 +7,7 @@
 
 ## 📊 Resumo Executivo
 
-Nas últimas horas, completamos com sucesso as **FASES 5 e 6** do projeto MePassa, criando:
+Nas últimas horas, completamos com sucesso as **FASES 5 e 6** do projeto ZapLivre, criando:
 
 1. **Bindings FFI completos** (Kotlin + Swift) via UniFFI 0.31
 2. **Bibliotecas nativas compiladas** para Android e iOS
@@ -38,15 +38,15 @@ Nas últimas horas, completamos com sucesso as **FASES 5 e 6** do projeto MePass
 #### 2. Bindings Gerados
 
 **Kotlin (Android):**
-- Arquivo: `target/bindings/uniffi/mepassa/mepassa.kt`
+- Arquivo: `target/bindings/uniffi/zaplivre/zaplivre.kt`
 - Tamanho: 80 KB
-- Package: `uniffi.mepassa`
-- Classes: `MePassaClient`, `FfiMessage`, `FfiConversation`, etc.
+- Package: `uniffi.zaplivre`
+- Classes: `ZapLivreClient`, `FfiMessage`, `FfiConversation`, etc.
 
 **Swift (iOS):**
-- Arquivo: `target/bindings/mepassa.swift` (47 KB)
-- Header C: `target/bindings/mepassaFFI.h` (26 KB)
-- Module map: `target/bindings/mepassaFFI.modulemap`
+- Arquivo: `target/bindings/zaplivre.swift` (47 KB)
+- Header C: `target/bindings/zaplivreFFI.h` (26 KB)
+- Module map: `target/bindings/zaplivreFFI.modulemap`
 
 #### 3. Cross-Compilation Android
 
@@ -56,7 +56,7 @@ Nas últimas horas, completamos com sucesso as **FASES 5 e 6** do projeto MePass
 - Arquivo config: `core/.cargo/config.toml`
 
 **Biblioteca Compilada:**
-- `libmepassa_core.so` (ARM64)
+- `libzaplivre_core.so` (ARM64)
 - Tamanho: 6.3 MB
 - Tempo de compilação: 2m 47s
 
@@ -99,9 +99,9 @@ core/
 ├── FASE5_ARTIFACTS.md
 └── target/
     ├── bindings/
-    │   ├── uniffi/mepassa/mepassa.kt
-    │   ├── mepassa.swift
-    │   └── mepassaFFI.h
+    │   ├── uniffi/zaplivre/zaplivre.kt
+    │   ├── zaplivre.swift
+    │   └── zaplivreFFI.h
     └── [4 bibliotecas nativas compiladas]
 ```
 
@@ -125,11 +125,11 @@ core/
 
 #### 2. Application Layer
 
-**MePassaApplication.kt:**
-- Carrega biblioteca nativa (`System.loadLibrary("mepassa_core")`)
+**ZapLivreApplication.kt:**
+- Carrega biblioteca nativa (`System.loadLibrary("zaplivre_core")`)
 - Inicialização global
 
-**MePassaClientWrapper.kt:**
+**ZapLivreClientWrapper.kt:**
 - Singleton thread-safe
 - StateFlows para estado observável
 - API coroutine-friendly
@@ -139,9 +139,9 @@ core/
 
 #### 3. Foreground Service
 
-**MePassaService.kt:**
+**ZapLivreService.kt:**
 - Mantém conexão P2P em background
-- Notificação persistente: "MePassa - Conectado - X peers"
+- Notificação persistente: "ZapLivre - Conectado - X peers"
 - Monitoramento periódico (10s)
 - START_STICKY (reinicia se sistema matar)
 
@@ -150,8 +150,8 @@ core/
 **MainActivity.kt:**
 - Entry point
 - Solicita permissões (POST_NOTIFICATIONS no Android 13+)
-- Inicializa MePassaClient
-- Inicia MePassaService
+- Inicializa ZapLivreClient
+- Inicia ZapLivreService
 
 **3 Telas Implementadas:**
 
@@ -178,14 +178,14 @@ core/
 #### 5. Material Design
 
 **Theme.kt:**
-- Color scheme customizado (verde/turquesa MePassa)
+- Color scheme customizado (verde/turquesa ZapLivre)
 - Dark/Light mode support
 
 **Typography.kt:**
 - Material3 Typography completa
 
 **Navigation:**
-- MePassaNavHost.kt
+- ZapLivreNavHost.kt
 - 3 rotas: Onboarding, Conversations, Chat/{peerId}
 
 #### 6. Configurações
@@ -253,21 +253,21 @@ android/
     ├── src/main/
     │   ├── AndroidManifest.xml
     │   ├── kotlin/
-    │   │   ├── com/mepassa/
-    │   │   │   ├── MePassaApplication.kt
+    │   │   ├── com/zaplivre/
+    │   │   │   ├── ZapLivreApplication.kt
     │   │   │   ├── MainActivity.kt
     │   │   │   ├── core/
-    │   │   │   │   └── MePassaClientWrapper.kt
+    │   │   │   │   └── ZapLivreClientWrapper.kt
     │   │   │   ├── service/
-    │   │   │   │   └── MePassaService.kt
+    │   │   │   │   └── ZapLivreService.kt
     │   │   │   └── ui/
     │   │   │       ├── theme/ (2 files)
     │   │   │       ├── navigation/ (1 file)
     │   │   │       └── screens/ (3 files)
-    │   │   └── uniffi/mepassa/
-    │   │       └── mepassa.kt (80KB)
+    │   │   └── uniffi/zaplivre/
+    │   │       └── zaplivre.kt (80KB)
     │   ├── jniLibs/arm64-v8a/
-    │   │   └── libmepassa_core.so (6.3MB)
+    │   │   └── libzaplivre_core.so (6.3MB)
     │   └── res/values/
     │       ├── strings.xml
     │       └── themes.xml
@@ -282,7 +282,7 @@ android/
 ### Core Functionality
 
 - [x] Geração de identidade (Ed25519 keypair)
-- [x] Inicialização do MePassaClient
+- [x] Inicialização do ZapLivreClient
 - [x] Conexão P2P (listen + bootstrap)
 - [x] Foreground service persistente
 - [x] Notificação com contagem de peers
@@ -305,7 +305,7 @@ android/
 
 - [x] UniFFI Kotlin bindings integrados
 - [x] Biblioteca nativa (.so) carregada
-- [x] Thread-safe singleton (MePassaClientWrapper)
+- [x] Thread-safe singleton (ZapLivreClientWrapper)
 - [x] Coroutines para async operations
 - [x] StateFlows para reatividade
 - [x] Material3 theming
@@ -397,7 +397,7 @@ Seguir guia completo em: [android/TESTING.md](android/TESTING.md)
 4. **OpenSSL não disponível no Android**
    - Solução: reqwest com rustls-tls
 
-5. **Gradle não achava libmepassa_core.so**
+5. **Gradle não achava libzaplivre_core.so**
    - Solução: Especificar ABI filter no build.gradle.kts
    - Copiar para jniLibs/arm64-v8a/
 

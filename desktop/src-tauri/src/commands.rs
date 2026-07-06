@@ -1,12 +1,12 @@
-use mepassa_core::ffi::MePassaClient;
-use mepassa_core::{
+use zaplivre_core::ffi::ZapLivreClient;
+use zaplivre_core::{
     FfiCallEventCallback, FfiMessageEventCallback, FfiVideoCodec, FfiVideoFrameCallback,
     FfiVoipEventCallback,
 };
 use std::sync::{Arc, Mutex};
 use tauri::State;
 use base64::{engine::general_purpose, Engine as _};
-use mepassa_core::FfiMediaType;
+use zaplivre_core::FfiMediaType;
 use tauri_plugin_notification::NotificationExt;
 use tauri::Emitter;
 use crate::identity_store;
@@ -14,7 +14,7 @@ use crate::identity_store;
 use crate::macos_video::MacVideoDecoder;
 
 // Global client state - use Arc to allow cloning the handle
-type ClientState = Arc<Mutex<Option<Arc<MePassaClient>>>>;
+type ClientState = Arc<Mutex<Option<Arc<ZapLivreClient>>>>;
 
 struct VoipEventLogger {
     app: tauri::AppHandle,
@@ -62,7 +62,7 @@ impl FfiMessageEventCallback for MessageEventEmitter {
     fn on_message_status_changed(
         &self,
         message_id: String,
-        status: mepassa_core::ffi::MessageStatus,
+        status: zaplivre_core::ffi::MessageStatus,
         peer_id: Option<String>,
     ) {
         let _ = self.app.emit(
@@ -98,7 +98,7 @@ impl FfiCallEventCallback for CallEventEmitter {
         );
     }
 
-    fn on_call_state_changed(&self, call_id: String, state: mepassa_core::ffi::FfiCallState) {
+    fn on_call_state_changed(&self, call_id: String, state: zaplivre_core::ffi::FfiCallState) {
         tracing::info!("📞 Call {} state: {:?}", call_id, state);
         let _ = self.app.emit(
             "voip:call_state",
@@ -106,7 +106,7 @@ impl FfiCallEventCallback for CallEventEmitter {
         );
     }
 
-    fn on_call_ended(&self, call_id: String, reason: mepassa_core::ffi::FfiCallEndReason) {
+    fn on_call_ended(&self, call_id: String, reason: zaplivre_core::ffi::FfiCallEndReason) {
         tracing::info!("📞 Call {} ended: {:?}", call_id, reason);
         let _ = self.app.emit(
             "voip:call_ended",
@@ -160,15 +160,15 @@ pub async fn init_client(
     tracing::info!("🔵 init_client CALLED with data_dir: {}", data_dir);
 
     if let Ok(Some(b64)) = identity_store::load_identity_b64() {
-        std::env::set_var("MEPASSA_IDENTITY_B64", b64);
+        std::env::set_var("ZAPLIVRE_IDENTITY_B64", b64);
     } else {
-        std::env::remove_var("MEPASSA_IDENTITY_B64");
+        std::env::remove_var("ZAPLIVRE_IDENTITY_B64");
     }
 
-    // MePassaClient::new() is synchronous, not async
-    tracing::info!("🔵 Creating MePassaClient...");
-    let client = Arc::new(MePassaClient::new(data_dir.clone()).map_err(|e| {
-        tracing::error!("❌ Failed to create MePassaClient: {}", e);
+    // ZapLivreClient::new() is synchronous, not async
+    tracing::info!("🔵 Creating ZapLivreClient...");
+    let client = Arc::new(ZapLivreClient::new(data_dir.clone()).map_err(|e| {
+        tracing::error!("❌ Failed to create ZapLivreClient: {}", e);
         e.to_string()
     })?);
 
@@ -907,7 +907,7 @@ pub fn import_identity_backup(
 
     identity_store::save_identity_b64(trimmed).map_err(|e| e.to_string())?;
 
-    let db_path = std::path::Path::new(&data_dir).join("mepassa.db");
+    let db_path = std::path::Path::new(&data_dir).join("zaplivre.db");
     if db_path.exists() {
         std::fs::remove_file(&db_path)
             .map_err(|e| format!("Falha ao limpar banco local: {}", e))?;

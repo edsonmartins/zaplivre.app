@@ -109,7 +109,7 @@ server/push/
 ## 🔧 Correções Técnicas Aplicadas
 
 ### Issue 1: SQLite Conflict
-**Problema:** `libsqlite3-sys` conflict (mepassa-core usa rusqlite)
+**Problema:** `libsqlite3-sys` conflict (zaplivre-core usa rusqlite)
 
 **Solução:**
 ```toml
@@ -170,14 +170,14 @@ let _ = message_builder.data(data);
 ```bash
 cd server/push
 cargo build --release
-# Binary: ../../target/release/mepassa-push (4.7 MB)
+# Binary: ../../target/release/zaplivre-push (4.7 MB)
 ```
 
 ### Environment Variables
 ```env
-DATABASE_URL=postgresql://mepassa:mepassa_dev_password@localhost:5432/mepassa
+DATABASE_URL=postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre
 FCM_SERVER_KEY=your_fcm_server_key
-RUST_LOG=mepassa_push=debug,info
+RUST_LOG=zaplivre_push=debug,info
 ```
 
 ### Executar
@@ -186,7 +186,7 @@ RUST_LOG=mepassa_push=debug,info
 cargo run
 
 # Production
-./target/release/mepassa-push
+./target/release/zaplivre-push
 ```
 
 ### Docker (já configurado)
@@ -254,7 +254,7 @@ curl -X POST http://localhost:8081/api/v1/send \
 3. Enviar POST /api/v1/register com FCM token
 
 ### Core Integration (Opcional)
-1. Adicionar módulo `push` em mepassa-core
+1. Adicionar módulo `push` em zaplivre-core
 2. Implementar cliente HTTP para Push Server
 3. Trigger push quando peer estiver offline
 

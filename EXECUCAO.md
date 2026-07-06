@@ -1,4 +1,4 @@
-# Plano de Execução – Projeto MePassa Platform (v1 - FINAL)
+# Plano de Execução – Projeto ZapLivre Platform (v1 - FINAL)
 
 > **Instrução:** Sempre que uma tarefa avançar de status, atualize esta tabela com a nova situação e registre a data no campo "Última atualização". Os status sugeridos são `TODO`, `IN_PROGRESS`, `BLOCKED` e `DONE`.
 
@@ -18,7 +18,7 @@
 - **NÃO implementar observabilidade** complexa neste momento
 
 **CONTEXTO DO PROJETO:**
-MePassa é uma plataforma de mensagens instantâneas híbrida P2P + Servidor, focando em:
+ZapLivre é uma plataforma de mensagens instantâneas híbrida P2P + Servidor, focando em:
 1. **Privacidade:** 80% tráfego P2P direto (servidor não vê conteúdo)
 2. **Confiabilidade:** Funciona sempre (offline, NAT simétrico, firewall)
 3. **Economia:** 85% mais barato que centralizado puro
@@ -112,7 +112,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 **Android App:**
 - ✅ Jetpack Compose + Material3
 - ✅ 3 telas (Onboarding, Conversations, Chat)
-- ✅ FFI integration (libmepassa_core.so 6.3MB)
+- ✅ FFI integration (libzaplivre_core.so 6.3MB)
 - ✅ Foreground service P2P
 - ✅ Documentação completa (1.000+ linhas)
 
@@ -141,7 +141,7 @@ Diferencial: Como WhatsApp (funciona sempre) + Melhor que WhatsApp (privado, sem
 - [ ] **FASE 17:** Multi-Device Sync - 1 semana
 
 **Próximo Marco:** Após FASE 12 (VoIP), realizar **TESTE DECISIVO** com beta testers:
-> "Você usaria MePassa como seu chat principal?"
+> "Você usaria ZapLivre como seu chat principal?"
 - **< 50% SIM:** ⛔ PARA e conserta
 - **> 70% SIM:** 🚀 Continua para iOS
 
@@ -156,13 +156,13 @@ Estrutura base do repositório, CI/CD, documentação inicial, comunidade.
 
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
-| 0.1 | Criar organização GitHub (integralltech/mepassa) | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
+| 0.1 | Criar organização GitHub (integralltech/zaplivre) | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
 | 0.2 | Setup monorepo (estrutura de pastas completa) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | - |
 | 0.3 | Configurar GitHub Actions (CI/CD básico) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
 | 0.4 | Configurar Rust workspace (Cargo.toml principal) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
 | 0.5 | Criar README.md + CONTRIBUTING.md + CODE_OF_CONDUCT.md | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
 | 0.6 | Setup Docker Compose (dev environment) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
-| 0.7 | Registrar domínio (mepassa.app) | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
+| 0.7 | Registrar domínio (zaplivre.app) | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
 | 0.8 | Setup Discord/Matrix para comunidade | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
 | 0.9 | Criar landing page (captação beta testers) | `TODO` | - | - | - | - | 0.7 |
 | 0.10 | Documentar arquitetura híbrida (docs/) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
@@ -202,7 +202,7 @@ Estrutura base do repositório, CI/CD, documentação inicial, comunidade.
 
 **🚫 BLOQUEADO (Acesso Externo):**
 - Criar organização GitHub (requer conta)
-- Registrar domínio mepassa.app (requer registrador)
+- Registrar domínio zaplivre.app (requer registrador)
 - Setup Discord/Matrix (requer acesso às plataformas)
 
 **⏭️ PRÓXIMO:**
@@ -217,14 +217,14 @@ O ambiente de desenvolvimento está completo. Podemos iniciar a implementação 
 ## 🦀 FASE 1: CORE LIBRARY - IDENTIDADE & CRYPTO (Mês 2-3)
 
 ### Objetivo
-Fundação do mepassa-core: gerenciamento de identidade e criptografia E2E (Signal Protocol).
+Fundação do zaplivre-core: gerenciamento de identidade e criptografia E2E (Signal Protocol).
 
 ### Tarefas
 
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
 | **1.1 - Setup Core** ||||||||
-| 1.1.1 | Criar crate mepassa-core (Cargo.toml com deps) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.4 |
+| 1.1.1 | Criar crate zaplivre-core (Cargo.toml com deps) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.4 |
 | 1.1.2 | Setup estrutura de módulos (lib.rs) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.1.1 |
 | 1.1.3 | Configurar dependencies (libp2p, rusqlite, etc) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.1.1 |
 | 1.1.4 | Setup logging (tracing + tracing-subscriber) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.1.2 |
@@ -354,7 +354,7 @@ Sistema de @username para identificação user-friendly (como Telegram/Signal), 
 | 1.5.4.4 | Teste: rate limiting funciona (anti-spam) | `DONE` | - | 2025-01-19 | 2025-01-19 | 2025-01-19 | 1.5.1.7 |
 
 **Entregáveis:**
-- ✅ Identity Server rodando (identity.mepassa.app)
+- ✅ Identity Server rodando (identity.zaplivre.app)
 - ✅ Usuário pode registrar @username
 - ✅ Outro usuário pode buscar @username e obter peer_id
 - ✅ Prekey bundle retornado junto para X3DH
@@ -533,7 +533,7 @@ Bindings Rust → Kotlin/Swift para uso nos apps mobile/desktop via UniFFI 0.31.
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
 | **5.1 - UniFFI Setup** ||||||||
-| 5.1.1 | Criar ffi/mepassa.udl (interface definition) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 4.2.3 |
+| 5.1.1 | Criar ffi/zaplivre.udl (interface definition) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 4.2.3 |
 | 5.1.2 | Implementar ffi/types.rs (FFI-safe types) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.1.1 |
 | 5.1.3 | Setup build.rs (uniffi scaffolding generation) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.1.1 |
 | 5.1.4 | Atualizar para UniFFI 0.31 | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | - |
@@ -548,9 +548,9 @@ Bindings Rust → Kotlin/Swift para uso nos apps mobile/desktop via UniFFI 0.31.
 | 5.3.1 | Gerar bindings Swift (uniffi-bindgen) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.1.3 |
 | 5.3.2 | Testar chamada de Swift → Rust (sample) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.3.1 |
 | **5.4 - Build Artifacts** ||||||||
-| 5.4.1 | Build libmepassa_core.so (Android ARM64) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.2.2 |
-| 5.4.2 | Build libmepassa_core.dylib (iOS ARM64) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.3.2 |
-| 5.4.3 | Build mepassa_core.dll (Windows x64) | `TODO` | - | - | - | - | 5.1.3 |
+| 5.4.1 | Build libzaplivre_core.so (Android ARM64) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.2.2 |
+| 5.4.2 | Build libzaplivre_core.dylib (iOS ARM64) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.3.2 |
+| 5.4.3 | Build zaplivre_core.dll (Windows x64) | `TODO` | - | - | - | - | 5.1.3 |
 
 **Entregáveis:**
 - ✅ UniFFI 0.31 configurado e compilando
@@ -559,12 +559,12 @@ Bindings Rust → Kotlin/Swift para uso nos apps mobile/desktop via UniFFI 0.31.
 - ✅ Arquitetura de channels implementada (resolve !Send)
 - ✅ Database thread-safe (Arc<Mutex<Connection>>)
 - ✅ Documentação completa (FFI_IMPLEMENTATION.md + FASE5_ARTIFACTS.md)
-- ✅ Bindings Kotlin gerados (80 KB, target/bindings/uniffi/mepassa/mepassa.kt)
-- ✅ Bindings Swift gerados (47 KB, target/bindings/mepassa.swift)
-- ✅ Libs nativas: libmepassa_core.so (Android ARM64 - 6.3MB), 3 targets iOS (96MB cada)
+- ✅ Bindings Kotlin gerados (80 KB, target/bindings/uniffi/zaplivre/zaplivre.kt)
+- ✅ Bindings Swift gerados (47 KB, target/bindings/zaplivre.swift)
+- ✅ Libs nativas: libzaplivre_core.so (Android ARM64 - 6.3MB), 3 targets iOS (96MB cada)
 
 **Arquivos implementados:**
-- `src/mepassa.udl` (~89 linhas) - Interface definition
+- `src/zaplivre.udl` (~89 linhas) - Interface definition
 - `src/ffi/types.rs` (~250 linhas) - FFI-safe types + conversões
 - `src/ffi/client.rs` (~400 linhas) - Channel-based client wrapper
 - `src/ffi/mod.rs` (~10 linhas) - Module exports
@@ -580,7 +580,7 @@ Bindings Rust → Kotlin/Swift para uso nos apps mobile/desktop via UniFFI 0.31.
          │ FFI calls
          ▼
 ┌─────────────────┐
-│ MePassaClient   │  (Send + Sync)
+│ ZapLivreClient   │  (Send + Sync)
 │  (apenas String)│
 └────────┬────────┘
          │ mpsc::channel
@@ -635,15 +635,15 @@ App Android funcional com UI mínima (login, lista de conversas, chat).
 | 6.1.1 | Criar android/ (Gradle project) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 0.2 |
 | 6.1.2 | Setup Jetpack Compose (Material Design 3) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.1.1 |
 | 6.1.3 | Setup Navigation Compose | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.1.2 |
-| 6.1.4 | Integrar libmepassa_core.so (FFI) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.4.1 |
+| 6.1.4 | Integrar libzaplivre_core.so (FFI) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 5.4.1 |
 | **6.2 - Telas Básicas** ||||||||
 | 6.2.1 | Implementar OnboardingScreen (gerar keypair) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.1.3 |
 | 6.2.2 | Implementar ConversationsScreen (lista) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.2.1 |
 | 6.2.3 | Implementar ChatScreen (mensagens) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.2.2 |
 | 6.2.4 | Implementar MessageInput (enviar texto) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.2.3 |
 | **6.3 - Integração Core** ||||||||
-| 6.3.1 | Criar MePassaService (background service) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.1.4 |
-| 6.3.2 | Inicializar MePassaClient via FFI | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.3.1 |
+| 6.3.1 | Criar ZapLivreService (background service) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.1.4 |
+| 6.3.2 | Inicializar ZapLivreClient via FFI | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.3.1 |
 | 6.3.3 | Implementar send_message() | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.3.2 |
 | 6.3.4 | Implementar event listener (receive messages) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 6.3.2 |
 | **6.4 - Storage & Crypto** ||||||||
@@ -663,17 +663,17 @@ App Android funcional com UI mínima (login, lista de conversas, chat).
 **Arquivos criados (22 arquivos):**
 - **Gradle:** `build.gradle.kts` (root + app), `settings.gradle.kts`, `gradle.properties`
 - **Manifesto:** `AndroidManifest.xml` (permissões + service)
-- **Application:** `MePassaApplication.kt` (carrega libmepassa_core.so)
-- **Core wrapper:** `MePassaClientWrapper.kt` (singleton thread-safe, StateFlows)
-- **Service:** `MePassaService.kt` (foreground service P2P + notificação)
+- **Application:** `ZapLivreApplication.kt` (carrega libzaplivre_core.so)
+- **Core wrapper:** `ZapLivreClientWrapper.kt` (singleton thread-safe, StateFlows)
+- **Service:** `ZapLivreService.kt` (foreground service P2P + notificação)
 - **MainActivity:** `MainActivity.kt` (entry point + Compose)
 - **UI Theme:** `Theme.kt`, `Typography.kt`
-- **Navigation:** `MePassaNavHost.kt`
+- **Navigation:** `ZapLivreNavHost.kt`
 - **Screens:** `OnboardingScreen.kt`, `ConversationsScreen.kt`, `ChatScreen.kt`
 - **Config:** `proguard-rules.pro`, `.gitignore`
 - **Resources:** `strings.xml`, `themes.xml`
-- **UniFFI bindings:** `uniffi/mepassa/mepassa.kt` (80 KB)
-- **Native lib:** `jniLibs/arm64-v8a/libmepassa_core.so` (6.3 MB)
+- **UniFFI bindings:** `uniffi/zaplivre/zaplivre.kt` (80 KB)
+- **Native lib:** `jniLibs/arm64-v8a/libzaplivre_core.so` (6.3 MB)
 - **Docs:** `README.md` (200 linhas), `TESTING.md` (450 linhas), `BUILD_GUIDE.md` (350 linhas)
 
 **LoC:** ~1.500 (50% da estimativa - mais eficiente com Compose)
@@ -693,7 +693,7 @@ App Desktop (Tauri) com UI mínima (mesmo escopo que Android).
 | 7.1.1 | Criar desktop/ (Tauri 2.0 project) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 0.2 |
 | 7.1.2 | Setup React frontend (Vite + TypeScript) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.1 |
 | 7.1.3 | Setup TailwindCSS | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.2 |
-| 7.1.4 | Integrar mepassa-core (Rust backend Tauri) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 4.3.2 |
+| 7.1.4 | Integrar zaplivre-core (Rust backend Tauri) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 4.3.2 |
 | **7.2 - Telas Básicas** ||||||||
 | 7.2.1 | Implementar OnboardingView (React) | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.1.3 |
 | 7.2.2 | Implementar ConversationsView | `DONE` | Claude Code | 2025-01-20 | 2025-01-20 | 2025-01-20 | 7.2.1 |
@@ -711,7 +711,7 @@ App Desktop (Tauri) com UI mínima (mesmo escopo que Android).
 - ✅ App Desktop abre e inicializa
 - ✅ Envia/recebe mensagens P2P
 - ✅ Tray icon funciona (left-click show/hide, right-click menu)
-- ✅ 11 Tauri commands implementados (FFI → mepassa-core)
+- ✅ 11 Tauri commands implementados (FFI → zaplivre-core)
 - ✅ 3 views completas (Onboarding, Conversations, Chat)
 - ✅ Auto-refresh (conversations: 5s, chat: 2s)
 - ✅ Message bubbles + timestamps
@@ -756,7 +756,7 @@ Notificações push para acordar app quando mensagem chega (Android FCM + iOS AP
 - ✅ **Android FCM: notificações funcionam** (100%)
   - ✅ FirebaseMessagingService implementado
   - ✅ PushServerClient (OkHttp) para registro de tokens
-  - ✅ Integração com MePassaService
+  - ✅ Integração com ZapLivreService
   - ✅ Testing guide completo (FASE_8_TESTING_GUIDE.md)
 - ✅ **iOS APNs: push notifications completo** (100%)
   - ✅ PushNotificationManager.swift implementado
@@ -775,10 +775,10 @@ Notificações push para acordar app quando mensagem chega (Android FCM + iOS AP
   - ✅ Documentação completa (README.md)
 
 **Arquivos Criados:**
-- `android/app/src/main/kotlin/com/mepassa/push/PushServerClient.kt` (~195 linhas)
-- `android/app/src/main/kotlin/com/mepassa/service/MePassaFirebaseMessagingService.kt` (integrado)
-- `ios/MePassa/MePassa/Core/PushNotificationManager.swift` (~170 linhas)
-- `ios/MePassa/MePassa/Core/AppDelegate.swift` (~48 linhas)
+- `android/app/src/main/kotlin/com/zaplivre/push/PushServerClient.kt` (~195 linhas)
+- `android/app/src/main/kotlin/com/zaplivre/service/ZapLivreFirebaseMessagingService.kt` (integrado)
+- `ios/ZapLivre/ZapLivre/Core/PushNotificationManager.swift` (~170 linhas)
+- `ios/ZapLivre/ZapLivre/Core/AppDelegate.swift` (~48 linhas)
 - `server/push/src/main.rs` (~230 linhas)
 - `server/push/src/fcm.rs` (~100 linhas)
 - `server/push/src/apns.rs` (~352 linhas) **← NOVO**
@@ -861,7 +861,7 @@ Sistema duplo de relay para garantir 100% de conectividade:
 | 10.1.1 | Modificar behaviour.rs (adicionar relay + dcutr) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 9.3.2 |
 | 10.1.2 | Modificar config.rs (relay configuration) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.1.1 |
 | 10.1.3 | Modificar main.rs (relay event handlers) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.1.2 |
-| 10.1.4 | Build bootstrap: cargo build -p mepassa-bootstrap | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.1.3 |
+| 10.1.4 | Build bootstrap: cargo build -p zaplivre-bootstrap | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.1.3 |
 | **10.2 - Core Relay Client** ||||||||
 | 10.2.1 | Criar retry.rs (exponential backoff) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | - |
 | 10.2.2 | Criar connection.rs (connection strategy) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.2.1 |
@@ -869,7 +869,7 @@ Sistema duplo de relay para garantir 100% de conectividade:
 | 10.2.4 | Criar relay.rs (relay client utils) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | - |
 | 10.2.5 | Modificar behaviour.rs (dcutr) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.2.4 |
 | 10.2.6 | Modificar swarm.rs (fallback logic) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.2.5 |
-| 10.2.7 | Build core: cargo build -p mepassa-core | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.2.6 |
+| 10.2.7 | Build core: cargo build -p zaplivre-core | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.2.6 |
 | **10.3 - TURN Server** ||||||||
 | 10.3.1 | Setup coturn (Docker container) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 9.4.1 |
 | 10.3.2 | Criar turn-credentials service (7 arquivos) | ✅ `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 10.3.1 |
@@ -1009,12 +1009,12 @@ Response:
 **Status de Build:**
 ```bash
 ✅ cargo build --workspace
-   Compiling mepassa-bootstrap v0.1.0
-   Compiling mepassa-turn-credentials v0.1.0
-   Compiling mepassa-core v0.1.0
+   Compiling zaplivre-bootstrap v0.1.0
+   Compiling zaplivre-turn-credentials v0.1.0
+   Compiling zaplivre-core v0.1.0
    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 37s
 
-✅ cargo test --test relay_integration -p mepassa-core
+✅ cargo test --test relay_integration -p zaplivre-core
    running 16 tests
    test result: ok. 16 passed; 0 failed; 0 ignored
 ```
@@ -1343,8 +1343,8 @@ impl TtlCleanupJob {
 
 **1. Build Status:**
 ```bash
-$ cargo build -p mepassa-store
-   Compiling mepassa-store v0.1.0
+$ cargo build -p zaplivre-store
+   Compiling zaplivre-store v0.1.0
    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.89s
 
 ✅ Build SUCCESS
@@ -1359,9 +1359,9 @@ message-store:
   build:
     context: .
     dockerfile: server/store/Dockerfile
-  container_name: mepassa-store
+  container_name: zaplivre-store
   environment:
-    - DATABASE_URL=postgresql://mepassa:password@postgres:5432/mepassa
+    - DATABASE_URL=postgresql://zaplivre:password@postgres:5432/zaplivre
     - REDIS_URL=redis://:password@redis:6379
     - SERVER_PORT=8080
     - ENABLE_TTL_CLEANUP=true
@@ -1387,7 +1387,7 @@ docker-compose up -d postgres redis message-store
 # Logs esperados:
 # ✅ PostgreSQL ready on port 5432
 # ✅ Redis ready on port 6379
-# 🚀 MePassa Message Store starting...
+# 🚀 ZapLivre Message Store starting...
 # 📦 Connecting to database...
 # 📦 Connecting to Redis...
 # 🌐 Starting HTTP server on port 8080
@@ -1581,7 +1581,7 @@ Chamadas de voz 1:1 funcionando (P2P + TURN fallback).
 - ✅ Funciona com Bluetooth
 
 **TESTE DECISIVO (Milestone Crítico):**
-Perguntar aos beta testers: **"Você usaria MePassa como seu chat principal?"**
+Perguntar aos beta testers: **"Você usaria ZapLivre como seu chat principal?"**
 - **Se < 50% SIM:** ⛔ PARA TUDO e conserta chamadas
 - **Se 50-70% SIM:** ⚠️ Continua com cautela, iterar feedback
 - **Se > 70% SIM:** 🚀 Continua full speed
@@ -1594,7 +1594,7 @@ Perguntar aos beta testers: **"Você usaria MePassa como seu chat principal?"**
 **✅ COMPLETADO (60% - Backend):**
 
 **Core VoIP Modules (9 arquivos, ~2.500 LoC):**
-- ✅ `signaling.rs` (262 linhas) - Protocolo libp2p `/mepassa/voip/1.0.0`
+- ✅ `signaling.rs` (262 linhas) - Protocolo libp2p `/zaplivre/voip/1.0.0`
 - ✅ `server/signaling` - WebSocket signaling fallback
 - ✅ `call.rs` (284 linhas) - State machine (Initiating → Ringing → Active → Ended)
 - ✅ `webrtc.rs` (269 linhas) - PeerConnection wrapper (SDP, ICE)
@@ -1606,7 +1606,7 @@ Perguntar aos beta testers: **"Você usaria MePassa como seu chat principal?"**
 - ✅ `integration.rs` (252 linhas) - Coordenação Network ↔ VoIP
 
 **Network Integration:**
-- ✅ `behaviour.rs` - Protocolo voip_signaling no MePassaBehaviour
+- ✅ `behaviour.rs` - Protocolo voip_signaling no ZapLivreBehaviour
 - ✅ `swarm.rs` - Métodos send_voip_signal() e send_voip_response()
 - ✅ Event handlers para VoIP signaling
 
@@ -1614,17 +1614,17 @@ Perguntar aos beta testers: **"Você usaria MePassa como seu chat principal?"**
 - ✅ `client.rs` - 6 métodos VoIP públicos (start_call, accept_call, etc.)
 - ✅ `builder.rs` - Auto-criação de CallManager + VoIPIntegration
 - ✅ `ffi/client.rs` - Comandos VoIP via canais (StartCall, AcceptCall, etc.)
-- ✅ `mepassa.udl` - Interface UniFFI com métodos async
+- ✅ `zaplivre.udl` - Interface UniFFI com métodos async
 
 **Tests:**
 - ✅ `voip_integration.rs` (388 linhas) - 5 testes passando
 - ✅ Codec tests: 9 testes unitários (encoding, decoding, FEC)
 
 **Android UI (7 arquivos, ~591 LoC):**
-- ✅ `MePassaClientWrapper.kt` (+106 linhas) - 6 métodos VoIP (startCall, acceptCall, etc.)
+- ✅ `ZapLivreClientWrapper.kt` (+106 linhas) - 6 métodos VoIP (startCall, acceptCall, etc.)
 - ✅ `CallScreen.kt` (206 linhas) - Tela de chamada ativa com timer e botões (mute, hangup, speaker)
 - ✅ `IncomingCallScreen.kt` (189 linhas) - Tela fullscreen com animação e botões (aceitar/rejeitar)
-- ✅ `MePassaNavHost.kt` (+72 linhas) - 2 rotas + lógica startCall
+- ✅ `ZapLivreNavHost.kt` (+72 linhas) - 2 rotas + lógica startCall
 - ✅ `ChatScreen.kt` (+14 linhas) - Botão Phone no TopAppBar com onClick
 - ✅ `AndroidManifest.xml` (+2 permissões) - RECORD_AUDIO, MODIFY_AUDIO_SETTINGS
 
@@ -1657,7 +1657,7 @@ ChatView → [Click Phone] → invoke('start_call', { toPeerId })
 **Runtime Permissions (4 arquivos, ~454 LoC):**
 - ✅ `VoipPermissionManager.kt` (150 linhas) - Class-based permission manager
 - ✅ `VoipPermissions.kt` (100 linhas) - Composable rememberVoipPermissions() hook
-- ✅ `MePassaNavHost.kt` (+55 linhas) - Permission checks before startCall()
+- ✅ `ZapLivreNavHost.kt` (+55 linhas) - Permission checks before startCall()
 - ✅ `AndroidManifest.xml` (+2 permissões) - BLUETOOTH, BLUETOOTH_CONNECT
 - ✅ Permissions: RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, BLUETOOTH_CONNECT
 - ✅ Snackbar feedback when denied with user-friendly messages
@@ -1727,7 +1727,7 @@ App iOS com paridade de features (mensagens + chamadas).
 | **13.1 - Setup** ||||||||
 | 13.1.1 | Criar ios/ (Xcode project) | `IN_PROGRESS` | Claude | 2026-01-20 | - | 2026-01-20 | 0.2 |
 | 13.1.2 | Setup SwiftUI | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 13.1.1 |
-| 13.1.3 | Integrar libmepassa_core.dylib (FFI) | `BLOCKED` | - | - | - | 2026-01-20 | 5.4.2 |
+| 13.1.3 | Integrar libzaplivre_core.dylib (FFI) | `BLOCKED` | - | - | - | 2026-01-20 | 5.4.2 |
 | **13.2 - UI** ||||||||
 | 13.2.1 | Implementar OnboardingView | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 13.1.2 |
 | 13.2.2 | Implementar ConversationsView | `DONE` | Claude | 2026-01-20 | 2026-01-20 | 2026-01-20 | 13.2.1 |
@@ -1753,7 +1753,7 @@ App iOS com paridade de features (mensagens + chamadas).
 - ✅ CallKit integration (100% completo)
 - ⏳ TestFlight beta disponível
 
-**Arquivos:** `MePassaApp.swift`, `LoginView.swift`, `ConversationsView.swift`, `ChatView.swift`, `CallScreen.swift`, `CallManager.swift`, `MePassaCore.swift`
+**Arquivos:** `ZapLivreApp.swift`, `LoginView.swift`, `ConversationsView.swift`, `ChatView.swift`, `CallScreen.swift`, `CallManager.swift`, `ZapLivreCore.swift`
 **LoC:** ~2.100/4.000 (52%)
 
 ---
@@ -1763,7 +1763,7 @@ App iOS com paridade de features (mensagens + chamadas).
 **✅ Completado (45%):**
 
 1. **SwiftUI Interface (11 telas - 100%)**
-   - ✅ MePassaApp.swift (66 LoC) - Entry point com state management
+   - ✅ ZapLivreApp.swift (66 LoC) - Entry point com state management
    - ✅ ContentView.swift (26 LoC) - Main navigation
    - ✅ LoginView.swift (113 LoC) - Identity generation/import
    - ✅ ConversationsView.swift (137 LoC) - Chat list
@@ -1785,11 +1785,11 @@ App iOS com paridade de features (mensagens + chamadas).
    - ✅ Professional implementation (WhatsApp-like)
 
 3. **Core Wrapper (100%)**
-   - ✅ MePassaCore.swift (323 LoC)
+   - ✅ ZapLivreCore.swift (323 LoC)
    - ✅ Swift wrapper para UniFFI FFI
    - ✅ Async/await API completa
    - ✅ Identity, messaging, networking, VoIP methods
-   - ✅ Error handling (MePassaCoreError)
+   - ✅ Error handling (ZapLivreCoreError)
    - ✅ Wrapper types (FfiMessageWrapper, FfiConversationWrapper)
 
 4. **Configuration (100%)**
@@ -1809,13 +1809,13 @@ App iOS com paridade de features (mensagens + chamadas).
 
 1. **Resolver UniFFI bindings** (~2 dias)
    - Python uniffi-bindgen ou build.rs customizado
-   - Gerar: mepassa.swift, mepassaFFI.h, mepassaFFI.modulemap
+   - Gerar: zaplivre.swift, zaplivreFFI.h, zaplivreFFI.modulemap
 
 2. **Xcode Project** (~1 dia)
    - Criar .xcodeproj
    - Adicionar arquivos Swift
    - Configurar targets (device + simulator)
-   - Linkar libmepassa_core.a
+   - Linkar libzaplivre_core.a
 
 3. **AVAudioEngine Audio I/O** (~3-4 dias)
    - Audio capture (microfone)
@@ -1931,9 +1931,9 @@ Videochamadas 1:1 (extensão do VoIP).
 - ✅ Modificado: `core/src/voip/mod.rs` - re-exports
 
 **Arquivos Criados (TRACK 4 - iOS):**
-- ✅ `ios/MePassa/MePassa/VoIP/CameraManager.swift` (247 linhas) - AVFoundation camera capture
-- ✅ `ios/MePassa/MePassa/Views/VideoCallScreen.swift` (304 linhas) - SwiftUI video call UI
-- ✅ `ios/MePassa/MePassa/Views/RemoteVideoView.swift` (174 linhas) - Remote video rendering
+- ✅ `ios/ZapLivre/ZapLivre/VoIP/CameraManager.swift` (247 linhas) - AVFoundation camera capture
+- ✅ `ios/ZapLivre/ZapLivre/Views/VideoCallScreen.swift` (304 linhas) - SwiftUI video call UI
+- ✅ `ios/ZapLivre/ZapLivre/Views/RemoteVideoView.swift` (174 linhas) - Remote video rendering
 
 **Arquivos Pendentes (TRACK 5 - Testing):**
 - Integration tests: Android ↔ iOS video call
@@ -2035,7 +2035,7 @@ Envio de imagens, mensagens de voz e integração FFI completa para upload/downl
 ### Arquivos Implementados (10 arquivos)
 
 **Core (Rust):**
-- `core/src/mepassa.udl` - Definições UniFFI (+38 linhas)
+- `core/src/zaplivre.udl` - Definições UniFFI (+38 linhas)
 - `core/src/ffi/types.rs` - FfiMediaType e FfiMedia (+78 linhas)
 - `core/src/ffi/client.rs` - FFI methods e handlers (+202 linhas)
 - `core/src/api/client.rs` - Business logic (+155 linhas)
@@ -2046,7 +2046,7 @@ Envio de imagens, mensagens de voz e integração FFI completa para upload/downl
 - `android/.../ChatScreen.kt` - Send images/voice (+58 linhas)
 
 **iOS:**
-- `ios/.../MePassaCore.swift` - FFI wrappers (+26 linhas)
+- `ios/.../ZapLivreCore.swift` - FFI wrappers (+26 linhas)
 - `ios/.../MediaPickerViewModel.swift` - FFI integration (+40 linhas)
 - `ios/.../ChatView.swift` - Send images/voice (+30 linhas)
 
@@ -2147,7 +2147,7 @@ Sincronizar mensagens entre múltiplos devices do mesmo usuário.
 ### Teste Decisivo (Milestone Crítico - Mês 4)
 
 **Após Fase 12 (Chamadas), perguntar aos beta testers:**
-> "Você usaria MePassa como seu chat principal?"
+> "Você usaria ZapLivre como seu chat principal?"
 
 **Critérios de Decisão:**
 - **< 50% SIM:** ⛔ **PARA TUDO** e conserta chamadas (não avançar para iOS/grupos)
@@ -2203,7 +2203,7 @@ Sincronizar mensagens entre múltiplos devices do mesmo usuário.
 - **NÃO:** Conserta apps primeiro
 
 ### Gate 3: Mês 4 (Após Fase 12 VOIP) 🔥 **CRÍTICO**
-**Pergunta:** "Você usaria MePassa como chat principal?"
+**Pergunta:** "Você usaria ZapLivre como chat principal?"
 - **> 70% SIM:** 🚀 Avança para iOS (Fase 13)
 - **50-70% SIM:** ⚠️ Iterar feedback, considerar delay iOS
 - **< 50% SIM:** ⛔ **PARA TUDO**, conserta chamadas
@@ -2218,9 +2218,9 @@ Sincronizar mensagens entre múltiplos devices do mesmo usuário.
 ## 📁 ESTRUTURA FINAL DO REPOSITÓRIO
 
 ```
-mepassa/
+zaplivre/
 ├── .github/workflows/          # CI/CD
-├── core/                       # Rust library (mepassa-core)
+├── core/                       # Rust library (zaplivre-core)
 │   ├── src/
 │   │   ├── identity/           # Keypairs
 │   │   ├── crypto/             # Signal Protocol
@@ -2235,7 +2235,7 @@ mepassa/
 ├── android/                    # Kotlin + Compose
 │   └── app/src/main/kotlin/
 ├── ios/                        # Swift + SwiftUI
-│   └── MePassa/
+│   └── ZapLivre/
 ├── desktop/                    # Tauri 2.0
 │   ├── src-tauri/              # Rust backend
 │   └── src/                    # React frontend
@@ -2255,10 +2255,10 @@ mepassa/
 
 | # | Ação | Responsável | Prazo | Status |
 |---|------|-------------|-------|--------|
-| 1 | Criar organização GitHub (integralltech/mepassa) | - | - | `TODO` |
+| 1 | Criar organização GitHub (integralltech/zaplivre) | - | - | `TODO` |
 | 2 | Setup monorepo (estrutura completa) | - | - | `TODO` |
 | 3 | Configurar CI/CD (GitHub Actions básico) | - | - | `TODO` |
-| 4 | Registrar domínio mepassa.app | - | - | `TODO` |
+| 4 | Registrar domínio zaplivre.app | - | - | `TODO` |
 | 5 | Criar landing page (captação beta testers) | - | - | `TODO` |
 | 6 | Documentar arquitetura híbrida (docs/) | - | - | `TODO` |
 | 7 | Setup Discord/Matrix comunidade | - | - | `TODO` |
@@ -2269,7 +2269,7 @@ mepassa/
 **FILOSOFIA DO PROJETO:**
 
 > "Não adianta ter privacidade perfeita se ninguém usar.
-> MePassa escolhe privacidade boa o suficiente + UX boa o suficiente = Adoção real."
+> ZapLivre escolhe privacidade boa o suficiente + UX boa o suficiente = Adoção real."
 
 **PRIORIDADES:**
 1. **Funciona sempre** (como WhatsApp) ← Tabela stakes
@@ -2304,7 +2304,7 @@ mepassa/
 **O que foi feito:**
 - ✅ Xcode project setup (via xcodegen CLI)
 - ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
-- ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
+- ✅ UniFFI bindings gerados (zaplivre.swift 2.357 LoC)
 - ✅ VoIP integration com CallKit (CallManager 309 LoC)
 - ✅ Primeira build bem-sucedida no Simulator
 - ✅ Audio I/O com AVAudioEngine (AudioManager 311 LoC)
@@ -2386,7 +2386,7 @@ mepassa/
 **Implementado:**
 - ✅ Core: 5 arquivos, ~476 LoC (FFI types, client, API, UDL)
 - ✅ Android: 2 arquivos, +99 LoC (MediaPickerVM, ChatScreen)
-- ✅ iOS: 3 arquivos, +96 LoC (MePassaCore, MediaPickerVM, ChatView)
+- ✅ iOS: 3 arquivos, +96 LoC (ZapLivreCore, MediaPickerVM, ChatView)
 - ✅ TOTAL: 10 arquivos, ~622 LoC
 
 **O que falta (futuro):**

@@ -1,8 +1,8 @@
-# Getting Started with MePassa
+# Getting Started with ZapLivre
 
 ## Welcome!
 
-MePassa is a hybrid P2P messaging platform that prioritizes privacy, reliability, and cost-effectiveness. This guide will help you get started with development.
+ZapLivre is a hybrid P2P messaging platform that prioritizes privacy, reliability, and cost-effectiveness. This guide will help you get started with development.
 
 ## Prerequisites
 
@@ -62,8 +62,8 @@ MePassa is a hybrid P2P messaging platform that prioritizes privacy, reliability
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/integralltech/mepassa.git
-cd mepassa
+git clone https://github.com/integralltech/zaplivre.git
+cd zaplivre
 ```
 
 ### 2. Setup Development Environment
@@ -102,11 +102,11 @@ Push Server: ✓ OK
 Para deploy via Docker Swarm, use o `stack.yml` na raiz e build das imagens antes:
 
 ```bash
-docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
-docker build -f server/store/Dockerfile -t mepassa-store:latest .
-docker build -f server/push/Dockerfile -t mepassa-push:latest .
-docker build -f server/turn-credentials/Dockerfile -t mepassa-turn-credentials:latest .
-docker stack deploy -c stack.yml mepassa
+docker build -f server/bootstrap/Dockerfile -t zaplivre-bootstrap:latest .
+docker build -f server/store/Dockerfile -t zaplivre-store:latest .
+docker build -f server/push/Dockerfile -t zaplivre-push:latest .
+docker build -f server/turn-credentials/Dockerfile -t zaplivre-turn-credentials:latest .
+docker stack deploy -c stack.yml zaplivre
 ```
 
 Veja também o guia completo em `docs/guides/self-hosting.md`.
@@ -133,15 +133,15 @@ cargo run --example simple_chat
 
 You should see:
 ```
-[INFO] MePassa Core initialized
-[INFO] Peer ID: mepassa_QmXXXXXX...
+[INFO] ZapLivre Core initialized
+[INFO] Peer ID: zaplivre_QmXXXXXX...
 [INFO] Listening on: /ip4/127.0.0.1/tcp/4001
 ```
 
 ## Project Structure
 
 ```
-mepassa/
+zaplivre/
 ├── core/                    # Rust core library
 │   ├── src/                 # Source code
 │   ├── tests/               # Integration tests
@@ -204,7 +204,7 @@ cargo lipo --release --targets aarch64-apple-ios
 
 # Open Xcode
 cd ../ios
-open MePassa.xcworkspace
+open ZapLivre.xcworkspace
 ```
 
 ### Desktop Development
@@ -363,7 +363,7 @@ docker-compose restart postgres
 4. **Join the Community**:
    - Discord: (coming soon)
    - Matrix: (coming soon)
-   - GitHub Discussions: https://github.com/integralltech/mepassa/discussions
+   - GitHub Discussions: https://github.com/integralltech/zaplivre/discussions
 
 ## Resources
 

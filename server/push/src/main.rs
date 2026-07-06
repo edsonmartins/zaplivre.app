@@ -1,4 +1,4 @@
-//! MePassa Push Notification Server
+//! ZapLivre Push Notification Server
 //!
 //! Handles push notifications for FCM (Firebase Cloud Messaging) and APNs (Apple Push Notification Service).
 //!
@@ -41,12 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "mepassa_push=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "zaplivre_push=debug,tower_http=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("🚀 MePassa Push Notification Server starting...");
+    tracing::info!("🚀 ZapLivre Push Notification Server starting...");
 
     // Get configuration from environment
     let database_url = std::env::var("DATABASE_URL")

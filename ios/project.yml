@@ -1,6 +1,6 @@
-name: MePassa
+name: ZapLivre
 options:
-  bundleIdPrefix: app.mepassa
+  bundleIdPrefix: app.zaplivre
   deploymentTarget:
     iOS: "15.0"
   developmentLanguage: en
@@ -11,20 +11,20 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
-  MePassa:
+  ZapLivre:
     type: application
     platform: iOS
 
     sources:
-      - path: MePassa/MePassa
+      - path: ZapLivre/ZapLivre
         excludes:
           - "**/.DS_Store"
-      - path: MePassa/Generated
+      - path: ZapLivre/Generated
         excludes:
           - "**/.DS_Store"
 
     info:
-      path: MePassa/Info.plist
+      path: ZapLivre/Info.plist
       properties:
         CFBundleDevelopmentRegion: $(DEVELOPMENT_LANGUAGE)
         CFBundleDisplayName: ZapLivre
@@ -62,15 +62,15 @@ targets:
           - voip
           - remote-notification
           - audio
-        # Backend endpoints consumed by the app (MePassaCore/SignalingClient)
+        # Backend endpoints consumed by the app (ZapLivreCore/SignalingClient)
         MESSAGE_STORE_URL: "https://store.associahub.com.br"
         SIGNALING_SERVER_URL: "wss://signaling.associahub.com.br/ws"
 
     settings:
       base:
-        PRODUCT_NAME: MePassa
-        PRODUCT_BUNDLE_IDENTIFIER: app.mepassa.ios
-        INFOPLIST_FILE: MePassa/Info.plist
+        PRODUCT_NAME: ZapLivre
+        PRODUCT_BUNDLE_IDENTIFIER: app.zaplivre.ios
+        INFOPLIST_FILE: ZapLivre/Info.plist
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: "T8N7A2P3TQ"
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -78,9 +78,9 @@ targets:
         ENABLE_BITCODE: false
 
         # Bridging header for Rust FFI
-        SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/MePassa/MePassa-Bridging-Header.h
+        SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/ZapLivre/ZapLivre-Bridging-Header.h
 
-        # Library search paths for libmepassa_core
+        # Library search paths for libzaplivre_core
         LIBRARY_SEARCH_PATHS:
           - $(inherited)
           - $(PROJECT_DIR)/Libraries
@@ -95,43 +95,43 @@ targets:
         # Swift import paths for Generated module
         SWIFT_INCLUDE_PATHS:
           - $(inherited)
-          - $(PROJECT_DIR)/MePassa/Generated
+          - $(PROJECT_DIR)/ZapLivre/Generated
 
         # Header search paths
         HEADER_SEARCH_PATHS:
           - $(inherited)
-          - $(PROJECT_DIR)/MePassa/Generated
+          - $(PROJECT_DIR)/ZapLivre/Generated
 
         # Import paths (needed for module import)
         SWIFT_OBJC_INTERFACE_HEADER_NAME: ""
 
       configs:
         Debug:
-          CODE_SIGN_ENTITLEMENTS: MePassa/MePassa.dev.entitlements
+          CODE_SIGN_ENTITLEMENTS: ZapLivre/ZapLivre.dev.entitlements
           OTHER_LDFLAGS[sdk=iphoneos*]:
             - $(inherited)
             - -L$(PROJECT_DIR)/Libraries
-            - -lmepassa_core_ios
+            - -lzaplivre_core_ios
             - "-Wl,-search_paths_first"
             - "-Wl,-headerpad_max_install_names"
           OTHER_LDFLAGS[sdk=iphonesimulator*]:
             - $(inherited)
             - -L$(PROJECT_DIR)/Libraries
-            - -lmepassa_core_sim
+            - -lzaplivre_core_sim
             - "-Wl,-search_paths_first"
             - "-Wl,-headerpad_max_install_names"
         Release:
-          CODE_SIGN_ENTITLEMENTS: MePassa/MePassa.prod.entitlements
+          CODE_SIGN_ENTITLEMENTS: ZapLivre/ZapLivre.prod.entitlements
           OTHER_LDFLAGS[sdk=iphoneos*]:
             - $(inherited)
             - -L$(PROJECT_DIR)/Libraries
-            - -lmepassa_core_ios
+            - -lzaplivre_core_ios
             - "-Wl,-search_paths_first"
             - "-Wl,-headerpad_max_install_names"
           OTHER_LDFLAGS[sdk=iphonesimulator*]:
             - $(inherited)
             - -L$(PROJECT_DIR)/Libraries
-            - -lmepassa_core_sim
+            - -lzaplivre_core_sim
             - "-Wl,-search_paths_first"
             - "-Wl,-headerpad_max_install_names"
 
@@ -160,7 +160,7 @@ targets:
 
     scheme:
       testTargets:
-        - MePassaTests
+        - ZapLivreTests
       gatherCoverageData: false
 
     attributes:
@@ -170,31 +170,31 @@ targets:
         com.apple.Push:
           enabled: 1
 
-  MePassaTests:
+  ZapLivreTests:
     type: bundle.unit-test
     platform: iOS
 
     sources:
-      - path: MePassa/MePassaTests
+      - path: ZapLivre/ZapLivreTests
         excludes:
           - "**/.DS_Store"
 
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.mepassa.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: app.zaplivre.ios.tests
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: "T8N7A2P3TQ"
 
         # Tests reference types from the app module that come from the
-        # mepassaFFI clang module (UniFFI generated), so the test target
+        # zaplivreFFI clang module (UniFFI generated), so the test target
         # needs the same module/header search paths as the app.
         SWIFT_INCLUDE_PATHS:
           - $(inherited)
-          - $(PROJECT_DIR)/MePassa/Generated
+          - $(PROJECT_DIR)/ZapLivre/Generated
         HEADER_SEARCH_PATHS:
           - $(inherited)
-          - $(PROJECT_DIR)/MePassa/Generated
+          - $(PROJECT_DIR)/ZapLivre/Generated
 
     dependencies:
-      - target: MePassa
+      - target: ZapLivre

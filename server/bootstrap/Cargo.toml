@@ -1,9 +1,9 @@
 [package]
-name = "mepassa-bootstrap"
+name = "zaplivre-bootstrap"
 version = "0.1.0"
 edition = "2021"
 authors = ["Integrall Tech <contato@integralltech.com.br>"]
-description = "Bootstrap node for MePassa P2P network"
+description = "Bootstrap node for ZapLivre P2P network"
 license = "AGPL-3.0"
 
 [dependencies]
@@ -40,10 +40,10 @@ sha2 = "0.10"
 rusqlite = { version = "0.31", features = ["bundled"] }
 
 # Local dependencies
-# mepassa-core = { path = "../../core" }  # TODO: adicionar depois
+# zaplivre-core = { path = "../../core" }  # TODO: adicionar depois
 
 [[bin]]
-name = "mepassa-bootstrap"
+name = "zaplivre-bootstrap"
 path = "src/main.rs"
 
 [dev-dependencies]

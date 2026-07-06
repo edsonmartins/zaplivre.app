@@ -1,4 +1,4 @@
-//! MePassa Message Store
+//! ZapLivre Message Store
 //!
 //! Store & forward service for offline message delivery
 
@@ -24,11 +24,11 @@ async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,mepassa_store=debug".into()),
+                .unwrap_or_else(|_| "info,zaplivre_store=debug".into()),
         )
         .init();
 
-    tracing::info!("🚀 MePassa Message Store starting...");
+    tracing::info!("🚀 ZapLivre Message Store starting...");
 
     // Load configuration from environment (SEC-12: sem credenciais default
     // embutidas no binário - falhar cedo com mensagem clara)

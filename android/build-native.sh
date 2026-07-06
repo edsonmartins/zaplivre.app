@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build script for Rust core library for Android
-# Compiles libmepassa_core for Android devices and emulators
+# Compiles libzaplivre_core for Android devices and emulators
 
 set -e
 
@@ -96,37 +96,37 @@ echo -e "${GREEN}Building for Android ARM64 (aarch64-linux-android)...${NC}"
 cd "$CORE_DIR"
 export CC_aarch64_linux_android="$TOOLCHAIN_PATH/aarch64-linux-android24-clang"
 export CXX_aarch64_linux_android="$TOOLCHAIN_PATH/aarch64-linux-android24-clang++"
-cargo build --release --target aarch64-linux-android --features voip -p mepassa-core
+cargo build --release --target aarch64-linux-android --features voip -p zaplivre-core
 echo ""
 
 # Build for Android ARMv7 (32-bit ARM - older devices)
 echo -e "${GREEN}Building for Android ARMv7 (armv7-linux-androideabi)...${NC}"
 export CC_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang"
 export CXX_armv7_linux_androideabi="$TOOLCHAIN_PATH/armv7a-linux-androideabi24-clang++"
-cargo build --release --target armv7-linux-androideabi --features voip -p mepassa-core
+cargo build --release --target armv7-linux-androideabi --features voip -p zaplivre-core
 echo ""
 
 # Build for Android x86_64 (emulators)
 echo -e "${GREEN}Building for Android x86_64 (x86_64-linux-android)...${NC}"
 export CC_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang"
 export CXX_x86_64_linux_android="$TOOLCHAIN_PATH/x86_64-linux-android24-clang++"
-cargo build --release --target x86_64-linux-android --features voip -p mepassa-core
+cargo build --release --target x86_64-linux-android --features voip -p zaplivre-core
 echo ""
 
 # Copy libraries to jniLibs
 echo -e "${GREEN}Copying libraries to jniLibs...${NC}"
 
-cp "$PROJECT_ROOT/target/aarch64-linux-android/release/libmepassa_core.so" \
-   "$JNILIBS_DIR/arm64-v8a/libmepassa_core.so"
-echo -e "  ✅ arm64-v8a/libmepassa_core.so"
+cp "$PROJECT_ROOT/target/aarch64-linux-android/release/libzaplivre_core.so" \
+   "$JNILIBS_DIR/arm64-v8a/libzaplivre_core.so"
+echo -e "  ✅ arm64-v8a/libzaplivre_core.so"
 
-cp "$PROJECT_ROOT/target/armv7-linux-androideabi/release/libmepassa_core.so" \
-   "$JNILIBS_DIR/armeabi-v7a/libmepassa_core.so"
-echo -e "  ✅ armeabi-v7a/libmepassa_core.so"
+cp "$PROJECT_ROOT/target/armv7-linux-androideabi/release/libzaplivre_core.so" \
+   "$JNILIBS_DIR/armeabi-v7a/libzaplivre_core.so"
+echo -e "  ✅ armeabi-v7a/libzaplivre_core.so"
 
-cp "$PROJECT_ROOT/target/x86_64-linux-android/release/libmepassa_core.so" \
-   "$JNILIBS_DIR/x86_64/libmepassa_core.so"
-echo -e "  ✅ x86_64/libmepassa_core.so"
+cp "$PROJECT_ROOT/target/x86_64-linux-android/release/libzaplivre_core.so" \
+   "$JNILIBS_DIR/x86_64/libzaplivre_core.so"
+echo -e "  ✅ x86_64/libzaplivre_core.so"
 echo ""
 
 # Show library sizes

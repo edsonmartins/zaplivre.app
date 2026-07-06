@@ -1,11 +1,11 @@
-// MePassa Protocol Messages
+// ZapLivre Protocol Messages
 // Version 1.0.0
 //
 // Defines message types for P2P communication between peers.
 
 syntax = "proto3";
 
-package mepassa.protocol;
+package zaplivre.protocol;
 
 // Message envelope - top-level container for all messages
 message Message {

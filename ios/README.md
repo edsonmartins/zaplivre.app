@@ -1,15 +1,15 @@
-# MePassa iOS App
+# ZapLivre iOS App
 
-iOS native app for MePassa P2P messaging platform built with SwiftUI, CallKit, and Rust FFI.
+iOS native app for ZapLivre P2P messaging platform built with SwiftUI, CallKit, and Rust FFI.
 
 ## 📊 Status: FASE 13 - 100% Development Complete
 
 **Latest Update:** 2026-01-21
 - ✅ Rust core compiles for iOS (conditional compilation)
-- ✅ Static libraries integrated (libmepassa_core_ios.a + sim.a)
+- ✅ Static libraries integrated (libzaplivre_core_ios.a + sim.a)
 - ✅ Swift bindings generated via UniFFI 0.28.3
 - ✅ Xcode project configured via xcodegen
-- ✅ **Build successful:** `xcodebuild -scheme MePassa build` → BUILD SUCCEEDED!
+- ✅ **Build successful:** `xcodebuild -scheme ZapLivre build` → BUILD SUCCEEDED!
 - ✅ Build automation pipeline complete (build-all.sh)
 - ✅ Complete documentation and troubleshooting guide
 - 📋 End-to-end tests deferred to final testing phase
@@ -38,16 +38,16 @@ ios/
 ├── generate-bindings.sh      # Generate Swift bindings via UniFFI
 ├── project.yml               # Xcode project specification (xcodegen)
 ├── Libraries/                # Compiled Rust static libraries
-│   ├── libmepassa_core_ios.a     # iOS device (ARM64) - 96MB
-│   └── libmepassa_core_sim.a     # Simulator (ARM64 + x86_64) - 192MB
-├── MePassa.xcodeproj/        # Generated Xcode project (via xcodegen)
-└── MePassa/
-    ├── MePassaApp.swift      # App entry point + SwiftUI lifecycle
+│   ├── libzaplivre_core_ios.a     # iOS device (ARM64) - 96MB
+│   └── libzaplivre_core_sim.a     # Simulator (ARM64 + x86_64) - 192MB
+├── ZapLivre.xcodeproj/        # Generated Xcode project (via xcodegen)
+└── ZapLivre/
+    ├── ZapLivreApp.swift      # App entry point + SwiftUI lifecycle
     ├── ContentView.swift     # Root navigation
     ├── Info.plist            # Permissions & capabilities
-    ├── MePassa-Bridging-Header.h  # C FFI bridging header
+    ├── ZapLivre-Bridging-Header.h  # C FFI bridging header
     ├── Core/
-    │   └── MePassaCore.swift # Rust FFI wrapper (singleton)
+    │   └── ZapLivreCore.swift # Rust FFI wrapper (singleton)
     ├── Views/                # SwiftUI screens
     │   ├── LoginView.swift   # Identity generation screen
     │   ├── ConversationsView.swift  # Chat list
@@ -63,9 +63,9 @@ ios/
     │   ├── CallManager.swift # CallKit integration (309 LoC)
     │   └── AudioManager.swift # AVAudioEngine I/O (311 LoC)
     └── Generated/            # UniFFI generated bindings
-        ├── mepassa.swift     # Swift interfaces (48KB)
-        ├── mepassaFFI.h      # C FFI header (27KB)
-        └── mepassaFFI.modulemap
+        ├── zaplivre.swift     # Swift interfaces (48KB)
+        ├── zaplivreFFI.h      # C FFI header (27KB)
+        └── zaplivreFFI.modulemap
 ```
 
 ## 🚀 Quick Start
@@ -113,8 +113,8 @@ pip install uniffi-bindgen==0.28.3
 ```
 
 Output:
-- `ios/Libraries/libmepassa_core_ios.a` (96MB)
-- `ios/Libraries/libmepassa_core_sim.a` (192MB universal)
+- `ios/Libraries/libzaplivre_core_ios.a` (96MB)
+- `ios/Libraries/libzaplivre_core_sim.a` (192MB universal)
 
 #### 3. Generate Swift Bindings
 
@@ -124,9 +124,9 @@ source ios/venv/bin/activate  # Activate venv
 ```
 
 Output:
-- `ios/MePassa/Generated/mepassa.swift`
-- `ios/MePassa/Generated/mepassaFFI.h`
-- `ios/MePassa/Generated/mepassaFFI.modulemap`
+- `ios/ZapLivre/Generated/zaplivre.swift`
+- `ios/ZapLivre/Generated/zaplivreFFI.h`
+- `ios/ZapLivre/Generated/zaplivreFFI.modulemap`
 
 #### 4. Generate Xcode Project
 
@@ -135,19 +135,19 @@ cd ios
 xcodegen generate
 ```
 
-Output: `ios/MePassa.xcodeproj`
+Output: `ios/ZapLivre.xcodeproj`
 
 #### 5. Open in Xcode
 
 ```bash
-open ios/MePassa.xcodeproj
+open ios/ZapLivre.xcodeproj
 ```
 
 Or build from command line:
 
 ```bash
-xcodebuild -project ios/MePassa.xcodeproj \
-           -scheme MePassa \
+xcodebuild -project ios/ZapLivre.xcodeproj \
+           -scheme ZapLivre \
            -sdk iphonesimulator \
            -destination 'platform=iOS Simulator,name=iPhone 16' \
            build
@@ -160,7 +160,7 @@ xcodebuild -project ios/MePassa.xcodeproj \
 **Core Infrastructure:**
 - ✅ SwiftUI app structure with navigation
 - ✅ Rust FFI integration via UniFFI
-- ✅ Static library linking (libmepassa_core)
+- ✅ Static library linking (libzaplivre_core)
 - ✅ Build pipeline automation (build-all.sh)
 - ✅ Xcode project generation via xcodegen
 - ✅ Complete documentation and troubleshooting guide
@@ -202,10 +202,10 @@ xcodebuild -project ios/MePassa.xcodeproj \
 
 Configured in `Info.plist`:
 
-- **Microphone** (`NSMicrophoneUsageDescription`): "MePassa precisa acessar o microfone para chamadas de voz"
-- **Camera** (`NSCameraUsageDescription`): "MePassa precisa acessar a câmera para videochamadas"
-- **Photos** (`NSPhotoLibraryUsageDescription`): "MePassa precisa acessar fotos para compartilhar imagens"
-- **Contacts** (`NSContactsUsageDescription`): "MePassa precisa acessar contatos para encontrar amigos"
+- **Microphone** (`NSMicrophoneUsageDescription`): "ZapLivre precisa acessar o microfone para chamadas de voz"
+- **Camera** (`NSCameraUsageDescription`): "ZapLivre precisa acessar a câmera para videochamadas"
+- **Photos** (`NSPhotoLibraryUsageDescription`): "ZapLivre precisa acessar fotos para compartilhar imagens"
+- **Contacts** (`NSContactsUsageDescription`): "ZapLivre precisa acessar contatos para encontrar amigos"
 
 Background Modes:
 - ✅ Voice over IP (VoIP)
@@ -238,10 +238,10 @@ Currently using mock implementation. Will connect to Rust core's WebRTC engine v
 ### FFI Integration
 
 ```swift
-import mepassa  // Generated by UniFFI
+import zaplivre  // Generated by UniFFI
 
 // Initialize core
-let client = try MePassaClient(dataDir: documentsPath)
+let client = try ZapLivreClient(dataDir: documentsPath)
 
 // Get local peer ID
 let peerId = try client.localPeerId()
@@ -277,7 +277,7 @@ let messages = try client.getConversationMessages(
 - **@EnvironmentObject**: Global app state injection
 - **@Published**: Reactive state updates
 - **ObservableObject**: SwiftUI state management
-- Singleton pattern for MePassaClient wrapper
+- Singleton pattern for ZapLivreClient wrapper
 
 ### Navigation Flow
 
@@ -302,17 +302,17 @@ IncomingCallScreen (CallKit presented)
 
 ```yaml
 SWIFT_VERSION: "5.0"
-SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/MePassa/MePassa-Bridging-Header.h
+SWIFT_OBJC_BRIDGING_HEADER: $(PROJECT_DIR)/ZapLivre/ZapLivre-Bridging-Header.h
 
 LIBRARY_SEARCH_PATHS:
   - $(PROJECT_DIR)/Libraries
 
 OTHER_LDFLAGS:
   - -L$(PROJECT_DIR)/Libraries
-  - -lmepassa_core_sim  # For Simulator builds
+  - -lzaplivre_core_sim  # For Simulator builds
 
 HEADER_SEARCH_PATHS:
-  - $(PROJECT_DIR)/MePassa/Generated
+  - $(PROJECT_DIR)/ZapLivre/Generated
 ```
 
 ### Frameworks & Dependencies
@@ -348,8 +348,8 @@ HEADER_SEARCH_PATHS:
 
 ```bash
 xcodebuild test \
-    -project MePassa.xcodeproj \
-    -scheme MePassa \
+    -project ZapLivre.xcodeproj \
+    -scheme ZapLivre \
     -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
@@ -359,21 +359,21 @@ xcodebuild test \
 
 1. Configure signing & provisioning:
    - Apple Developer account
-   - App ID: `app.mepassa.ios`
+   - App ID: `app.zaplivre.ios`
    - Provisioning profiles
 
 2. Archive build:
    ```bash
    xcodebuild archive \
-       -project MePassa.xcodeproj \
-       -scheme MePassa \
-       -archivePath ./build/MePassa.xcarchive
+       -project ZapLivre.xcodeproj \
+       -scheme ZapLivre \
+       -archivePath ./build/ZapLivre.xcarchive
    ```
 
 3. Export IPA:
    ```bash
    xcodebuild -exportArchive \
-       -archivePath ./build/MePassa.xcarchive \
+       -archivePath ./build/ZapLivre.xcarchive \
        -exportPath ./build \
        -exportOptionsPlist ExportOptions.plist
    ```
@@ -393,7 +393,7 @@ xcodebuild test \
 - Solution: Build Rust core for all targets (x86_64 + ARM64)
 - Run: `./ios/build-rust.sh`
 
-**Error: "library not found for -lmepassa_core_sim"**
+**Error: "library not found for -lzaplivre_core_sim"**
 - Solution: Check library exists in `ios/Libraries/`
 - Verify: LIBRARY_SEARCH_PATHS in project.yml
 
@@ -464,8 +464,8 @@ This allows:
 
 ## 🤝 Contributing
 
-Part of the MePassa project. See main README for contribution guidelines.
+Part of the ZapLivre project. See main README for contribution guidelines.
 
 ## 📄 License
 
-AGPL-3.0 (same as MePassa project)
+AGPL-3.0 (same as ZapLivre project)

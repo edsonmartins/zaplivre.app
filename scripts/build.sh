@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MePassa Build Script
+# ZapLivre Build Script
 # Builds all components of the project
 
 set -e  # Exit on error
@@ -119,8 +119,8 @@ build_ios() {
 
     # Build iOS app
     xcodebuild \
-        -workspace MePassa.xcworkspace \
-        -scheme MePassa \
+        -workspace ZapLivre.xcworkspace \
+        -scheme ZapLivre \
         -sdk iphoneos \
         -configuration Release \
         CODE_SIGNING_ALLOWED=NO \
@@ -158,13 +158,13 @@ build_server() {
     print_info "Building server components..."
 
     # Build bootstrap node
-    cargo build --release --package mepassa-bootstrap
+    cargo build --release --package zaplivre-bootstrap
 
     # Build message store
-    cargo build --release --package mepassa-store
+    cargo build --release --package zaplivre-store
 
     # Build push server
-    cargo build --release --package mepassa-push
+    cargo build --release --package zaplivre-push
 
     print_info "✓ Server components built successfully"
 }
@@ -172,7 +172,7 @@ build_server() {
 # Main function
 main() {
     print_info "==================================="
-    print_info "    MePassa Build Script"
+    print_info "    ZapLivre Build Script"
     print_info "==================================="
 
     check_prerequisites

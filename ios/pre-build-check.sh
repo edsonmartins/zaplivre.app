@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# MePassa iOS - Pre-Build Verification Script
+# ZapLivre iOS - Pre-Build Verification Script
 # Verifica se tudo está pronto para rodar no iPhone
 
 set -e
@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo "=========================================="
-echo "🔍 MePassa iOS - Pre-Build Check"
+echo "🔍 ZapLivre iOS - Pre-Build Check"
 echo "=========================================="
 echo ""
 
@@ -120,23 +120,23 @@ echo ""
 echo "📦 Checking Compiled Libraries..."
 echo ""
 
-IOS_LIB="$SCRIPT_DIR/Libraries/libmepassa_core_ios.a"
-SIM_LIB="$SCRIPT_DIR/Libraries/libmepassa_core_sim.a"
+IOS_LIB="$SCRIPT_DIR/Libraries/libzaplivre_core_ios.a"
+SIM_LIB="$SCRIPT_DIR/Libraries/libzaplivre_core_sim.a"
 
 if [ -f "$IOS_LIB" ]; then
     IOS_SIZE=$(du -h "$IOS_LIB" | cut -f1)
     IOS_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$IOS_LIB")
-    check_status "libmepassa_core_ios.a ($IOS_SIZE)" "OK" "Built: $IOS_DATE"
+    check_status "libzaplivre_core_ios.a ($IOS_SIZE)" "OK" "Built: $IOS_DATE"
 else
-    check_status "libmepassa_core_ios.a" "FAIL" "Run: ./ios/build-rust.sh"
+    check_status "libzaplivre_core_ios.a" "FAIL" "Run: ./ios/build-rust.sh"
 fi
 
 if [ -f "$SIM_LIB" ]; then
     SIM_SIZE=$(du -h "$SIM_LIB" | cut -f1)
     SIM_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$SIM_LIB")
-    check_status "libmepassa_core_sim.a ($SIM_SIZE)" "OK" "Built: $SIM_DATE"
+    check_status "libzaplivre_core_sim.a ($SIM_SIZE)" "OK" "Built: $SIM_DATE"
 else
-    check_status "libmepassa_core_sim.a" "WARN" "Run: ./ios/build-rust.sh (needed for Simulator)"
+    check_status "libzaplivre_core_sim.a" "WARN" "Run: ./ios/build-rust.sh (needed for Simulator)"
 fi
 
 # 8. Check Swift bindings
@@ -144,29 +144,29 @@ echo ""
 echo "📦 Checking Swift Bindings..."
 echo ""
 
-SWIFT_BINDING="$SCRIPT_DIR/MePassa/Generated/mepassa.swift"
-FFI_HEADER="$SCRIPT_DIR/MePassa/Generated/mepassaFFI.h"
-MODULEMAP="$SCRIPT_DIR/MePassa/Generated/mepassaFFI.modulemap"
+SWIFT_BINDING="$SCRIPT_DIR/ZapLivre/Generated/zaplivre.swift"
+FFI_HEADER="$SCRIPT_DIR/ZapLivre/Generated/zaplivreFFI.h"
+MODULEMAP="$SCRIPT_DIR/ZapLivre/Generated/zaplivreFFI.modulemap"
 
 if [ -f "$SWIFT_BINDING" ]; then
     SWIFT_SIZE=$(du -h "$SWIFT_BINDING" | cut -f1)
     SWIFT_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$SWIFT_BINDING")
-    check_status "mepassa.swift ($SWIFT_SIZE)" "OK" "Generated: $SWIFT_DATE"
+    check_status "zaplivre.swift ($SWIFT_SIZE)" "OK" "Generated: $SWIFT_DATE"
 else
-    check_status "mepassa.swift" "FAIL" "Run: ./ios/generate-bindings.sh"
+    check_status "zaplivre.swift" "FAIL" "Run: ./ios/generate-bindings.sh"
 fi
 
 if [ -f "$FFI_HEADER" ]; then
     FFI_SIZE=$(du -h "$FFI_HEADER" | cut -f1)
-    check_status "mepassaFFI.h ($FFI_SIZE)" "OK"
+    check_status "zaplivreFFI.h ($FFI_SIZE)" "OK"
 else
-    check_status "mepassaFFI.h" "FAIL" "Run: ./ios/generate-bindings.sh"
+    check_status "zaplivreFFI.h" "FAIL" "Run: ./ios/generate-bindings.sh"
 fi
 
 if [ -f "$MODULEMAP" ]; then
-    check_status "mepassaFFI.modulemap" "OK"
+    check_status "zaplivreFFI.modulemap" "OK"
 else
-    check_status "mepassaFFI.modulemap" "FAIL" "Run: ./ios/generate-bindings.sh"
+    check_status "zaplivreFFI.modulemap" "FAIL" "Run: ./ios/generate-bindings.sh"
 fi
 
 # 9. Check Xcode project
@@ -174,11 +174,11 @@ echo ""
 echo "📦 Checking Xcode Project..."
 echo ""
 
-XCODE_PROJECT="$SCRIPT_DIR/MePassa.xcodeproj"
+XCODE_PROJECT="$SCRIPT_DIR/ZapLivre.xcodeproj"
 if [ -d "$XCODE_PROJECT" ]; then
-    check_status "MePassa.xcodeproj" "OK"
+    check_status "ZapLivre.xcodeproj" "OK"
 else
-    check_status "MePassa.xcodeproj" "FAIL" "Run: cd ios && xcodegen generate"
+    check_status "ZapLivre.xcodeproj" "FAIL" "Run: cd ios && xcodegen generate"
 fi
 
 # 10. Check for connected devices
@@ -221,7 +221,7 @@ if [ "$ALL_CHECKS_PASSED" = true ]; then
     echo "🚀 Ready to build for iPhone:"
     echo ""
     echo -e "${BLUE}Option 1 - Open in Xcode:${NC}"
-    echo "  open ios/MePassa.xcodeproj"
+    echo "  open ios/ZapLivre.xcodeproj"
     echo "  (Then: Connect iPhone, select device, press ▶️)"
     echo ""
     echo -e "${BLUE}Option 2 - Command line build:${NC}"
@@ -231,7 +231,7 @@ if [ "$ALL_CHECKS_PASSED" = true ]; then
     echo "  1. Connect iPhone via USB"
     echo "  2. Unlock iPhone and 'Trust This Computer'"
     echo "  3. In Xcode: Select your Team in Signing & Capabilities"
-    echo "  4. Change Bundle ID if needed (e.g., com.yourname.mepassa)"
+    echo "  4. Change Bundle ID if needed (e.g., com.yourname.zaplivre)"
     echo "  5. After install: iPhone Settings > General > VPN & Device Management > Trust Developer"
 else
     echo -e "${RED}❌ Some checks failed!${NC}"

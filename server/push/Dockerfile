@@ -1,4 +1,4 @@
-# MePassa Push Notification Server Dockerfile
+# ZapLivre Push Notification Server Dockerfile
 
 FROM rust:1.88-slim-bookworm AS builder
 
@@ -17,7 +17,7 @@ COPY core ./core
 COPY server ./server
 
 # Build push server
-RUN cargo build --release --package mepassa-push
+RUN cargo build --release --package zaplivre-push
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy binary
-COPY --from=builder /app/target/release/mepassa-push /usr/local/bin/mepassa-push
+COPY --from=builder /app/target/release/zaplivre-push /usr/local/bin/zaplivre-push
 
 # Create certs directory
 RUN mkdir -p /etc/push
@@ -42,4 +42,4 @@ EXPOSE 8081
 ENV RUST_LOG=info
 ENV PORT=8081
 
-CMD ["mepassa-push"]
+CMD ["zaplivre-push"]

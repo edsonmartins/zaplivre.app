@@ -93,7 +93,7 @@ impl ApnsClient {
     /// * `key_path` - Path to .p8 private key file from Apple Developer account
     /// * `key_id` - Key ID (10 characters, e.g., "AB12CD34EF")
     /// * `team_id` - Team ID (10 characters, e.g., "XY98ZW76UV")
-    /// * `bundle_id` - App bundle ID (e.g., "com.mepassa.ios")
+    /// * `bundle_id` - App bundle ID (e.g., "com.zaplivre.ios")
     /// * `production` - Use production APNs endpoint (true) or sandbox (false)
     pub fn new(
         key_path: &str,
@@ -336,7 +336,7 @@ mod tests {
             aps: Aps {
                 alert: Alert {
                     title: "New Message".to_string(),
-                    body: "Hello from MePassa".to_string(),
+                    body: "Hello from ZapLivre".to_string(),
                 },
                 sound: "default".to_string(),
                 mutable_content: 1,
@@ -347,7 +347,7 @@ mod tests {
 
         let json = serde_json::to_string(&payload).unwrap();
         assert!(json.contains("New Message"));
-        assert!(json.contains("Hello from MePassa"));
+        assert!(json.contains("Hello from ZapLivre"));
         assert!(json.contains("peer_id"));
         assert!(json.contains("\"badge\":5"));
     }

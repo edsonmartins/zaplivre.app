@@ -1,5 +1,5 @@
 #!/bin/bash
-# Complete build pipeline for MePassa iOS app
+# Complete build pipeline for ZapLivre iOS app
 # 1. Build Rust core for iOS targets
 # 2. Generate Swift bindings
 # 3. Generate Xcode project
@@ -7,7 +7,7 @@
 
 set -e
 
-echo "🚀 MePassa iOS - Complete Build Pipeline"
+echo "🚀 ZapLivre iOS - Complete Build Pipeline"
 echo "=========================================="
 echo ""
 
@@ -40,8 +40,8 @@ echo ""
 # Step 4: Build iOS app (optional)
 if [ "$1" == "--build" ]; then
     echo -e "${BLUE}Step 4/4: Building iOS app...${NC}"
-    xcodebuild -project MePassa.xcodeproj \
-               -scheme MePassa \
+    xcodebuild -project ZapLivre.xcodeproj \
+               -scheme ZapLivre \
                -sdk iphonesimulator \
                -destination 'platform=iOS Simulator,name=iPhone 16' \
                build
@@ -57,7 +57,7 @@ echo -e "✅ Build pipeline complete!"
 echo -e "==========================================${NC}"
 echo ""
 echo -e "${BLUE}To open in Xcode:${NC}"
-echo "  open ios/MePassa.xcodeproj"
+echo "  open ios/ZapLivre.xcodeproj"
 echo ""
 echo -e "${BLUE}To build and run:${NC}"
 echo "  ./ios/build-all.sh --build"

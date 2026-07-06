@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Compartilhamento de mídia recebida (UX-09) -->
 <paths>
-    <files-path name="mepassa_data" path="mepassa_data/" />
+    <files-path name="zaplivre_data" path="zaplivre_data/" />
     <cache-path name="cache" path="." />
 </paths>

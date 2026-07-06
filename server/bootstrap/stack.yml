@@ -2,9 +2,9 @@ version: '3.8'
 
 services:
   bootstrap-node:
-    image: mepassa-bootstrap:latest
+    image: zaplivre-bootstrap:latest
     env_file:
-      - /etc/mepassa/bootstrap.env
+      - /etc/zaplivre/bootstrap.env
     ports:
       - "4001:4001"
       - "8000:8000"
@@ -18,11 +18,11 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-bootstrap-1.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-bootstrap-1.tls=true"
-        - "traefik.http.routers.mepassa-bootstrap-1.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-bootstrap-1.loadbalancer.server.port=8000"
+        - "traefik.http.routers.zaplivre-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-1.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-bootstrap-1.tls=true"
+        - "traefik.http.routers.zaplivre-bootstrap-1.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-bootstrap-1.loadbalancer.server.port=8000"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -32,9 +32,9 @@ services:
       - traefik-network
 
   bootstrap-node-2:
-    image: mepassa-bootstrap:latest
+    image: zaplivre-bootstrap:latest
     env_file:
-      - /etc/mepassa/bootstrap-2.env
+      - /etc/zaplivre/bootstrap-2.env
     ports:
       - "4002:4001"
       - "8001:8000"
@@ -48,11 +48,11 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-bootstrap-2.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-bootstrap-2.tls=true"
-        - "traefik.http.routers.mepassa-bootstrap-2.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-bootstrap-2.loadbalancer.server.port=8000"
+        - "traefik.http.routers.zaplivre-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-2.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-bootstrap-2.tls=true"
+        - "traefik.http.routers.zaplivre-bootstrap-2.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-bootstrap-2.loadbalancer.server.port=8000"
       restart_policy:
         condition: on-failure
         delay: 5s

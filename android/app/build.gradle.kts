@@ -13,11 +13,11 @@ if (file("google-services.json").exists()) {
 }
 
 android {
-    namespace = "com.mepassa"
+    namespace = "com.zaplivre"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.mepassa"
+        applicationId = "com.zaplivre"
         minSdk = 26  // Android 8.0 (necessário para suporte bom de foreground services)
         targetSdk = 34
         versionCode = 1
@@ -112,18 +112,18 @@ android {
     }
 }
 
-// Build da lib nativa Rust (libmepassa_core.so) antes do build Android.
+// Build da lib nativa Rust (libzaplivre_core.so) antes do build Android.
 // Por padrão roda apenas se as .so ainda não existem; force com -PrebuildNative.
 val jniLibsDir = file("src/main/jniLibs")
 val buildRustCore = tasks.register<Exec>("buildRustCore") {
     group = "build"
-    description = "Compila libmepassa_core.so via cargo (android/build-native.sh)"
+    description = "Compila libzaplivre_core.so via cargo (android/build-native.sh)"
     workingDir = rootDir.parentFile
     commandLine("bash", "android/build-native.sh")
     onlyIf {
         project.hasProperty("rebuildNative") ||
-            !jniLibsDir.resolve("arm64-v8a/libmepassa_core.so").exists() ||
-            !jniLibsDir.resolve("x86_64/libmepassa_core.so").exists()
+            !jniLibsDir.resolve("arm64-v8a/libzaplivre_core.so").exists() ||
+            !jniLibsDir.resolve("x86_64/libzaplivre_core.so").exists()
     }
 }
 

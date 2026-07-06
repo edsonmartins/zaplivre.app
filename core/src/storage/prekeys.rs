@@ -3,7 +3,7 @@
 //! bundles que os contatos já tinham buscado.
 
 use super::Database;
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 impl Database {
     pub fn save_prekey_pool(&self, encrypted_snapshot: &[u8]) -> Result<()> {
@@ -15,7 +15,7 @@ impl Database {
                      updated_at = excluded.updated_at",
                 rusqlite::params![encrypted_snapshot],
             )
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         Ok(())
     }
 
@@ -23,7 +23,7 @@ impl Database {
         let conn = self.conn();
         let mut stmt = conn
             .prepare("SELECT pool FROM identity_prekeys WHERE id = 1")
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         let result = stmt
             .query_row([], |row| row.get::<_, Vec<u8>>(0))
             .map(Some)
@@ -31,7 +31,7 @@ impl Database {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 other => Err(other),
             })
-            .map_err(|e| MePassaError::Storage(e.to_string()))?;
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         Ok(result)
     }
 }
