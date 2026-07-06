@@ -68,8 +68,31 @@ struct SettingsView: View {
         }
     }
 
+    private var localPeerId: String {
+        UserDefaults.standard.string(forKey: "local_peer_id") ?? ""
+    }
+
     var body: some View {
         Form {
+            // Perfil / identidade
+            Section {
+                HStack(spacing: 14) {
+                    AvatarView(seed: localPeerId.isEmpty ? "eu" : localPeerId,
+                               name: "Eu", size: 56)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Minha identidade")
+                            .font(ZapFont.rowName)
+                            .foregroundColor(ZapColor.ink)
+                        Text(localPeerId.isEmpty ? "—" : localPeerId)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(ZapColor.slate)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+
             // Notifications section
             Section("Notificações") {
                 Toggle("Ativar notificações", isOn: $notificationsEnabled)
@@ -158,6 +181,7 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings_logout")
             }
         }
+        .tint(ZapColor.primary)
         .navigationTitle("Configurações")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { refreshStorageUsage() }
@@ -200,14 +224,9 @@ struct SettingsView: View {
                     Button(action: {
                         UIPasteboard.general.string = exportData
                     }) {
-                        Text("Copiar")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                        Label("Copiar", systemImage: "doc.on.doc")
                     }
+                    .buttonStyle(ZapPrimaryButtonStyle())
                     .padding(.horizontal)
 
                     Spacer()
@@ -256,13 +275,9 @@ struct SettingsView: View {
                         }
                     }) {
                         Text("Salvar")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
                     }
+                    .buttonStyle(ZapPrimaryButtonStyle(
+                        enabled: !(prekeyPeerId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || prekeyJson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)))
                     .padding(.horizontal)
                     .disabled(prekeyPeerId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || prekeyJson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 

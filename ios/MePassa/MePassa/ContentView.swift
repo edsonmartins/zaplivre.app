@@ -13,7 +13,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if appState.isAuthenticated {
+            if CommandLine.arguments.contains("-designPreview") {
+                DesignPreviewView()
+            } else if appState.isAuthenticated {
                 ConversationsView()
             } else {
                 LoginView()

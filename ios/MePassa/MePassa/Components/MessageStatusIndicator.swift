@@ -57,7 +57,7 @@ struct MessageStatusIndicator: View {
     private func statusColor(_ status: MessageStatus) -> Color {
         switch status {
         case .read:
-            return Color(red: 0.01, green: 0.53, blue: 0.82) // Blue
+            return ZapColor.primary
         case .failed:
             return .red
         default:
@@ -85,7 +85,7 @@ struct MessageStatusFull: View {
     private var statusColor: Color {
         switch message.status {
         case .read:
-            return Color(red: 0.01, green: 0.53, blue: 0.82)
+            return ZapColor.primary
         case .failed:
             return .red
         default:

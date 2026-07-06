@@ -20,31 +20,47 @@ struct ConversationsView: View {
             Group {
                 if appState.conversations.isEmpty {
                     // Empty state
-                    VStack(spacing: 20) {
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 60))
-                            .foregroundColor(.secondary)
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(ZapColor.primary.opacity(0.12))
+                                .frame(width: 96, height: 96)
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                .font(.system(size: 40))
+                                .foregroundStyle(ZapColor.sparkGradient)
+                        }
 
                         Text("Nenhuma conversa ainda")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
+                            .font(ZapFont.title)
+                            .foregroundColor(ZapColor.ink)
 
-                        Text("Toque em + para iniciar uma nova conversa")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        Text("Toque em + para começar a conversar com privacidade total.")
+                            .font(ZapFont.preview)
+                            .foregroundColor(ZapColor.slate)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
+                            .padding(.horizontal, 48)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(ZapColor.canvas)
                 } else {
                     // Conversations list
                     List {
                         ForEach(appState.conversations) { conversation in
-                            NavigationLink(destination: ChatView(conversation: conversation)) {
+                            ZStack {
+                                NavigationLink(destination: ChatView(conversation: conversation)) {
+                                    EmptyView()
+                                }
+                                .opacity(0)
                                 ConversationRow(conversation: conversation)
                             }
+                            .listRowInsets(EdgeInsets(top: 2, leading: ZapMetric.gutter,
+                                                      bottom: 2, trailing: ZapMetric.gutter))
+                            .listRowSeparatorTint(ZapColor.hairline)
+                            .listRowBackground(ZapColor.canvas)
                         }
                     }
                     .listStyle(.plain)
+                    .background(ZapColor.canvas)
                     .accessibilityIdentifier("conversations_list")
                 }
             }
@@ -119,49 +135,39 @@ struct ConversationsView: View {
 struct ConversationRow: View {
     let conversation: Conversation
 
+    private var hasUnread: Bool { conversation.unreadCount > 0 }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Avatar
-            Circle()
-                .fill(Color.blue)
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Text(conversation.displayName.prefix(1).uppercased())
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                )
+        HStack(spacing: ZapMetric.rowGap) {
+            AvatarView(seed: conversation.peerId ?? conversation.id,
+                       name: conversation.displayName)
 
-            // Content
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(conversation.displayName)
-                        .font(.headline)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(conversation.displayName)
+                    .font(ZapFont.rowName)
+                    .foregroundColor(ZapColor.ink)
+                    .lineLimit(1)
 
-                    Spacer()
+                Text(conversation.lastMessage ?? "Toque para conversar")
+                    .font(ZapFont.preview)
+                    .foregroundColor(hasUnread ? ZapColor.ink : ZapColor.slate)
+                    .fontWeight(hasUnread ? .medium : .regular)
+                    .lineLimit(1)
+            }
 
-                    // Unread badge
-                    if conversation.unreadCount > 0 {
-                        Text("\(conversation.unreadCount)")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue)
-                            .clipShape(Capsule())
-                    }
-                }
+            Spacer(minLength: 8)
 
-                if let lastMessage = conversation.lastMessage {
-                    Text(lastMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
+            if hasUnread {
+                Text("\(conversation.unreadCount)")
+                    .font(ZapFont.badge)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 7)
+                    .frame(minWidth: 22, minHeight: 22)
+                    .background(ZapColor.primary)
+                    .clipShape(Capsule())
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
 

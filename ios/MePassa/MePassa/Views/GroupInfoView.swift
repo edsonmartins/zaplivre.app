@@ -26,12 +26,12 @@ struct GroupInfoView: View {
                     VStack(spacing: 16) {
                         // Group icon
                         Circle()
-                            .fill(Color.blue.opacity(0.2))
+                            .fill(ZapColor.primary.opacity(0.2))
                             .frame(width: 80, height: 80)
                             .overlay(
                                 Image(systemName: "person.3.fill")
                                     .font(.system(size: 40))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(ZapColor.primary)
                             )
 
                         // Group name
@@ -50,8 +50,8 @@ struct GroupInfoView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.2))
-                            .foregroundColor(.blue)
+                            .background(ZapColor.primary.opacity(0.2))
+                            .foregroundColor(ZapColor.primary)
                             .cornerRadius(12)
                         }
                     }
@@ -97,6 +97,7 @@ struct GroupInfoView: View {
                 Section {
                     Button(role: .destructive, action: { showingLeaveConfirmation = true }) {
                         Label("Sair do grupo", systemImage: "rectangle.portrait.and.arrow.right")
+                            .foregroundStyle(ZapColor.danger)
                     }
                     .accessibilityIdentifier("groupinfo_leave")
                 }

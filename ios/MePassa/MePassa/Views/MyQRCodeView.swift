@@ -62,7 +62,7 @@ struct MyQRCodeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(ZapColor.primary)
                     .foregroundColor(.white)
                     .cornerRadius(12)
                 }

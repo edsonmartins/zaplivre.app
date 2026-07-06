@@ -21,73 +21,52 @@ struct LoginView: View {
         NavigationView {
             VStack(spacing: 30) {
                 // Logo and title
-                VStack(spacing: 16) {
-                    Image(systemName: "lock.shield.fill")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
+                VStack(spacing: 18) {
+                    Image("ZapLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 104, height: 104)
+                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .shadow(color: ZapColor.primary.opacity(0.35), radius: 22, x: 0, y: 12)
 
-                    Text("ZapLivre")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                    VStack(spacing: 8) {
+                        Text("ZapLivre")
+                            .font(.system(size: 40, weight: .heavy, design: .rounded))
+                            .foregroundColor(ZapColor.ink)
 
-                    Text("Privacidade total. Sem servidores centrais.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+                        Text("Privacidade total. Sem servidores centrais.")
+                            .font(ZapFont.preview)
+                            .foregroundColor(ZapColor.slate)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
                 }
-                .padding(.top, 60)
+                .padding(.top, 72)
 
                 Spacer()
 
                 // Login options
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     // Generate new identity
                     Button(action: generateNewIdentity) {
-                        HStack {
-                            Image(systemName: "person.badge.plus")
-                            Text("Criar nova identidade")
-                                .fontWeight(.semibold)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
+                        Label("Criar nova identidade", systemImage: "person.badge.plus")
                     }
+                    .buttonStyle(ZapPrimaryButtonStyle(enabled: !isGeneratingId))
                     .accessibilityIdentifier("onboarding_create")
                     .disabled(isGeneratingId)
 
                     // Or divider
-                    HStack {
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.secondary.opacity(0.3))
-                        Text("ou")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 8)
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.secondary.opacity(0.3))
+                    HStack(spacing: 8) {
+                        Rectangle().frame(height: 1).foregroundColor(ZapColor.hairline)
+                        Text("ou").font(ZapFont.caption).foregroundColor(ZapColor.slate)
+                        Rectangle().frame(height: 1).foregroundColor(ZapColor.hairline)
                     }
-                    .padding(.horizontal)
 
                     // Import existing identity
-                    Button(action: {
-                        showImportSheet = true
-                    }) {
-                        HStack {
-                            Image(systemName: "qrcode.viewfinder")
-                            Text("Importar identidade existente")
-                                .fontWeight(.semibold)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.secondary.opacity(0.2))
-                        .foregroundColor(.primary)
-                        .cornerRadius(12)
+                    Button(action: { showImportSheet = true }) {
+                        Label("Importar identidade existente", systemImage: "qrcode.viewfinder")
                     }
+                    .buttonStyle(ZapSecondaryButtonStyle())
                     .accessibilityIdentifier("onboarding_restore")
                 }
                 .padding(.horizontal, 30)
@@ -95,13 +74,18 @@ struct LoginView: View {
                 Spacer()
 
                 // Info text
-                Text("Sua identidade é criptograficamente segura e não está vinculada a telefone ou email")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
+                HStack(spacing: 7) {
+                    Image(systemName: "lock.fill").font(.system(size: 11))
+                    Text("Sua identidade é criptograficamente segura e não está vinculada a telefone ou email.")
+                }
+                .font(ZapFont.caption)
+                .foregroundColor(ZapColor.slate)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ZapColor.canvas.ignoresSafeArea())
             .navigationTitle("")
             .navigationBarHidden(true)
             .alert("Erro", isPresented: $showError) {
@@ -129,13 +113,9 @@ struct LoginView: View {
 
                         Button(action: importIdentity) {
                             Text("Importar identidade")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
                         }
+                        .buttonStyle(ZapPrimaryButtonStyle(
+                            enabled: !importText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                         .disabled(importText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .padding(.horizontal)
 

@@ -50,31 +50,42 @@ struct GroupListView: View {
                     }
                 } else if appState.groups.isEmpty {
                     // Empty state
-                    VStack(spacing: 20) {
-                        Image(systemName: "person.3")
-                            .font(.system(size: 60))
-                            .foregroundColor(.secondary)
-
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle().fill(ZapColor.primary.opacity(0.12)).frame(width: 96, height: 96)
+                            Image(systemName: "person.3.fill")
+                                .font(.system(size: 38))
+                                .foregroundStyle(ZapColor.sparkGradient)
+                        }
                         Text("Nenhum grupo ainda")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-
-                        Text("Crie ou entre em um grupo para começar")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(ZapFont.title)
+                            .foregroundColor(ZapColor.ink)
+                        Text("Crie um grupo para conversar com várias pessoas de uma vez.")
+                            .font(ZapFont.preview)
+                            .foregroundColor(ZapColor.slate)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
+                            .padding(.horizontal, 48)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(ZapColor.canvas)
                 } else {
                     // Groups list
                     List {
                         ForEach(appState.groups) { group in
-                            NavigationLink(destination: GroupChatView(group: group)) {
+                            ZStack {
+                                NavigationLink(destination: GroupChatView(group: group)) {
+                                    EmptyView()
+                                }
+                                .opacity(0)
                                 GroupRow(group: group)
                             }
+                            .listRowInsets(EdgeInsets(top: 2, leading: ZapMetric.gutter,
+                                                      bottom: 2, trailing: ZapMetric.gutter))
+                            .listRowBackground(ZapColor.canvas)
                         }
                     }
                     .listStyle(.plain)
+                    .background(ZapColor.canvas)
                 }
             }
             .navigationTitle("Grupos")
@@ -123,53 +134,44 @@ struct GroupRow: View {
     let group: ChatGroup
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Group icon
-            Circle()
-                .fill(Color.blue)
-                .frame(width: 50, height: 50)
-                .overlay(
-                    Image(systemName: "person.3.fill")
-                        .font(.title3)
-                        .foregroundColor(.white)
-                )
+        HStack(spacing: ZapMetric.rowGap) {
+            // Group icon — gradiente spark diferencia grupo de contato
+            ZStack {
+                Circle().fill(ZapColor.sparkGradient)
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .frame(width: ZapMetric.avatar, height: ZapMetric.avatar)
 
-            // Content
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
                     Text(group.name)
-                        .font(.headline)
+                        .font(ZapFont.rowName)
+                        .foregroundColor(ZapColor.ink)
+                        .lineLimit(1)
 
-                    Spacer()
-
-                    // Admin badge
                     if group.isAdmin {
                         Text("Admin")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 8)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.2))
-                            .foregroundColor(.blue)
-                            .cornerRadius(8)
+                            .background(ZapColor.primary.opacity(0.12))
+                            .foregroundColor(ZapColor.primary)
+                            .clipShape(Capsule())
                     }
+                    Spacer(minLength: 0)
                 }
 
-                // Description
-                if let description = group.description {
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-
-                // Member count
-                Text("\(group.memberCount) \(group.memberCount == 1 ? "membro" : "membros")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text(group.description?.isEmpty == false
+                     ? group.description!
+                     : "\(group.memberCount) \(group.memberCount == 1 ? "membro" : "membros")")
+                    .font(ZapFont.preview)
+                    .foregroundColor(ZapColor.slate)
+                    .lineLimit(1)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
 

@@ -33,12 +33,12 @@ struct ProfileView: View {
                     // Avatar
                     ZStack(alignment: .bottomTrailing) {
                         Circle()
-                            .fill(Color.blue.opacity(0.2))
+                            .fill(ZapColor.primary.opacity(0.2))
                             .frame(width: 120, height: 120)
                             .overlay(
                                 Image(systemName: "person.fill")
                                     .font(.system(size: 50))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(ZapColor.primary)
                             )
 
                         // Edit button
@@ -47,7 +47,7 @@ struct ProfileView: View {
                         }) {
                             Image(systemName: "pencil.circle.fill")
                                 .font(.system(size: 36))
-                                .foregroundColor(.blue)
+                                .foregroundColor(ZapColor.primary)
                                 .background(Color.white.clipShape(Circle()))
                         }
                     }
@@ -111,7 +111,7 @@ struct ProfileView: View {
                                 showCopiedAlert = true
                             }) {
                                 Image(systemName: "doc.on.doc")
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(ZapColor.primary)
                             }
                             .accessibilityIdentifier("profile_copy_peer_id")
                         }
@@ -133,7 +133,7 @@ struct ProfileView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
+                        .background(ZapColor.primary)
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
@@ -242,7 +242,7 @@ struct ProfileView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
+                            .background(ZapColor.primary)
                             .foregroundColor(.white)
                             .cornerRadius(12)
                     }
@@ -297,7 +297,7 @@ struct ProfileView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
+                            .background(ZapColor.primary)
                             .foregroundColor(.white)
                             .cornerRadius(12)
                     }

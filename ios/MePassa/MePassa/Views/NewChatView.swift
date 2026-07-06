@@ -39,80 +39,84 @@ struct NewChatView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 30) {
+            VStack(spacing: 26) {
                 // QR Scanner option
                 Button(action: { showingQRScanner = true }) {
                     VStack(spacing: 12) {
                         Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 60))
-                            .foregroundColor(.blue)
+                            .font(.system(size: 56))
+                            .foregroundStyle(ZapColor.sparkGradient)
 
                         Text("Escanear QR Code")
-                            .font(.headline)
+                            .font(ZapFont.rowName)
+                            .foregroundColor(ZapColor.ink)
+                        Text("Aponte para o QR de um contato para conectar")
+                            .font(ZapFont.caption)
+                            .foregroundColor(ZapColor.slate)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(40)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(16)
+                    .padding(.vertical, 34)
+                    .background(ZapColor.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: ZapMetric.cardRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ZapMetric.cardRadius, style: .continuous)
+                            .stroke(ZapColor.primary.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    )
                 }
                 .buttonStyle(.plain)
 
                 // Or divider
-                HStack {
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.secondary.opacity(0.3))
-                    Text("ou")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(.secondary.opacity(0.3))
+                HStack(spacing: 8) {
+                    Rectangle().frame(height: 1).foregroundColor(ZapColor.hairline)
+                    Text("ou").font(ZapFont.caption).foregroundColor(ZapColor.slate)
+                    Rectangle().frame(height: 1).foregroundColor(ZapColor.hairline)
                 }
 
                 // Manual peer ID input
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Inserir Peer ID manualmente")
-                        .font(.headline)
+                        .font(ZapFont.rowName)
+                        .foregroundColor(ZapColor.ink)
 
                     TextField("12D3KooW...", text: $peerId)
                         .accessibilityIdentifier("new_chat_peer_input")
-                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 15, design: .monospaced))
+                        .padding(.horizontal, 14).padding(.vertical, 12)
+                        .background(ZapColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(ZapColor.hairline, lineWidth: 1))
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
 
                     Button(action: startChat) {
-                        HStack {
+                        HStack(spacing: 8) {
                             if isStartingChat {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.8)
                             }
                             Text(isStartingChat ? "Conectando..." : "Iniciar conversa")
-                                .fontWeight(.semibold)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(peerId.isEmpty || isStartingChat ? Color.secondary.opacity(0.3) : Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
                     }
+                    .buttonStyle(ZapPrimaryButtonStyle(enabled: !(peerId.isEmpty || isStartingChat)))
                     .accessibilityIdentifier("new_chat_confirm")
                     .disabled(peerId.isEmpty || isStartingChat)
 
                     // Error message
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
-                            .font(.caption)
-                            .foregroundColor(.red)
+                            .font(ZapFont.caption)
+                            .foregroundColor(ZapColor.danger)
                             .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
                     }
                 }
 
                 Spacer()
             }
             .padding()
+            .background(ZapColor.canvas.ignoresSafeArea())
             .navigationTitle("Nova Conversa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

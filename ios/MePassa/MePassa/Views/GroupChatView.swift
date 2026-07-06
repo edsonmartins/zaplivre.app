@@ -29,18 +29,19 @@ struct GroupChatView: View {
                 Spacer()
             } else if messages.isEmpty {
                 Spacer()
-                VStack(spacing: 16) {
-                    Image(systemName: "message")
-                        .font(.system(size: 60))
-                        .foregroundColor(.secondary)
-
+                VStack(spacing: 14) {
+                    ZStack {
+                        Circle().fill(ZapColor.primary.opacity(0.12)).frame(width: 88, height: 88)
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(ZapColor.sparkGradient)
+                    }
                     Text("Nenhuma mensagem ainda")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-
-                    Text("Envie a primeira mensagem!")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(ZapFont.title)
+                        .foregroundColor(ZapColor.ink)
+                    Text("Envie a primeira mensagem do grupo!")
+                        .font(ZapFont.preview)
+                        .foregroundColor(ZapColor.slate)
                 }
                 Spacer()
             } else {
@@ -65,37 +66,48 @@ struct GroupChatView: View {
             }
 
             // Message input bar
-            HStack(spacing: 12) {
-                if #available(iOS 16.0, *) {
-                    TextField("Mensagem", text: $messageText, axis: .vertical)
-                        .accessibilityIdentifier("groupchat_input")
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(1...4)
-                        .disabled(isSending)
-                } else {
-                    TextField("Mensagem", text: $messageText)
-                        .accessibilityIdentifier("groupchat_input")
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(4)
-                        .disabled(isSending)
+            HStack(spacing: 10) {
+                Group {
+                    if #available(iOS 16.0, *) {
+                        TextField("Mensagem", text: $messageText, axis: .vertical)
+                            .lineLimit(1...4)
+                    } else {
+                        TextField("Mensagem", text: $messageText)
+                            .lineLimit(4)
+                    }
                 }
+                .accessibilityIdentifier("groupchat_input")
+                .font(ZapFont.body)
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(ZapColor.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(ZapColor.hairline, lineWidth: 1))
+                .disabled(isSending)
 
                 Button(action: sendMessage) {
                     if isSending {
-                        ProgressView()
-                            .frame(width: 24, height: 24)
+                        ProgressView().tint(.white).frame(width: 38, height: 38)
+                            .background(ZapColor.slate).clipShape(Circle())
                     } else {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundColor(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                        let empty = messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 38, height: 38)
+                            .background(empty ? AnyShapeStyle(ZapColor.slate.opacity(0.5))
+                                              : AnyShapeStyle(ZapColor.sparkGradient))
+                            .clipShape(Circle())
                     }
                 }
                 .accessibilityIdentifier("groupchat_send")
                 .disabled(messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSending)
             }
-            .padding()
-            .background(Color(uiColor: .systemBackground))
+            .padding(.horizontal).padding(.vertical, 8)
+            .background(ZapColor.canvas
+                .overlay(ZapColor.hairline.frame(height: 0.5), alignment: .top))
         }
+        .background(ZapColor.chatCanvas.ignoresSafeArea())
         .navigationTitle(group.name)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarItems(trailing:
@@ -173,26 +185,37 @@ struct GroupMessageBubble: View {
                 Spacer(minLength: 60)
             }
 
-            VStack(alignment: message.isOwnMessage ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: message.isOwnMessage ? .trailing : .leading, spacing: 2) {
                 // Sender name (only for other people's messages)
                 if !message.isOwnMessage {
                     Text(message.senderName)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(ZapColor.accent(for: message.senderPeerId))
+                        .padding(.leading, 12)
                 }
 
                 // Message bubble
                 Text(message.content)
-                    .padding(12)
-                    .background(message.isOwnMessage ? Color.blue : Color(uiColor: .systemGray5))
-                    .foregroundColor(message.isOwnMessage ? .white : .primary)
-                    .cornerRadius(16)
+                    .font(ZapFont.body)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(
+                        (message.isOwnMessage ? ZapColor.bubbleOut : ZapColor.bubbleIn)
+                            .clipShape(BubbleShape(isOutgoing: message.isOwnMessage, hasTail: true))
+                    )
+                    .foregroundColor(message.isOwnMessage ? ZapColor.bubbleOutInk : ZapColor.bubbleInInk)
+                    .overlay(
+                        message.isOwnMessage
+                            ? nil
+                            : BubbleShape(isOutgoing: false, hasTail: true)
+                                .stroke(ZapColor.hairline, lineWidth: 0.5)
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 1, y: 1)
 
                 // Timestamp
                 Text(formatTimestamp(message.timestamp))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .font(ZapFont.caption)
+                    .foregroundColor(ZapColor.slate)
+                    .padding(.horizontal, 4)
             }
 
             if !message.isOwnMessage {

@@ -72,17 +72,23 @@ struct ChatView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 50))
-                .foregroundColor(.secondary)
-
-            Text("Conversa criptografada de ponta a ponta")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(ZapColor.slate)
+            Text("As mensagens são protegidas com criptografia de ponta a ponta. Nem o ZapLivre pode lê-las.")
+                .font(ZapFont.caption)
+                .foregroundColor(ZapColor.slate)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
         }
-        .padding(.top, 100)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(ZapColor.primary.opacity(0.08))
+        )
+        .padding(.top, 60)
     }
 
     private func messageRow(_ message: Message) -> some View {
@@ -128,7 +134,7 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             messagesList
-            Divider()
+                .background(ZapColor.chatCanvas)
             imagePreviewSection
             messageInputBar
         }
@@ -248,8 +254,8 @@ struct ChatView: View {
                     showingImagePicker = true
                 }) {
                     Image(systemName: "photo.on.rectangle")
-                        .font(.title2)
-                        .foregroundColor(.blue)
+                        .font(.system(size: 22))
+                        .foregroundColor(ZapColor.slate)
                 }
 
                 // Document picker button
@@ -315,10 +321,15 @@ struct ChatView: View {
                 TextField("Mensagem", text: $messageText)
                     .accessibilityIdentifier("chat_input")
                     .textFieldStyle(.plain)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(20)
+                    .font(ZapFont.body)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(ZapColor.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(ZapColor.hairline, lineWidth: 1)
+                    )
 
                 // Send or voice button
                 if messageText.isEmpty {
@@ -354,15 +365,23 @@ struct ChatView: View {
                     )
                 } else {
                     Button(action: sendMessage) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.blue)
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 38, height: 38)
+                            .background(ZapColor.sparkGradient)
+                            .clipShape(Circle())
                     }
                     .accessibilityIdentifier("chat_send")
                 }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
+            .background(
+                ZapColor.canvas
+                    .overlay(ZapColor.hairline.frame(height: 0.5), alignment: .top)
+                    .ignoresSafeArea(edges: .bottom)
+            )
     }
 
     private func sendMessage() {
@@ -633,17 +652,28 @@ struct MessageBubble: View {
                     ImageMessageBubble(media: media, isOutgoing: message.isOutgoing)
                 } else {
                     Text(message.content)
+                        .font(ZapFont.body)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(message.isOutgoing ? Color.blue : Color.secondary.opacity(0.2))
-                        .foregroundColor(message.isOutgoing ? .white : .primary)
-                        .cornerRadius(16)
+                        .background(
+                            (message.isOutgoing ? ZapColor.bubbleOut : ZapColor.bubbleIn)
+                                .clipShape(BubbleShape(isOutgoing: message.isOutgoing, hasTail: true))
+                        )
+                        .foregroundColor(message.isOutgoing ? ZapColor.bubbleOutInk : ZapColor.bubbleInInk)
+                        .overlay(
+                            message.isOutgoing
+                                ? nil
+                                : BubbleShape(isOutgoing: false, hasTail: true)
+                                    .stroke(ZapColor.hairline, lineWidth: 0.5)
+                        )
+                        .shadow(color: Color.black.opacity(0.05), radius: 1, x: 0, y: 1)
                 }
 
                 MessageStatusIndicator(
                     message: message.ffiMessage,
                     isOwnMessage: message.isOutgoing
                 )
+                .padding(.horizontal, 4)
             }
 
             if !message.isOutgoing {
