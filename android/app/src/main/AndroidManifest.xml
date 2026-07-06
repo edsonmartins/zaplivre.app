@@ -21,6 +21,8 @@
     <!-- Permissões de VoIP (FASE 12 - Chamadas de Voz) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Necessária no Android 14+ para FGS do tipo phoneCall (par de FOREGROUND_SERVICE_PHONE_CALL) -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <!-- Permissões de Bluetooth (para fones de ouvido durante chamadas) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />

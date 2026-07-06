@@ -19,6 +19,10 @@ class ZapLivreApplication : Application() {
         // Load native library
         init {
             try {
+                // O binding UniFFI (namespace `zaplivre`) procura por padrão
+                // `libuniffi_zaplivre.so`, mas o cargo produz `libzaplivre_core.so`.
+                // Este override oficial do UniFFI aponta o JNA para o nome correto.
+                System.setProperty("uniffi.component.zaplivre.libraryOverride", "zaplivre_core")
                 System.loadLibrary("zaplivre_core")
                 Log.i(TAG, "Native library loaded successfully")
             } catch (e: UnsatisfiedLinkError) {

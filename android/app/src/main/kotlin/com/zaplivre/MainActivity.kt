@@ -86,6 +86,10 @@ class MainActivity : ComponentActivity() {
 
         handleIntent(intent)
 
+        // Harness de design (dados mock, sem client) — validação visual do
+        // design system. Acionar: `am start ... --ez design_preview true`.
+        val designPreview = intent?.getBooleanExtra("design_preview", false) == true
+
         // Setup UI
         setContent {
             ZapLivreTheme {
@@ -95,10 +99,14 @@ class MainActivity : ComponentActivity() {
                         .semantics { testTagsAsResourceId = true },
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ZapLivreApp(
-                        pendingPeerId = pendingPeerIdState.value,
-                        onPeerIdConsumed = { pendingPeerIdState.value = null }
-                    )
+                    if (designPreview) {
+                        com.zaplivre.ui.preview.DesignPreviewHost()
+                    } else {
+                        ZapLivreApp(
+                            pendingPeerId = pendingPeerIdState.value,
+                            onPeerIdConsumed = { pendingPeerIdState.value = null }
+                        )
+                    }
                 }
             }
         }

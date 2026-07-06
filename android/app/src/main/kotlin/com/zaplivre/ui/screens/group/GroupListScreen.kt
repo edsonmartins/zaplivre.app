@@ -1,9 +1,11 @@
 package com.zaplivre.ui.screens.group
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Group
@@ -11,22 +13,34 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zaplivre.core.ZapLivreClientWrapper
+import com.zaplivre.ui.components.ZapAvatar
+import com.zaplivre.ui.theme.ZapColor
+import com.zaplivre.ui.theme.ZapMetric
+import com.zaplivre.ui.theme.ZapType
 import kotlinx.coroutines.launch
 import uniffi.zaplivre.FfiGroup
-import java.text.SimpleDateFormat
-import java.util.*
+
+/** Modelo de UI desacoplado do FFI — usado pela tela e pelo design preview. */
+data class GroupUi(
+    val id: String,
+    val name: String,
+    val subtitle: String,
+    val members: Int,
+    val isAdmin: Boolean = false,
+)
 
 /**
- * GroupListScreen - Lista de grupos
+ * GroupListScreen - Lista de grupos.
  *
- * Exibe todos os grupos do usuário.
- * Permite criar novo grupo e navegar para chat de grupo.
+ * Carrega os grupos via [ZapLivreClientWrapper], mapeia o modelo FFI para
+ * [GroupUi] e delega a apresentação a [GroupListContent] (stateless).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupListScreen(
     onGroupClick: (String) -> Unit,
@@ -65,120 +79,27 @@ fun GroupListScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text("Grupos")
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.Group, contentDescription = "Voltar")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
+    GroupListContent(
+        groups = groups.map { it.toUi() },
+        isLoading = isLoading,
+        error = errorMessage,
+        onGroupClick = onGroupClick,
+        onCreateGroup = { showCreateGroupDialog = true },
+        onBack = onBack,
+        onRetry = {
+            errorMessage = null
+            isLoading = true
+            scope.launch {
+                try {
+                    groups = ZapLivreClientWrapper.getGroups()
+                    isLoading = false
+                } catch (e: Exception) {
+                    errorMessage = "Erro ao carregar grupos: ${e.message}"
+                    isLoading = false
+                }
+            }
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateGroupDialog = true },
-                modifier = Modifier.testTag("grouplist_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Criar grupo")
-            }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                errorMessage != null -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = errorMessage ?: "",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
-                            errorMessage = null
-                            isLoading = true
-                            scope.launch {
-                                try {
-                                    groups = ZapLivreClientWrapper.getGroups()
-                                    isLoading = false
-                                } catch (e: Exception) {
-                                    errorMessage = "Erro ao carregar grupos: ${e.message}"
-                                    isLoading = false
-                                }
-                            }
-                        }) {
-                            Text("Tentar novamente")
-                        }
-                    }
-                }
-                groups.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Group,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Nenhum grupo ainda",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Crie ou entre em um grupo para começar",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(groups) { group ->
-                            GroupItem(
-                                group = group,
-                                onClick = {
-                                    onGroupClick(group.id)
-                                }
-                            )
-                            Divider()
-                        }
-                    }
-                }
-            }
-        }
-    }
+    )
 
     // Dialog para criar grupo
     if (showCreateGroupDialog) {
@@ -204,57 +125,129 @@ fun GroupListScreen(
 }
 
 /**
- * Item de grupo individual
+ * Apresentação stateless da lista de grupos — recebe [GroupUi] + callbacks.
+ * Usada pela tela real e pelo design preview.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupItem(
-    group: FfiGroup,
-    onClick: () -> Unit
+fun GroupListContent(
+    groups: List<GroupUi>,
+    isLoading: Boolean = false,
+    error: String? = null,
+    onGroupClick: (String) -> Unit = {},
+    onCreateGroup: () -> Unit = {},
+    onBack: () -> Unit = {},
+    onRetry: () -> Unit = {},
 ) {
-    ListItem(
-        headlineContent = {
-            Text(
-                text = group.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        supportingContent = {
+    Scaffold(
+        containerColor = ZapColor.canvas,
+        topBar = {
             Column {
-                if (group.description != null) {
+                TopAppBar(
+                    title = { Text("Grupos", style = ZapType.title, color = ZapColor.ink) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.Group, "Voltar", tint = ZapColor.slate)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = ZapColor.canvas,
+                        titleContentColor = ZapColor.ink,
+                    )
+                )
+                Divider(color = ZapColor.hairline)
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onCreateGroup,
+                modifier = Modifier.testTag("grouplist_fab"),
+                containerColor = Color.Transparent,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(ZapColor.sparkBrush),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Add, "Criar grupo", tint = Color.White)
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when {
+                isLoading -> CircularProgressIndicator(
+                    color = ZapColor.primary,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                error != null -> Column(
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(error, style = ZapType.body, color = ZapColor.danger)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onRetry) { Text("Tentar novamente") }
+                }
+                groups.isEmpty() -> Box(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(
-                        text = group.description!!,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        text = "Nenhum grupo ainda. Crie ou entre em um grupo para começar.",
+                        style = ZapType.body,
+                        color = ZapColor.slate,
                     )
                 }
-                Text(
-                    text = "${group.memberCount} ${if (group.memberCount == 1u) "membro" else "membros"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-            }
-        },
-        leadingContent = {
-            Icon(
-                imageVector = Icons.Default.Group,
-                contentDescription = null,
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailingContent = {
-            if (group.isAdmin) {
-                Badge {
-                    Text("Admin", style = MaterialTheme.typography.labelSmall)
+                else -> LazyColumn(modifier = Modifier.fillMaxSize().testTag("grouplist_list")) {
+                    items(groups, key = { it.id }) { group ->
+                        GroupRow(group) { onGroupClick(group.id) }
+                    }
                 }
             }
-        },
-        modifier = Modifier.clickable(onClick = onClick)
-    )
+        }
+    }
+}
+
+@Composable
+fun GroupRow(group: GroupUi, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = ZapMetric.gutter, vertical = ZapMetric.rowGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ZapAvatar(seed = group.id, name = group.name)
+        Spacer(Modifier.width(ZapMetric.rowGap))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = group.name,
+                    style = ZapType.rowName,
+                    color = ZapColor.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (group.isAdmin) {
+                    Spacer(Modifier.width(8.dp))
+                    Text("Admin", style = ZapType.badge, color = ZapColor.primary)
+                }
+            }
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = group.subtitle,
+                style = ZapType.preview,
+                color = ZapColor.slate,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 /**
@@ -314,5 +307,19 @@ fun CreateGroupDialog(
                 Text("Cancelar")
             }
         }
+    )
+}
+
+private fun FfiGroup.toUi(): GroupUi {
+    val memberLabel = "$memberCount ${if (memberCount == 1u) "membro" else "membros"}"
+    val subtitle = description?.takeIf { it.isNotBlank() }
+        ?.let { "$it · $memberLabel" }
+        ?: memberLabel
+    return GroupUi(
+        id = id,
+        name = name,
+        subtitle = subtitle,
+        members = memberCount.toInt(),
+        isAdmin = isAdmin,
     )
 }

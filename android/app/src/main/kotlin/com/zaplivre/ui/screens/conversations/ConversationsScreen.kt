@@ -1,11 +1,14 @@
 package com.zaplivre.ui.screens.conversations
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -13,23 +16,37 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zaplivre.R
+import com.zaplivre.ui.components.ZapAvatar
+import com.zaplivre.ui.theme.ZapColor
+import com.zaplivre.ui.theme.ZapMetric
+import com.zaplivre.ui.theme.ZapType
 import uniffi.zaplivre.FfiConversation
 import java.text.SimpleDateFormat
 import java.util.*
 
+/** Modelo de UI desacoplado do FFI — usado pela tela e pelo design preview. */
+data class ConversationUi(
+    val id: String,
+    val name: String,
+    val preview: String,
+    val time: String,
+    val unread: Int = 0,
+    val online: Boolean = false,
+)
+
 /**
- * ConversationsScreen - Lista de conversas
- *
- * Exibe todas as conversas do usuário ordenadas por data.
- * Permite navegar para uma conversa específica.
+ * ConversationsScreen - Lista de conversas. Mapeia o estado do ViewModel para
+ * [ConversationUi] e delega a apresentação a [ConversationsContent] (stateless).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationsScreen(
     onConversationClick: (String) -> Unit,
@@ -38,136 +55,33 @@ fun ConversationsScreen(
     onSettingsClick: (() -> Unit)? = null,
     viewModel: ConversationsViewModel = viewModel { ConversationsViewModel() }
 ) {
-    // Carregamento, eventos do core (EVT-01) e safety net vivem no ViewModel
     val uiState by viewModel.uiState.collectAsState()
     var showNewConversationDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(stringResource(R.string.conversations_title))
-                },
-                actions = {
-                    // Busca global de mensagens
-                    if (onSearchClick != null) {
-                        IconButton(
-                            onClick = onSearchClick,
-                            modifier = Modifier.testTag("conversations_search")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Buscar",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                    // Botão de grupos
-                    if (onGroupsClick != null) {
-                        IconButton(
-                            onClick = onGroupsClick,
-                            modifier = Modifier.testTag("conversations_groups")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Group,
-                                contentDescription = "Grupos",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                    // Configurações (backup de identidade, prekeys E2E, etc.)
-                    if (onSettingsClick != null) {
-                        IconButton(
-                            onClick = onSettingsClick,
-                            modifier = Modifier.testTag("conversations_settings")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Configurações",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showNewConversationDialog = true },
-                modifier = Modifier.testTag("conversations_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.conversations_new))
-            }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            when (val state = uiState) {
-                is ConversationsUiState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                is ConversationsUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = state.message,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-                is ConversationsUiState.Success -> {
-                    if (state.conversations.isEmpty()) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.conversations_empty),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .testTag("conversations_list")
-                        ) {
-                            items(state.conversations) { conversation ->
-                                ConversationItem(
-                                    conversation = conversation,
-                                    onClick = {
-                                        conversation.peerId?.let { onConversationClick(it) }
-                                    }
-                                )
-                                Divider()
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    val (rows, isLoading, error) = when (val state = uiState) {
+        is ConversationsUiState.Loading -> Triple(emptyList(), true, null)
+        is ConversationsUiState.Error -> Triple(emptyList(), false, state.message)
+        is ConversationsUiState.Success -> Triple(
+            state.conversations.map { it.toUi() }, false, null
+        )
+    }
+    // mapa id->peerId original para o clique (o peerId pode ser null)
+    val peerIds = remember(uiState) {
+        (uiState as? ConversationsUiState.Success)?.conversations
+            ?.associate { (it.peerId ?: it.displayName ?: "") to it.peerId } ?: emptyMap()
     }
 
-    // Dialog para nova conversa
+    ConversationsContent(
+        rows = rows,
+        isLoading = isLoading,
+        error = error,
+        onConversationClick = { id -> peerIds[id]?.let(onConversationClick) },
+        onSearchClick = onSearchClick,
+        onGroupsClick = onGroupsClick,
+        onSettingsClick = onSettingsClick,
+        onNewChat = { showNewConversationDialog = true },
+    )
+
     if (showNewConversationDialog) {
         NewConversationDialog(
             onDismiss = { showNewConversationDialog = false },
@@ -179,61 +93,162 @@ fun ConversationsScreen(
     }
 }
 
-/**
- * Item de conversa individual
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConversationItem(
-    conversation: FfiConversation,
-    onClick: () -> Unit
+fun ConversationsContent(
+    rows: List<ConversationUi>,
+    isLoading: Boolean = false,
+    error: String? = null,
+    onConversationClick: (String) -> Unit = {},
+    onSearchClick: (() -> Unit)? = null,
+    onGroupsClick: (() -> Unit)? = null,
+    onSettingsClick: (() -> Unit)? = null,
+    onNewChat: () -> Unit = {},
 ) {
-    ListItem(
-        headlineContent = {
-            Text(
-                text = conversation.displayName ?: conversation.peerId ?: "Unknown",
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        supportingContent = conversation.peerId?.let {
-            {
-                Text(
-                    text = it.take(16) + "...",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+    Scaffold(
+        containerColor = ZapColor.canvas,
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = { Text("ZapLivre", style = ZapType.title, color = ZapColor.ink) },
+                    actions = {
+                        onSearchClick?.let {
+                            IconButton(onClick = it, modifier = Modifier.testTag("conversations_search")) {
+                                Icon(Icons.Default.Search, "Buscar", tint = ZapColor.slate)
+                            }
+                        }
+                        onGroupsClick?.let {
+                            IconButton(onClick = it, modifier = Modifier.testTag("conversations_groups")) {
+                                Icon(Icons.Default.Group, "Grupos", tint = ZapColor.slate)
+                            }
+                        }
+                        onSettingsClick?.let {
+                            IconButton(onClick = it, modifier = Modifier.testTag("conversations_settings")) {
+                                Icon(Icons.Default.Settings, "Configurações", tint = ZapColor.slate)
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = ZapColor.canvas,
+                        titleContentColor = ZapColor.ink,
+                    )
                 )
+                Divider(color = ZapColor.hairline)
             }
         },
-        trailingContent = conversation.lastMessageAt?.let { timestamp ->
-            {
-                Text(
-                    text = formatTimestamp(timestamp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onNewChat,
+                modifier = Modifier.testTag("conversations_fab"),
+                containerColor = Color.Transparent,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(ZapColor.sparkBrush),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Chat, stringResource(R.string.conversations_new), tint = Color.White)
+                }
             }
-        },
-        modifier = Modifier.clickable(onClick = onClick)
-    )
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when {
+                isLoading -> CircularProgressIndicator(
+                    color = ZapColor.primary,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                error != null -> EmptyState(error, ZapColor.danger)
+                rows.isEmpty() -> EmptyState(stringResource(R.string.conversations_empty), ZapColor.slate)
+                else -> LazyColumn(modifier = Modifier.fillMaxSize().testTag("conversations_list")) {
+                    items(rows, key = { it.id }) { row ->
+                        ConversationRow(row) { onConversationClick(row.id) }
+                    }
+                }
+            }
+        }
+    }
 }
 
-/**
- * Dialog para iniciar nova conversa
- */
+@Composable
+private fun EmptyState(message: String, color: Color) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Text(message, style = ZapType.body, color = color)
+    }
+}
+
+@Composable
+fun ConversationRow(row: ConversationUi, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = ZapMetric.gutter, vertical = ZapMetric.rowGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ZapAvatar(seed = row.id, name = row.name, online = row.online)
+        Spacer(Modifier.width(ZapMetric.rowGap))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = row.name,
+                    style = ZapType.rowName,
+                    color = ZapColor.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = row.time,
+                    style = ZapType.caption,
+                    color = if (row.unread > 0) ZapColor.primary else ZapColor.slate,
+                )
+            }
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = row.preview,
+                    style = ZapType.preview,
+                    color = ZapColor.slate,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (row.unread > 0) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(ZapColor.primary)
+                            .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+                            .padding(horizontal = 6.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (row.unread > 99) "99+" else row.unread.toString(),
+                            style = ZapType.badge,
+                            color = Color.White,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun NewConversationDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
     var peerIdInput by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(stringResource(R.string.conversations_new))
-        },
+        title = { Text(stringResource(R.string.conversations_new)) },
         text = {
             OutlinedTextField(
                 value = peerIdInput,
@@ -241,9 +256,7 @@ fun NewConversationDialog(
                 label = { Text("Peer ID") },
                 placeholder = { Text("12D3KooW...") },
                 singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("new_chat_peer_input")
+                modifier = Modifier.fillMaxWidth().testTag("new_chat_peer_input")
             )
         },
         confirmButton = {
@@ -251,33 +264,34 @@ fun NewConversationDialog(
                 onClick = { onConfirm(peerIdInput.trim()) },
                 enabled = peerIdInput.trim().isNotEmpty(),
                 modifier = Modifier.testTag("new_chat_confirm")
-            ) {
-                Text(stringResource(R.string.ok))
-            }
+            ) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
 
-/**
- * Formata timestamp para exibição (relativo ao tempo atual)
- */
+private fun FfiConversation.toUi(): ConversationUi {
+    val id = peerId ?: displayName ?: "?"
+    return ConversationUi(
+        id = id,
+        name = displayName ?: peerId?.take(16)?.plus("…") ?: "Desconhecido",
+        preview = peerId?.let { "${it.take(16)}…" } ?: "",
+        time = lastMessageAt?.let { formatTimestamp(it) } ?: "",
+        unread = 0,
+        online = false,
+    )
+}
+
 private fun formatTimestamp(timestamp: Long): String {
     val now = System.currentTimeMillis() / 1000
     val diff = now - timestamp
-
     return when {
         diff < 60 -> "Agora"
         diff < 3600 -> "${diff / 60}m"
         diff < 86400 -> "${diff / 3600}h"
         diff < 604800 -> "${diff / 86400}d"
-        else -> {
-            val date = Date(timestamp * 1000)
-            SimpleDateFormat("dd/MM", Locale.getDefault()).format(date)
-        }
+        else -> SimpleDateFormat("dd/MM", Locale.getDefault()).format(Date(timestamp * 1000))
     }
 }
