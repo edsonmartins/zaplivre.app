@@ -4,7 +4,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Status](https://img.shields.io/badge/status-FASE%2013%20iOS%20em%20progresso-yellow)](https://github.com/integralltech/zaplivre)
+[![Status](https://img.shields.io/badge/status-v0.1.0--alpha%20em%20desenvolvimento-yellow)](https://github.com/integralltech/zaplivre)
 
 ## 🎯 Visão
 
@@ -95,9 +95,12 @@
 
 ## 🚧 Progresso Atual
 
-**Status:** 🚧 **FASE 13 (iOS App) em progresso** - Push e testes finais pendentes.
+**Status:** v0.1.0-alpha — desenvolvimento ativo. Core e servidores maduros; apps
+(iOS/Android/Desktop) com todas as áreas principais implementadas e em fase de
+validação end-to-end. Veja o [Estado por plataforma](#-estado-por-plataforma) e o
+[Estado por funcionalidade](#-estado-por-funcionalidade) mais abaixo.
 
-### ✅ Completado (11 de 19 fases - 58%)
+### ✅ O que já está implementado
 
 **FASE 1-5: Core Library (100%)** ✅
 - ✅ Identity (Ed25519) + Crypto (Signal Protocol Double Ratchet)
@@ -107,13 +110,12 @@
 - ✅ FFI Bindings (UniFFI 0.31: Kotlin + Swift)
 - 📊 **~9.000 LoC**, 110+ testes passando
 
-**FASE 6: Android App MVP (100%)** ✅
-- ✅ Jetpack Compose + Material3
-- ✅ 3 telas: Onboarding → Conversations → Chat
+**Android App** 🔨 (implementado; runtime em estabilização)
+- ✅ Jetpack Compose + Material3 + design system ZapLivre (14 telas)
 - ✅ ZapLivreClientWrapper (singleton, coroutines)
 - ✅ Foreground Service P2P + notificação persistente
-- ✅ Mensagens texto 1:1 funcionais
-- 📊 **~1.500 LoC**, 22 arquivos
+- ✅ Chat 1:1, grupos, mídia, chamadas (telas)
+- ⚠️ Rodou no Android pela 1ª vez em 07/2026 (3 bugs de runtime corrigidos); inicialização P2P em estabilização
 
 **FASE 7: Desktop App MVP (100%)** ✅
 - ✅ Tauri 2.0 + React 18 + TypeScript
@@ -174,33 +176,42 @@
 - ⚠️ **Testes end-to-end:** pendente
 - 📊 **~3.700 LoC Swift + 2.357 LoC bindings**, 11/11 tarefas de desenvolvimento completas
 
-### 📊 Estatísticas Gerais
+### 📊 Estado por plataforma
 
-| Componente | Status | Arquivos | LoC | Testes |
-|------------|--------|----------|-----|--------|
-| Core (Rust) | ✅ 100% | 70 | ~11.200 | 110+ |
-| FFI Bindings | ✅ 100% | 5 | ~300 | - |
-| Android (Kotlin) | ✅ 100% | 30 | ~3.000 | - |
-| iOS (Swift) | 🚧 85% | 21 | ~6.100 | - |
-| Desktop (TypeScript) | ✅ 100% | 25 | ~2.900 | - |
-| Servers (Rust) | ✅ 100% | 45 | ~4.200 | - |
-| Docs | ✅ | 14 | ~4.450 | - |
-| **TOTAL** | **77%** | **219** | **~28.864** | **110+** |
+Linhas de código reais no repositório (fora os bindings UniFFI gerados):
 
-### 🎯 Próximo: Completar iOS App (em progresso)
+| Plataforma | LoC | Estado |
+|------------|-----|--------|
+| **Core + servidores (Rust)** | ~32.800 | **Maduro** — 141 testes passando (identity, crypto, storage, network, voip) |
+| **Android (Kotlin/Compose)** | ~18.700 | 14 telas + design system ZapLivre; rodou no Android pela 1ª vez em 07/2026 (3 bugs de runtime corrigidos); inicialização P2P ainda em estabilização |
+| **iOS (Swift/SwiftUI)** | ~15.900 | 25 telas; roda no simulador; VoIP via CallKit; testes end-to-end pendentes |
+| **Desktop (Tauri/React/TS)** | ~5.000 | **Funcional** — build multiplataforma + suíte Vitest |
+| **Total** | **~72.400** | — |
 
-**Finalizar FASE 13:**
-- [x] Resolver build Rust core para iOS (conditional compilation ✅)
-- [x] Integrar library com Xcode project (bridging header + linker ✅)
-- [ ] Testes end-to-end no Simulator (mensagens P2P, QR Scanner)
-- [ ] Conectar CallManager ao WebRTC via FFI (aguarda FASE 12 VoIP)
-- [ ] Integrar APNs Push Notifications (aguarda FASE 8)
-- [ ] Testar VoIP em 2 iPhones físicos
-- [ ] Configurar build pipeline e TestFlight
+### 📊 Estado por funcionalidade
 
-**Status atual:** Build funcionando! Push e testes finais pendentes.
+O código de grupos, mídia e vídeo **já existe** nas plataformas (telas + FFI + core) — o
+que falta na maioria dos casos é validação end-to-end, não implementação.
 
-**Após FASE 13:** Testes VoIP cross-platform (Android ↔ iOS)
+| Funcionalidade | Estado |
+|----------------|--------|
+| Identidade (Ed25519) + E2E (Signal Double Ratchet) | ✅ implementado e testado no core |
+| Mensagens de texto 1:1 | ✅ implementado |
+| Grupos (sender keys) | 🔨 telas nas 3 plataformas + FFI (`create_group`, `add_group_member`, `send_group_message`); validação E2E pendente |
+| Mídia (imagem / vídeo / arquivo) | 🔨 pickers, galeria e viewer implementados |
+| Chamadas de voz (WebRTC + Opus) | 🔨 implementado; validação cross-platform pendente |
+| Videochamadas (H.264 + CameraX) | 🔨 telas + `enable_video`/`rtp_video` implementados; validação pendente |
+| Push (FCM + APNs) | 🔨 servidor + clientes implementados; integração final pendente |
+| Infra self-hosted (bootstrap/DHT, relay/TURN, store, signaling) | ✅ implementada |
+| Multi-device sync | ⏳ planejado |
+
+Legenda: ✅ maduro / testado · 🔨 implementado, validação end-to-end pendente · ⏳ planejado
+
+### 🎯 Foco atual
+
+- **iOS**: testes end-to-end no simulador, APNs, TestFlight
+- **Android**: estabilizar a inicialização P2P em runtime, testes end-to-end no emulador/device
+- **Cross-platform**: validar mensagens, grupos e VoIP entre Android ↔ iOS ↔ Desktop
 
 ---
 
@@ -229,22 +240,23 @@
 - [x] Qualidade validada
 - **Próximo:** Testes cross-platform com beta testers
 
-### Mês 5: iOS App 🚧 **85% COMPLETO**
-- [x] App iOS (Swift + SwiftUI)
-- [x] CallKit integration
-- [x] AVAudioEngine audio I/O
-- [x] QR Scanner
-- [x] **Build Rust core para iOS** (conditional compilation ✅)
-- [x] **Library integrada com Xcode** (libzaplivre_core_sim.a ✅)
+### iOS App 🚧
+- [x] App iOS (Swift + SwiftUI, 25 telas)
+- [x] CallKit + AVAudioEngine + QR Scanner
+- [x] Build Rust core para iOS + library integrada
 - [ ] Testes end-to-end no Simulator
-- [ ] Testes em dispositivos físicos
-- [ ] Videochamadas 1:1 (FASE 14)
+- [ ] Testes em dispositivos físicos + TestFlight
 
-### Mês 6: Grupos + Polimento ⏳
-- [ ] Grupos (até 256 pessoas)
+### Grupos, Mídia e Vídeo 🔨 (implementados — validação pendente)
+- [x] Grupos: telas + FFI (sender keys) nas 3 plataformas
+- [x] Mídia: imagens, vídeos e arquivos (pickers, galeria, viewer)
+- [x] Videochamadas 1:1: telas + `enable_video`/`rtp_video`
+- [ ] Validação end-to-end (2 devices) de grupos, mídia e vídeo
 - [ ] Chamadas em grupo (até 8)
-- [ ] Mídia (imagens, vídeos, arquivos)
+
+### Ainda planejado ⏳
 - [ ] Multi-device sync
+- [ ] Integração final de push (FCM/APNs)
 
 ---
 
