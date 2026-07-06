@@ -114,16 +114,21 @@ android {
 
 // Build da lib nativa Rust (libzaplivre_core.so) antes do build Android.
 // Por padrão roda apenas se as .so ainda não existem; force com -PrebuildNative.
-val jniLibsDir = file("src/main/jniLibs")
+// No CI as .so já vêm do step cargo-ndk — passe -PskipNativeBuild para pular.
 val buildRustCore = tasks.register<Exec>("buildRustCore") {
     group = "build"
     description = "Compila libzaplivre_core.so via cargo (android/build-native.sh)"
     workingDir = rootDir.parentFile
     commandLine("bash", "android/build-native.sh")
+    // Capturas LOCAIS ao bloco de configuração: a lambda onlyIf as serializa como
+    // valores simples (Boolean/File), sem prender o objeto do build script nem
+    // usar `project` em tempo de execução — exigência do configuration cache.
+    val skip = project.hasProperty("skipNativeBuild")
+    val force = project.hasProperty("rebuildNative")
+    val arm64Lib = file("src/main/jniLibs/arm64-v8a/libzaplivre_core.so")
+    val x86Lib = file("src/main/jniLibs/x86_64/libzaplivre_core.so")
     onlyIf {
-        project.hasProperty("rebuildNative") ||
-            !jniLibsDir.resolve("arm64-v8a/libzaplivre_core.so").exists() ||
-            !jniLibsDir.resolve("x86_64/libzaplivre_core.so").exists()
+        !skip && (force || !arm64Lib.exists() || !x86Lib.exists())
     }
 }
 

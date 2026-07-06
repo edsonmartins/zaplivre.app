@@ -19,6 +19,8 @@ on:
 env:
   # Fixar versão: flows usam evalScript/${output} (requer >= 1.30)
   MAESTRO_VERSION: 1.39.13
+  # As .so nativas vêm do step cargo-ndk; pula o buildRustCore do Gradle.
+  ORG_GRADLE_PROJECT_skipNativeBuild: "true"
 
 jobs:
   maestro-android:

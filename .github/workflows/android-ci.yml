@@ -14,6 +14,11 @@ on:
       - 'core/**'
       - '.github/workflows/android-ci.yml'
 
+# As .so nativas são geradas pelo step cargo-ndk; pula o buildRustCore do Gradle
+# (que chamaria build-native.sh com o NDK hardcoded do dev em core/.cargo/config.toml).
+env:
+  ORG_GRADLE_PROJECT_skipNativeBuild: "true"
+
 jobs:
   build:
     name: Build Android
