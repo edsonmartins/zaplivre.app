@@ -50,7 +50,7 @@
 ### Dia 5-7: Setup GitHub e Infraestrutura
 
 - [ ] **Criar organização GitHub**
-  - github.com/zaplivre (ou github.com/integralltech/zaplivre)
+  - github.com/zaplivre (ou github.com/edsonmartins/zaplivre.app)
   - Licença: AGPL v3.0
   - README.md inicial
   - CODE_OF_CONDUCT.md

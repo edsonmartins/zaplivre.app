@@ -105,7 +105,7 @@ cargo install cargo-edit
 
 ### Clone e Build
 ```bash
-git clone https://github.com/integralltech/zaplivre.git
+git clone https://github.com/edsonmartins/zaplivre.app.git
 cd zaplivre
 
 # Build core

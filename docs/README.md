@@ -110,7 +110,7 @@ Protocol and format specifications:
 ## 📖 External Resources
 
 - **Official Website**: https://zaplivre.app _(coming soon)_
-- **GitHub Repository**: https://github.com/integralltech/zaplivre
+- **GitHub Repository**: https://github.com/edsonmartins/zaplivre.app
 - **Technical Blog**: _(coming soon)_
 
 ### Related Technologies
@@ -143,4 +143,4 @@ This documentation is part of the ZapLivre project and is licensed under [AGPL-3
 
 ---
 
-**Questions or feedback?** Open an issue or discussion on [GitHub](https://github.com/integralltech/zaplivre).
+**Questions or feedback?** Open an issue or discussion on [GitHub](https://github.com/edsonmartins/zaplivre.app).
