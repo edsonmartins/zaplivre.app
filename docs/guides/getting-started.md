@@ -62,7 +62,7 @@ ZapLivre is a hybrid P2P messaging platform that prioritizes privacy, reliabilit
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/integralltech/zaplivre.git
+git clone https://github.com/edsonmartins/zaplivre.app.git
 cd zaplivre
 ```
 
@@ -363,7 +363,7 @@ docker-compose restart postgres
 4. **Join the Community**:
    - Discord: (coming soon)
    - Matrix: (coming soon)
-   - GitHub Discussions: https://github.com/integralltech/zaplivre/discussions
+   - GitHub Discussions: https://github.com/edsonmartins/zaplivre.app/discussions
 
 ## Resources
 

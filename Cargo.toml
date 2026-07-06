@@ -18,7 +18,7 @@ version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0"
 authors = ["IntegrallTech <contato@integralltech.com.br>"]
-repository = "https://github.com/integralltech/zaplivre"
+repository = "https://github.com/edsonmartins/zaplivre.app"
 homepage = "https://zaplivre.app"
 
 [workspace.dependencies]

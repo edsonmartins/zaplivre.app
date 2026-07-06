@@ -156,7 +156,7 @@ Estrutura base do repositório, CI/CD, documentação inicial, comunidade.
 
 | # | Tarefa | Status | Responsável | Data Início | Data Fim | Última Atualização | Dependências |
 |---|--------|--------|-------------|-------------|----------|--------------------|--------------|
-| 0.1 | Criar organização GitHub (integralltech/zaplivre) | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
+| 0.1 | Criar organização GitHub (edsonmartins/zaplivre.app) | `BLOCKED` | Manual | - | - | 2025-01-19 | Acesso externo necessário |
 | 0.2 | Setup monorepo (estrutura de pastas completa) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | - |
 | 0.3 | Configurar GitHub Actions (CI/CD básico) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
 | 0.4 | Configurar Rust workspace (Cargo.toml principal) | `DONE` | Claude Code | 2025-01-19 | 2025-01-19 | 2025-01-19 | 0.2 |
@@ -2255,7 +2255,7 @@ zaplivre/
 
 | # | Ação | Responsável | Prazo | Status |
 |---|------|-------------|-------|--------|
-| 1 | Criar organização GitHub (integralltech/zaplivre) | - | - | `TODO` |
+| 1 | Criar organização GitHub (edsonmartins/zaplivre.app) | - | - | `TODO` |
 | 2 | Setup monorepo (estrutura completa) | - | - | `TODO` |
 | 3 | Configurar CI/CD (GitHub Actions básico) | - | - | `TODO` |
 | 4 | Registrar domínio zaplivre.app | - | - | `TODO` |
