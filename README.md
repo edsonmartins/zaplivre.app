@@ -1,10 +1,16 @@
+<div align="center">
+
+<img src="assets/branding/zaplivre-icon-1024.png" alt="ZapLivre" width="150" height="150" />
+
 # ZapLivre
 
-> **Comunicação verdadeiramente híbrida: P2P quando possível, servidor quando necessário**
+**Comunicação verdadeiramente híbrida: P2P quando possível, servidor quando necessário**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Status](https://img.shields.io/badge/status-v0.1.0--alpha%20em%20desenvolvimento-yellow)](https://github.com/integralltech/zaplivre)
+[![Status](https://img.shields.io/badge/status-v0.1.0--alpha%20em%20desenvolvimento-yellow)](https://github.com/edsonmartins/zaplivre.app)
+
+</div>
 
 ## 🎯 Visão
 
@@ -425,7 +431,7 @@ Construído com tecnologias open source incríveis:
 ## 📞 Contato
 
 - **Website:** [zaplivre.app](https://zaplivre.app) *(em breve)*
-- **GitHub:** [github.com/integralltech/zaplivre](https://github.com/integralltech/zaplivre)
+- **GitHub:** [github.com/edsonmartins/zaplivre.app](https://github.com/edsonmartins/zaplivre.app)
 - **Discord:** *(em breve)*
 - **Email:** contato@integralltech.com.br
 
@@ -438,6 +444,6 @@ Construído com tecnologias open source incríveis:
 *"Não adianta ter privacidade perfeita se ninguém usar.*
 *ZapLivre escolhe privacidade boa o suficiente + UX boa o suficiente = Adoção real."*
 
-[![Star on GitHub](https://img.shields.io/github/stars/integralltech/zaplivre?style=social)](https://github.com/integralltech/zaplivre)
+[![Star on GitHub](https://img.shields.io/github/stars/edsonmartins/zaplivre.app?style=social)](https://github.com/edsonmartins/zaplivre.app)
 
 </div>
