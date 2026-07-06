@@ -3,8 +3,8 @@
 //! Tests end-to-end message exchange between two peers.
 
 use libp2p::{identity::Keypair, Multiaddr};
-use mepassa_core::network::NetworkManager;
-use mepassa_core::protocol::{pb::message::Payload, Message, MessageType, TextMessage};
+use zaplivre_core::network::NetworkManager;
+use zaplivre_core::protocol::{pb::message::Payload, Message, MessageType, TextMessage};
 use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -109,11 +109,11 @@ async fn test_message_serialization() {
     };
 
     // Encode
-    let encoded = mepassa_core::protocol::codec::encode(&message).expect("Failed to encode");
+    let encoded = zaplivre_core::protocol::codec::encode(&message).expect("Failed to encode");
     assert!(!encoded.is_empty());
 
     // Decode
-    let decoded = mepassa_core::protocol::codec::decode(&encoded).expect("Failed to decode");
+    let decoded = zaplivre_core::protocol::codec::decode(&encoded).expect("Failed to decode");
     assert_eq!(message.id, decoded.id);
     assert_eq!(message.sender_peer_id, decoded.sender_peer_id);
     assert_eq!(message.recipient_peer_id, decoded.recipient_peer_id);

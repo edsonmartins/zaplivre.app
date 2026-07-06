@@ -33,7 +33,7 @@ use hkdf::Hkdf;
 use rand::RngCore;
 use sha2::Sha256;
 
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 use serde::{Deserialize, Serialize};
 
 /// AES-GCM encrypted payload for sender-key messages.
@@ -55,7 +55,7 @@ fn encrypt_message(plaintext: &[u8], key: &[u8; 32], counter: u64) -> Result<Enc
     let nonce = Nonce::from_slice(&nonce_bytes);
     let ciphertext = cipher
         .encrypt(nonce, plaintext)
-        .map_err(|e| MePassaError::Crypto(format!("Group encryption failed: {}", e)))?;
+        .map_err(|e| ZapLivreError::Crypto(format!("Group encryption failed: {}", e)))?;
     Ok(EncryptedMessage {
         nonce: nonce_bytes,
         ciphertext,
@@ -68,7 +68,7 @@ fn decrypt_message(encrypted: &EncryptedMessage, key: &[u8; 32]) -> Result<Vec<u
     let nonce = Nonce::from_slice(&encrypted.nonce);
     cipher
         .decrypt(nonce, encrypted.ciphertext.as_ref())
-        .map_err(|e| MePassaError::Crypto(format!("Group decryption failed: {}", e)))
+        .map_err(|e| ZapLivreError::Crypto(format!("Group decryption failed: {}", e)))
 }
 
 /// Group ID (unique identifier for a group)
@@ -139,12 +139,12 @@ impl SenderKey {
 
     /// Derive the message key for a given counter (stateless: seed + counter)
     fn derive_message_key(&self, counter: u64) -> Result<[u8; 32]> {
-        let hkdf = Hkdf::<Sha256>::new(Some(b"mepassa-sender-key-v2"), &self.seed);
+        let hkdf = Hkdf::<Sha256>::new(Some(b"zaplivre-sender-key-v2"), &self.seed);
 
         let mut message_key = [0u8; 32];
         let info = format!("message-{}-{}", self.sender_id, counter);
         hkdf.expand(info.as_bytes(), &mut message_key)
-            .map_err(|e| MePassaError::Crypto(format!("HKDF expand failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("HKDF expand failed: {}", e)))?;
 
         Ok(message_key)
     }
@@ -174,7 +174,7 @@ impl SenderKey {
     /// consumidos são rejeitados (replay/duplicata).
     pub fn decrypt(&mut self, encrypted: &EncryptedMessage) -> Result<Vec<u8>> {
         if encrypted.counter < self.counter {
-            return Err(MePassaError::Crypto(format!(
+            return Err(ZapLivreError::Crypto(format!(
                 "Group message replayed or out of window (counter {} < expected {})",
                 encrypted.counter, self.counter
             )));
@@ -306,7 +306,7 @@ impl GroupSession {
             .member_sender_keys
             .get_mut(sender_id)
             .ok_or_else(|| {
-                MePassaError::Crypto(format!("Sender key not found for: {}", sender_id))
+                ZapLivreError::Crypto(format!("Sender key not found for: {}", sender_id))
             })?;
 
         sender_key.decrypt(encrypted)
@@ -372,7 +372,7 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         sessions.insert(group_id, session);
 
@@ -387,7 +387,7 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         sessions.insert(group_id, session);
 
@@ -413,7 +413,7 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         sessions.insert(group_id, session);
 
@@ -430,11 +430,11 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         session.add_member(sender_id, sender_key_seed);
 
@@ -446,11 +446,11 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         session.remove_member(sender_id);
 
@@ -462,7 +462,7 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         sessions.remove(group_id);
 
@@ -474,11 +474,11 @@ impl GroupSessionManager {
         let sessions = self
             .sessions
             .read()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         Ok(session.my_sender_key_seed())
     }
@@ -492,11 +492,11 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         session.encrypt(plaintext)
     }
@@ -511,11 +511,11 @@ impl GroupSessionManager {
         let mut sessions = self
             .sessions
             .write()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get_mut(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         session.decrypt(sender_id, encrypted)
     }
@@ -525,7 +525,7 @@ impl GroupSessionManager {
         let sessions = self
             .sessions
             .read()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         Ok(sessions.keys().cloned().collect())
     }
@@ -535,11 +535,11 @@ impl GroupSessionManager {
         let sessions = self
             .sessions
             .read()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         Ok(session.member_count())
     }
@@ -549,11 +549,11 @@ impl GroupSessionManager {
         let sessions = self
             .sessions
             .read()
-            .map_err(|e| MePassaError::Crypto(format!("Lock error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("Lock error: {}", e)))?;
 
         let session = sessions
             .get(group_id)
-            .ok_or_else(|| MePassaError::Crypto(format!("Group not found: {}", group_id)))?;
+            .ok_or_else(|| ZapLivreError::Crypto(format!("Group not found: {}", group_id)))?;
 
         Ok(session.members())
     }

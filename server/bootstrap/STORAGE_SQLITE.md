@@ -228,7 +228,7 @@ cargo run
 # 📥 Loaded 5 peers with 8 addresses from storage  ← Carregou do SQLite!
 
 # 4. Verificar database
-sqlite3 /tmp/mepassa-bootstrap/dht.db "SELECT COUNT(*) FROM dht_peers"
+sqlite3 /tmp/zaplivre-bootstrap/dht.db "SELECT COUNT(*) FROM dht_peers"
 # Deve mostrar número de peers salvos
 ```
 
@@ -236,7 +236,7 @@ sqlite3 /tmp/mepassa-bootstrap/dht.db "SELECT COUNT(*) FROM dht_peers"
 
 ```bash
 # Adicionar peer "fake" com timestamp antigo
-sqlite3 /tmp/mepassa-bootstrap/dht.db <<EOF
+sqlite3 /tmp/zaplivre-bootstrap/dht.db <<EOF
 INSERT INTO dht_peers (peer_id, multiaddr, first_seen, last_seen)
 VALUES ('fake_peer', '/ip4/1.2.3.4/tcp/4001',
         strftime('%s', 'now', '-30 days'),
@@ -254,14 +254,14 @@ cargo run
 
 ```bash
 # Ver schema
-sqlite3 /tmp/mepassa-bootstrap/dht.db ".schema"
+sqlite3 /tmp/zaplivre-bootstrap/dht.db ".schema"
 
 # Ver todos os peers
-sqlite3 /tmp/mepassa-bootstrap/dht.db \
+sqlite3 /tmp/zaplivre-bootstrap/dht.db \
   "SELECT peer_id, multiaddr, datetime(last_seen, 'unixepoch') FROM dht_peers"
 
 # Count por peer
-sqlite3 /tmp/mepassa-bootstrap/dht.db \
+sqlite3 /tmp/zaplivre-bootstrap/dht.db \
   "SELECT peer_id, COUNT(*) as addr_count FROM dht_peers GROUP BY peer_id"
 ```
 

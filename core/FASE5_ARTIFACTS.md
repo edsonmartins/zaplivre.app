@@ -6,16 +6,16 @@
 ## Bindings Gerados
 
 ### Kotlin (Android)
-- **Arquivo:** `target/bindings/uniffi/mepassa/mepassa.kt`
+- **Arquivo:** `target/bindings/uniffi/zaplivre/zaplivre.kt`
 - **Tamanho:** 80 KB
 - **Descrição:** Bindings Kotlin para integração com Android app
-- **Package:** `uniffi.mepassa`
+- **Package:** `uniffi.zaplivre`
 
 ### Swift (iOS)
-- **Arquivo principal:** `target/bindings/mepassa.swift`
+- **Arquivo principal:** `target/bindings/zaplivre.swift`
 - **Tamanho:** 47 KB
-- **Header C:** `target/bindings/mepassaFFI.h` (26 KB)
-- **Module map:** `target/bindings/mepassaFFI.modulemap` (130 B)
+- **Header C:** `target/bindings/zaplivreFFI.h` (26 KB)
+- **Module map:** `target/bindings/zaplivreFFI.modulemap` (130 B)
 - **Descrição:** Bindings Swift para integração com iOS app
 
 ## Bibliotecas Nativas Compiladas
@@ -23,12 +23,12 @@
 ### Android
 
 #### ARM64 (aarch64-linux-android) - Arquitetura Principal
-- **Arquivo:** `target/aarch64-linux-android/release/libmepassa_core.so`
+- **Arquivo:** `target/aarch64-linux-android/release/libzaplivre_core.so`
 - **Tamanho:** 6.3 MB
 - **Tipo:** Shared library (.so)
 - **Uso:** Smartphones Android modernos (ARM 64-bit)
 - **Min API Level:** 33 (Android 13)
-- **Destino:** `android/app/src/main/jniLibs/arm64-v8a/libmepassa_core.so`
+- **Destino:** `android/app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so`
 
 #### Outras Arquiteturas (opcional)
 Para suporte completo, compile também:
@@ -46,20 +46,20 @@ cargo build --target i686-linux-android --release --lib
 ### iOS
 
 #### ARM64 - Dispositivos Reais (iPhone/iPad)
-- **Arquivo:** `target/aarch64-apple-ios/release/libmepassa_core.a`
+- **Arquivo:** `target/aarch64-apple-ios/release/libzaplivre_core.a`
 - **Tamanho:** 96 MB
 - **Tipo:** Static library (.a)
 - **Uso:** iPhones e iPads com processadores A12+ (iPhone XS+)
 - **Min iOS:** 13.0
 
 #### ARM64 - Simulador (Apple Silicon Macs)
-- **Arquivo:** `target/aarch64-apple-ios-sim/release/libmepassa_core.a`
+- **Arquivo:** `target/aarch64-apple-ios-sim/release/libzaplivre_core.a`
 - **Tamanho:** 96 MB
 - **Tipo:** Static library (.a)
 - **Uso:** Simulador iOS em Macs com Apple Silicon (M1/M2/M3)
 
 #### x86_64 - Simulador (Intel Macs)
-- **Arquivo:** `target/x86_64-apple-ios/release/libmepassa_core.a`
+- **Arquivo:** `target/x86_64-apple-ios/release/libzaplivre_core.a`
 - **Tamanho:** 95 MB
 - **Tipo:** Static library (.a)
 - **Uso:** Simulador iOS em Macs com Intel
@@ -67,8 +67,8 @@ cargo build --target i686-linux-android --release --lib
 ### Desktop (macOS)
 
 #### Biblioteca nativa já disponível
-- **Arquivo:** `target/debug/libmepassa_core.dylib` (dev)
-- **Arquivo:** `target/release/libmepassa_core.dylib` (prod)
+- **Arquivo:** `target/debug/libzaplivre_core.dylib` (dev)
+- **Arquivo:** `target/release/libzaplivre_core.dylib` (prod)
 - **Uso:** Tauri desktop app (já compilada automaticamente)
 
 ## Configuração de Build
@@ -135,19 +135,19 @@ cargo build --target x86_64-apple-ios --release --lib
 ## Próximos Passos (FASE 6)
 
 ### Android App
-1. Copiar `libmepassa_core.so` para `android/app/src/main/jniLibs/arm64-v8a/`
+1. Copiar `libzaplivre_core.so` para `android/app/src/main/jniLibs/arm64-v8a/`
 2. Integrar bindings Kotlin no projeto Android
-3. Criar `MePassaService` (foreground service)
+3. Criar `ZapLivreService` (foreground service)
 4. Implementar UI básica (Jetpack Compose)
 
 ### iOS App
 1. Criar XCFramework combinando todas as arquiteturas:
 ```bash
 xcodebuild -create-xcframework \
-  -library target/aarch64-apple-ios/release/libmepassa_core.a \
-  -library target/aarch64-apple-ios-sim/release/libmepassa_core.a \
-  -library target/x86_64-apple-ios/release/libmepassa_core.a \
-  -output MePassaCore.xcframework
+  -library target/aarch64-apple-ios/release/libzaplivre_core.a \
+  -library target/aarch64-apple-ios-sim/release/libzaplivre_core.a \
+  -library target/x86_64-apple-ios/release/libzaplivre_core.a \
+  -output ZapLivreCore.xcframework
 ```
 2. Integrar bindings Swift no projeto iOS
 3. Implementar UI básica (SwiftUI)
@@ -166,19 +166,19 @@ core/
 │   └── generate_bindings.rs # Script de geração de bindings
 ├── target/
 │   ├── bindings/            # Bindings gerados
-│   │   ├── uniffi/mepassa/
-│   │   │   └── mepassa.kt   # Kotlin
-│   │   ├── mepassa.swift    # Swift
-│   │   ├── mepassaFFI.h     # Swift header
-│   │   └── mepassaFFI.modulemap
+│   │   ├── uniffi/zaplivre/
+│   │   │   └── zaplivre.kt   # Kotlin
+│   │   ├── zaplivre.swift    # Swift
+│   │   ├── zaplivreFFI.h     # Swift header
+│   │   └── zaplivreFFI.modulemap
 │   ├── aarch64-linux-android/release/
-│   │   └── libmepassa_core.so  # Android
+│   │   └── libzaplivre_core.so  # Android
 │   ├── aarch64-apple-ios/release/
-│   │   └── libmepassa_core.a   # iOS device
+│   │   └── libzaplivre_core.a   # iOS device
 │   ├── aarch64-apple-ios-sim/release/
-│   │   └── libmepassa_core.a   # iOS sim ARM
+│   │   └── libzaplivre_core.a   # iOS sim ARM
 │   └── x86_64-apple-ios/release/
-│       └── libmepassa_core.a   # iOS sim Intel
+│       └── libzaplivre_core.a   # iOS sim Intel
 └── FFI_IMPLEMENTATION.md    # Documentação técnica
 ```
 
@@ -186,27 +186,27 @@ core/
 
 ### Verificar Símbolos (Android)
 ```bash
-nm -D target/aarch64-linux-android/release/libmepassa_core.so | grep uniffi
+nm -D target/aarch64-linux-android/release/libzaplivre_core.so | grep uniffi
 ```
 
 ### Verificar Símbolos (iOS)
 ```bash
-nm target/aarch64-apple-ios/release/libmepassa_core.a | grep uniffi
+nm target/aarch64-apple-ios/release/libzaplivre_core.a | grep uniffi
 ```
 
 ### Teste Básico (Kotlin)
 ```kotlin
-import uniffi.mepassa.*
+import uniffi.zaplivre.*
 
-val client = MePassaClient("/data/local/tmp/mepassa")
+val client = ZapLivreClient("/data/local/tmp/zaplivre")
 println(client.localPeerId())
 ```
 
 ### Teste Básico (Swift)
 ```swift
-import mepassaFFI
+import zaplivreFFI
 
-let client = try MePassaClient(dataDir: "/tmp/mepassa")
+let client = try ZapLivreClient(dataDir: "/tmp/zaplivre")
 print(try client.localPeerId())
 ```
 
@@ -227,4 +227,4 @@ print(try client.localPeerId())
 
 **Gerado em:** 2025-01-20
 **Por:** FASE 5 - FFI Implementation
-**Versão:** mepassa-core v0.1.0
+**Versão:** zaplivre-core v0.1.0

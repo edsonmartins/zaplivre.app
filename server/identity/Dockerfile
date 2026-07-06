@@ -1,4 +1,4 @@
-# MePassa Identity Server Dockerfile
+# ZapLivre Identity Server Dockerfile
 
 FROM rust:1.88-slim-bookworm AS builder
 
@@ -16,7 +16,7 @@ COPY core ./core
 COPY server ./server
 
 # Build identity server
-RUN cargo build --release --package mepassa-identity-server
+RUN cargo build --release --package zaplivre-identity-server
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -29,11 +29,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy binary
-COPY --from=builder /app/target/release/mepassa-identity-server /usr/local/bin/mepassa-identity-server
+COPY --from=builder /app/target/release/zaplivre-identity-server /usr/local/bin/zaplivre-identity-server
 
 EXPOSE 8083
 
 ENV RUST_LOG=info
 ENV BIND_ADDR=0.0.0.0:8083
 
-CMD ["mepassa-identity-server"]
+CMD ["zaplivre-identity-server"]

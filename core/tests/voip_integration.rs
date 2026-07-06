@@ -7,7 +7,7 @@
 
 use libp2p::identity::Keypair;
 use libp2p::{Multiaddr, PeerId};
-use mepassa_core::{
+use zaplivre_core::{
     api::{Client, ClientBuilder},
     voip::{CallManager, VoIPIntegration, SignalingMessage},
 };

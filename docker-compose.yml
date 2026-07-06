@@ -4,11 +4,11 @@ services:
   # PostgreSQL - Message Store Database
   postgres:
     image: postgres:16-alpine
-    container_name: mepassa-postgres
+    container_name: zaplivre-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mepassa}
-      POSTGRES_USER: ${POSTGRES_USER:-mepassa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mepassa_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zaplivre}
+      POSTGRES_USER: ${POSTGRES_USER:-zaplivre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zaplivre_dev_password}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5432:5432"
@@ -16,18 +16,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./server/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mepassa}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zaplivre}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
 
   # Redis - Presence & Queue
   redis:
     image: redis:7-alpine
-    container_name: mepassa-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-mepassa_redis_dev}
+    container_name: zaplivre-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-zaplivre_redis_dev}
     ports:
       - "6379:6379"
     volumes:
@@ -38,16 +38,16 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
 
   # coturn - TURN/STUN Server
   coturn:
     image: coturn/coturn:latest
-    container_name: mepassa-coturn
+    container_name: zaplivre-coturn
     # Segredo e IP externo via env (o conf não interpola variáveis) - SEC-12/13
     command: >-
       -c /etc/coturn/turnserver.conf
-      --static-auth-secret=${TURN_STATIC_SECRET:-mepassa_turn_dev_secret}
+      --static-auth-secret=${TURN_STATIC_SECRET:-zaplivre_turn_dev_secret}
       --external-ip=${TURN_EXTERNAL_IP:-127.0.0.1}
     ports:
       - "3478:3478/udp"
@@ -65,7 +65,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
     restart: unless-stopped
 
   # TURN Credentials Service
@@ -73,10 +73,10 @@ services:
     build:
       context: .
       dockerfile: server/turn-credentials/Dockerfile
-    container_name: mepassa-turn-credentials
+    container_name: zaplivre-turn-credentials
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-mepassa_turn_dev_secret}
+      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-zaplivre_turn_dev_secret}
       - SERVER_PORT=8082
     ports:
       - "8082:8082"
@@ -87,7 +87,7 @@ services:
       retries: 3
       start_period: 5s
     networks:
-      - mepassa-network
+      - zaplivre-network
     depends_on:
       coturn:
         condition: service_healthy
@@ -98,7 +98,7 @@ services:
     build:
       context: .
       dockerfile: server/bootstrap/Dockerfile
-    container_name: mepassa-bootstrap-1
+    container_name: zaplivre-bootstrap-1
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - BOOTSTRAP_PORT=4001
@@ -121,7 +121,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
     depends_on:
       - postgres
       - redis
@@ -132,11 +132,11 @@ services:
     build:
       context: .
       dockerfile: server/store/Dockerfile
-    container_name: mepassa-store
+    container_name: zaplivre-store
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
       - SERVER_PORT=8080
       - ENABLE_TTL_CLEANUP=${ENABLE_TTL_CLEANUP:-true}
       # PSH-02: acordar destinatários offline via push
@@ -150,7 +150,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,7 +163,7 @@ services:
     build:
       context: .
       dockerfile: server/push/Dockerfile
-    container_name: mepassa-push
+    container_name: zaplivre-push
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       # FCM HTTP v1: JSON do service account em server/push/certs/
@@ -172,9 +172,9 @@ services:
       - APNS_KEY_PATH=/etc/push/apns_key.p8
       - APNS_KEY_ID=${APNS_KEY_ID:-}
       - APNS_TEAM_ID=${APNS_TEAM_ID:-}
-      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.mepassa.ios}
+      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.zaplivre.ios}
       - APNS_PRODUCTION=${APNS_PRODUCTION:-false}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
       - PORT=8081
     ports:
       - "8081:8081"
@@ -187,7 +187,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -198,11 +198,11 @@ services:
     build:
       context: .
       dockerfile: server/identity/Dockerfile
-    container_name: mepassa-identity
+    container_name: zaplivre-identity
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
       - BIND_ADDR=0.0.0.0:8083
     ports:
       - "8083:8083"
@@ -213,7 +213,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
     depends_on:
       postgres:
         condition: service_healthy
@@ -226,7 +226,7 @@ services:
     build:
       context: .
       dockerfile: server/signaling/Dockerfile
-    container_name: mepassa-signaling
+    container_name: zaplivre-signaling
     environment:
       - RUST_LOG=${RUST_LOG:-info}
     ports:
@@ -238,13 +238,13 @@ services:
       retries: 3
       start_period: 5s
     networks:
-      - mepassa-network
+      - zaplivre-network
     restart: unless-stopped
 
   # Prometheus - Metrics (Optional)
   prometheus:
     image: prom/prometheus:latest
-    container_name: mepassa-prometheus
+    container_name: zaplivre-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -254,14 +254,14 @@ services:
       - ./server/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     networks:
-      - mepassa-network
+      - zaplivre-network
     profiles:
       - monitoring
 
   # Grafana - Dashboards (Optional)
   grafana:
     image: grafana/grafana:latest
-    container_name: mepassa-grafana
+    container_name: zaplivre-grafana
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
@@ -273,7 +273,7 @@ services:
       - ./server/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./server/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     networks:
-      - mepassa-network
+      - zaplivre-network
     depends_on:
       - prometheus
     profiles:
@@ -292,5 +292,5 @@ volumes:
     driver: local
 
 networks:
-  mepassa-network:
+  zaplivre-network:
     driver: bridge

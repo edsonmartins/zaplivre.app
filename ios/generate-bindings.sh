@@ -4,7 +4,7 @@
 
 set -e
 
-echo "🔨 Generating Swift bindings for MePassa Core..."
+echo "🔨 Generating Swift bindings for ZapLivre Core..."
 echo ""
 
 # Colors
@@ -18,10 +18,10 @@ NC='\033[0m'
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORE_DIR="$PROJECT_ROOT/core"
 IOS_DIR="$PROJECT_ROOT/ios"
-GENERATED_DIR="$IOS_DIR/MePassa/Generated"
+GENERATED_DIR="$IOS_DIR/ZapLivre/Generated"
 
 # Files
-UDL_FILE="$CORE_DIR/src/mepassa.udl"
+UDL_FILE="$CORE_DIR/src/zaplivre.udl"
 
 echo -e "${BLUE}Project root:${NC} $PROJECT_ROOT"
 echo -e "${BLUE}UDL file:${NC} $UDL_FILE"
@@ -72,8 +72,8 @@ if [ $? -eq 0 ]; then
     ls -lh "$GENERATED_DIR"
     echo ""
     echo -e "${BLUE}Next steps:${NC}"
-    echo "  1. Build iOS app: xcodegen generate && xcodebuild -scheme MePassa build"
-    echo "  2. Run on simulator: open ios/MePassa.xcodeproj"
+    echo "  1. Build iOS app: xcodegen generate && xcodebuild -scheme ZapLivre build"
+    echo "  2. Run on simulator: open ios/ZapLivre.xcodeproj"
 else
     echo ""
     echo -e "${RED}❌ Failed to generate Swift bindings${NC}"

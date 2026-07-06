@@ -99,7 +99,7 @@ mod tests {
     #[ignore] // Requires Redis
     async fn test_redis_connection() {
         let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://:mepassa_redis_dev@localhost:6379".to_string());
+            .unwrap_or_else(|_| "redis://:zaplivre_redis_dev@localhost:6379".to_string());
 
         let redis = RedisClient::new(&redis_url);
         assert!(redis.is_ok());

@@ -1,6 +1,6 @@
-# Guia de Build - MePassa Android
+# Guia de Build - ZapLivre Android
 
-Documentação step-by-step do processo de build do app Android MePassa.
+Documentação step-by-step do processo de build do app Android ZapLivre.
 
 ## 📦 Processo de Build Completo
 
@@ -10,7 +10,7 @@ Antes de compilar o Android app, é necessário ter os bindings e bibliotecas na
 
 ```bash
 # 1. Navegar para o diretório core
-cd /Users/edsonmartins/desenvolvimento/mepassa/core
+cd /Users/edsonmartins/desenvolvimento/zaplivre/core
 
 # 2. Gerar bindings Kotlin e Swift
 cargo run --example generate_bindings
@@ -18,8 +18,8 @@ cargo run --example generate_bindings
 # Saída esperada:
 # ✓ Bindings generated successfully!
 # Output directory: target/bindings
-# - Kotlin: target/bindings/uniffi/mepassa/mepassa.kt
-# - Swift: target/bindings/mepassa.swift
+# - Kotlin: target/bindings/uniffi/zaplivre/zaplivre.kt
+# - Swift: target/bindings/zaplivre.swift
 
 # 3. Compilar biblioteca nativa para Android ARM64
 export CC_aarch64_linux_android="$HOME/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android33-clang"
@@ -31,11 +31,11 @@ cargo build --target aarch64-linux-android --release --lib
 # Finished `release` profile [optimized] target(s) in 2m 47s
 
 # 4. Verificar artefatos gerados
-ls -lh target/bindings/uniffi/mepassa/mepassa.kt
-# -rw-r--r--  1 user  staff    80K ... mepassa.kt
+ls -lh target/bindings/uniffi/zaplivre/zaplivre.kt
+# -rw-r--r--  1 user  staff    80K ... zaplivre.kt
 
-ls -lh target/aarch64-linux-android/release/libmepassa_core.so
-# -rwxr-xr-x@ 1 user  staff   6.3M ... libmepassa_core.so
+ls -lh target/aarch64-linux-android/release/libzaplivre_core.so
+# -rwxr-xr-x@ 1 user  staff   6.3M ... libzaplivre_core.so
 ```
 
 **✅ Checkpoint 1:** Artefatos do core prontos
@@ -44,20 +44,20 @@ ls -lh target/aarch64-linux-android/release/libmepassa_core.so
 
 ```bash
 # 1. Criar diretórios necessários (se não existirem)
-mkdir -p ../android/app/src/main/kotlin/uniffi/mepassa
+mkdir -p ../android/app/src/main/kotlin/uniffi/zaplivre
 mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
 
 # 2. Copiar bindings Kotlin
-cp target/bindings/uniffi/mepassa/mepassa.kt \
-   ../android/app/src/main/kotlin/uniffi/mepassa/
+cp target/bindings/uniffi/zaplivre/zaplivre.kt \
+   ../android/app/src/main/kotlin/uniffi/zaplivre/
 
 # 3. Copiar biblioteca nativa
-cp target/aarch64-linux-android/release/libmepassa_core.so \
+cp target/aarch64-linux-android/release/libzaplivre_core.so \
    ../android/app/src/main/jniLibs/arm64-v8a/
 
 # 4. Verificar cópias
-ls -lh ../android/app/src/main/kotlin/uniffi/mepassa/mepassa.kt
-ls -lh ../android/app/src/main/jniLibs/arm64-v8a/libmepassa_core.so
+ls -lh ../android/app/src/main/kotlin/uniffi/zaplivre/zaplivre.kt
+ls -lh ../android/app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so
 ```
 
 **✅ Checkpoint 2:** Artefatos copiados para Android
@@ -156,11 +156,11 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ./gradlew installDebug
 
 # 3. Verificar instalação
-adb shell pm list packages | grep mepassa
-# package:com.mepassa
+adb shell pm list packages | grep zaplivre
+# package:com.zaplivre
 
 # 4. Executar app
-adb shell am start -n com.mepassa/.MainActivity
+adb shell am start -n com.zaplivre/.MainActivity
 ```
 
 **✅ Checkpoint 4:** App instalado
@@ -171,10 +171,10 @@ adb shell am start -n com.mepassa/.MainActivity
 
 ```bash
 # Extrair APK para inspecionar
-unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "(libmepassa|uniffi)"
+unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "(libzaplivre|uniffi)"
 
 # Esperado:
-# lib/arm64-v8a/libmepassa_core.so        ← Biblioteca nativa
+# lib/arm64-v8a/libzaplivre_core.so        ← Biblioteca nativa
 # classes.dex                              ← Código compilado (inclui UniFFI)
 ```
 
@@ -187,7 +187,7 @@ du -h app/build/outputs/apk/debug/app-debug.apk
 ```
 
 **Breakdown do tamanho:**
-- libmepassa_core.so: ~6.3 MB
+- libzaplivre_core.so: ~6.3 MB
 - Kotlin bindings: ~80 KB compilado
 - Jetpack Compose: ~2 MB
 - JNA (UniFFI): ~1 MB
@@ -198,14 +198,14 @@ du -h app/build/outputs/apk/debug/app-debug.apk
 ```bash
 # Extrair .so do APK
 unzip -j app/build/outputs/apk/debug/app-debug.apk \
-  lib/arm64-v8a/libmepassa_core.so -d /tmp/
+  lib/arm64-v8a/libzaplivre_core.so -d /tmp/
 
 # Verificar símbolos UniFFI
-nm -D /tmp/libmepassa_core.so | grep uniffi
+nm -D /tmp/libzaplivre_core.so | grep uniffi
 
 # Esperado:
-# uniffi_mepassa_core_fn_init_callback_vtable_mepassaclient
-# uniffi_mepassa_core_fn_constructor_mepassaclient_new
+# uniffi_zaplivre_core_fn_init_callback_vtable_zaplivreclient
+# uniffi_zaplivre_core_fn_constructor_zaplivreclient_new
 # ...
 ```
 
@@ -258,7 +258,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.mepassa"
+        applicationId = "com.zaplivre"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -311,34 +311,34 @@ java -version
 # Gradle Settings > Gradle JDK: selecionar JDK 17
 ```
 
-### Erro 2: "Could not find libmepassa_core.so"
+### Erro 2: "Could not find libzaplivre_core.so"
 
 **Causa:** Biblioteca não copiada ou ABI incorreta
 
 **Solução:**
 ```bash
 # Verificar se existe
-ls app/src/main/jniLibs/arm64-v8a/libmepassa_core.so
+ls app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so
 
 # Se não existir, copiar novamente
-cp ../core/target/aarch64-linux-android/release/libmepassa_core.so \
+cp ../core/target/aarch64-linux-android/release/libzaplivre_core.so \
    app/src/main/jniLibs/arm64-v8a/
 
 # Rebuild
 ./gradlew clean assembleDebug
 ```
 
-### Erro 3: "Duplicate class uniffi.mepassa.*"
+### Erro 3: "Duplicate class uniffi.zaplivre.*"
 
 **Causa:** Bindings duplicados ou em local errado
 
 **Solução:**
 ```bash
 # Verificar se está no local correto
-ls app/src/main/kotlin/uniffi/mepassa/mepassa.kt
+ls app/src/main/kotlin/uniffi/zaplivre/zaplivre.kt
 
 # Remover duplicatas
-find app/src -name "mepassa.kt" | grep -v "uniffi/mepassa"
+find app/src -name "zaplivre.kt" | grep -v "uniffi/zaplivre"
 # Se encontrar outros, deletar
 ```
 
@@ -412,23 +412,23 @@ Criar script `build.sh` na raiz do projeto Android:
 
 ```bash
 #!/bin/bash
-# Build script para MePassa Android
+# Build script para ZapLivre Android
 
 set -e  # Exit on error
 
-echo "🔨 MePassa Android Build Script"
+echo "🔨 ZapLivre Android Build Script"
 echo "================================"
 
 # 1. Verificar pré-requisitos
 echo "📋 Verificando pré-requisitos..."
-if [ ! -f "app/src/main/jniLibs/arm64-v8a/libmepassa_core.so" ]; then
-    echo "❌ libmepassa_core.so não encontrada!"
+if [ ! -f "app/src/main/jniLibs/arm64-v8a/libzaplivre_core.so" ]; then
+    echo "❌ libzaplivre_core.so não encontrada!"
     echo "Execute primeiro:"
     echo "  cd ../core && cargo run --example generate_bindings"
     exit 1
 fi
 
-if [ ! -f "app/src/main/kotlin/uniffi/mepassa/mepassa.kt" ]; then
+if [ ! -f "app/src/main/kotlin/uniffi/zaplivre/zaplivre.kt" ]; then
     echo "❌ Bindings Kotlin não encontrados!"
     exit 1
 fi
@@ -483,8 +483,8 @@ Antes de fazer build:
 - [ ] Android SDK API 34 instalado
 - [ ] NDK 26.3.11579264 instalado
 - [ ] Gradle wrapper presente (gradle/wrapper/)
-- [ ] libmepassa_core.so em jniLibs/arm64-v8a/
-- [ ] mepassa.kt em kotlin/uniffi/mepassa/
+- [ ] libzaplivre_core.so em jniLibs/arm64-v8a/
+- [ ] zaplivre.kt em kotlin/uniffi/zaplivre/
 - [ ] gradle.properties configurado
 - [ ] build.gradle.kts sem erros de sintaxe
 
@@ -498,7 +498,7 @@ Durante build:
 Após build:
 
 - [ ] APK existe e tem ~10 MB
-- [ ] libmepassa_core.so está dentro do APK
+- [ ] libzaplivre_core.so está dentro do APK
 - [ ] App instala sem erros
 - [ ] App abre sem crash
 - [ ] Biblioteca nativa carrega (check logs)

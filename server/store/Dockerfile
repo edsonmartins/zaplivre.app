@@ -1,4 +1,4 @@
-# MePassa Message Store Dockerfile
+# ZapLivre Message Store Dockerfile
 
 FROM rust:1.88-slim-bookworm AS builder
 
@@ -17,7 +17,7 @@ COPY core ./core
 COPY server ./server
 
 # Build message store
-RUN cargo build --release --package mepassa-store
+RUN cargo build --release --package zaplivre-store
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -32,11 +32,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy binary
-COPY --from=builder /app/target/release/mepassa-store /usr/local/bin/mepassa-store
+COPY --from=builder /app/target/release/zaplivre-store /usr/local/bin/zaplivre-store
 
 EXPOSE 8080
 
 ENV RUST_LOG=info
 ENV SERVER_PORT=8080
 
-CMD ["mepassa-store"]
+CMD ["zaplivre-store"]

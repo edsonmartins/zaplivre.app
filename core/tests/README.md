@@ -133,12 +133,12 @@ cargo run
 ### Erro: "USERNAME_TAKEN" inesperado
 ```bash
 # Limpar database de teste
-psql mepassa_identity -c "DELETE FROM usernames WHERE username LIKE 'alice_%';"
+psql zaplivre_identity -c "DELETE FROM usernames WHERE username LIKE 'alice_%';"
 
 # Ou recriar database
-dropdb mepassa_identity
-createdb mepassa_identity
-psql mepassa_identity < server/identity/schema.sql
+dropdb zaplivre_identity
+createdb zaplivre_identity
+psql zaplivre_identity < server/identity/schema.sql
 ```
 
 ### Rate limit errors
@@ -159,9 +159,9 @@ integration-tests:
     postgres:
       image: postgres:15
       env:
-        POSTGRES_DB: mepassa_identity
-        POSTGRES_USER: mepassa
-        POSTGRES_PASSWORD: mepassa
+        POSTGRES_DB: zaplivre_identity
+        POSTGRES_USER: zaplivre
+        POSTGRES_PASSWORD: zaplivre
 
     redis:
       image: redis:7-alpine

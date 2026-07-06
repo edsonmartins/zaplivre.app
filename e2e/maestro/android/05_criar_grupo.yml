@@ -1,6 +1,6 @@
 # Criar grupo: grupo criado aparece na lista
 # Regressão (iOS teve isso): lista mockada sempre vazia
-appId: com.mepassa
+appId: com.zaplivre
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

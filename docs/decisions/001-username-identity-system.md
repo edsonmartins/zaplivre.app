@@ -8,9 +8,9 @@
 
 ## Contexto
 
-MePassa usa **Peer IDs** derivados de chaves públicas Ed25519 para identificação criptográfica:
+ZapLivre usa **Peer IDs** derivados de chaves públicas Ed25519 para identificação criptográfica:
 ```
-peer_id: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+peer_id: "zaplivre_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
 ```
 
 **Problema:** Esse ID é impossível de compartilhar de forma prática para usuários finais.
@@ -47,7 +47,7 @@ Implementar sistema de **@username** (como Telegram/Signal) com Identity Server 
 - Privacidade ruim (expõe número real)
 - Custo de SMS gateway
 - Metadata leaking
-- Conflita com proposta de privacidade do MePassa
+- Conflita com proposta de privacidade do ZapLivre
 
 ### ❌ Opção B: QR Code Only (como Briar)
 **Por que rejeitada:**
@@ -75,7 +75,7 @@ Implementar sistema de **@username** (como Telegram/Signal) com Identity Server 
 // POST /api/v1/register
 {
     "username": "joao",
-    "peer_id": "mepassa_BfvwE...",
+    "peer_id": "zaplivre_BfvwE...",
     "prekey_bundle": {
         "identity_key": [...],
         "signed_prekey_id": 1,
@@ -89,7 +89,7 @@ Implementar sistema de **@username** (como Telegram/Signal) com Identity Server 
 Response:
 {
     "username": "joao",
-    "peer_id": "mepassa_BfvwE...",
+    "peer_id": "zaplivre_BfvwE...",
     "prekey_bundle": {...},
     "last_updated": "2025-01-19T10:00:00Z"
 }
@@ -203,7 +203,7 @@ val (sharedSecret, ephemeralPub) = X3DH.initiate(response.prekeyBundle)
 5. Health checks + monitoring
 
 **Deploy:**
-- identity.mepassa.app (DNS)
+- identity.zaplivre.app (DNS)
 - PostgreSQL para storage
 - Redis para rate limiting
 - HTTPS obrigatório
@@ -234,9 +234,9 @@ val (sharedSecret, ephemeralPub) = X3DH.initiate(response.prekeyBundle)
 ### Cenário 2: Compartilhar username
 
 ```
-- Link: mepassa.app/add/@joao
-- QR Code com: mepassa://add/@joao
-- Texto: "Me adiciona no MePassa: @joao"
+- Link: zaplivre.app/add/@joao
+- QR Code com: zaplivre://add/@joao
+- Texto: "Me adiciona no ZapLivre: @joao"
 ```
 
 ---

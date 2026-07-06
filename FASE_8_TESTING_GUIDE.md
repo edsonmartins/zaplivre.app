@@ -28,7 +28,7 @@ O sistema de push notifications implementado na FASE 8 consiste em 3 componentes
 
 ```bash
 # 1. Iniciar PostgreSQL (via Docker)
-cd /Users/edsonmartins/desenvolvimento/mepassa
+cd /Users/edsonmartins/desenvolvimento/zaplivre
 docker-compose up -d postgres
 
 # 2. Configurar environment variables
@@ -36,13 +36,13 @@ cd server/push
 cp .env.example .env
 
 # 3. Editar .env e adicionar:
-# DATABASE_URL=postgresql://mepassa:mepassa_dev_password@localhost:5432/mepassa
+# DATABASE_URL=postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre
 # FCM_SERVER_KEY=<seu_fcm_server_key>
 
 # 4. Executar Push Server
 cargo run --release
 # ou
-../../target/release/mepassa-push
+../../target/release/zaplivre-push
 
 # Servidor deve estar rodando em: http://localhost:8081
 ```
@@ -83,7 +83,7 @@ cd android
 
 **Verificar logs FCM:**
 ```bash
-adb logcat -s FCM MePassaService PushServerClient
+adb logcat -s FCM ZapLivreService PushServerClient
 ```
 
 ### 4. Desktop App
@@ -119,28 +119,28 @@ curl http://localhost:8081/health
 **Passos:**
 
 1. **Iniciar Android app** (via emulador ou dispositivo físico)
-2. **Aguardar MePassaService inicializar** (5-10 segundos)
+2. **Aguardar ZapLivreService inicializar** (5-10 segundos)
 3. **Verificar logs:**
 
 ```bash
-adb logcat | grep -E "(FCM|PushServerClient|MePassaService)"
+adb logcat | grep -E "(FCM|PushServerClient|ZapLivreService)"
 ```
 
 **Resultado esperado nos logs:**
 ```
-MePassaService: Initializing MePassaClient from service
-MePassaService: 🔐 Getting FCM token...
-MePassaService: 📱 FCM token obtained: AAAA...
-MePassaService: 📤 Registering FCM token with Push Server...
+ZapLivreService: Initializing ZapLivreClient from service
+ZapLivreService: 🔐 Getting FCM token...
+ZapLivreService: 📱 FCM token obtained: AAAA...
+ZapLivreService: 📤 Registering FCM token with Push Server...
 PushServerClient: 📤 Registering token - peer_id: <peer_id>, device_id: <device_id>
 PushServerClient: ✅ Token registered successfully
-MePassaService: ✅ FCM token successfully registered with Push Server
+ZapLivreService: ✅ FCM token successfully registered with Push Server
 ```
 
 4. **Verificar no banco de dados PostgreSQL:**
 
 ```bash
-docker exec -it mepassa-postgres psql -U mepassa -d mepassa
+docker exec -it zaplivre-postgres psql -U zaplivre -d zaplivre
 
 # No psql:
 SELECT peer_id, platform, device_id, device_name, is_active, created_at
@@ -262,9 +262,9 @@ curl -X POST http://localhost:8081/api/v1/send \
 
 4. **Device A:**
    - Recebe notificação FCM
-   - MePassaFirebaseMessagingService processa
+   - ZapLivreFirebaseMessagingService processa
    - Notificação aparece na barra de status
-   - MePassaService é acordado (start)
+   - ZapLivreService é acordado (start)
    - App faz poll no Message Store
    - Mensagem é baixada e exibida
 
@@ -274,9 +274,9 @@ curl -X POST http://localhost:8081/api/v1/send \
 ```
 FCM: FCM message received from: <fcm_sender>
 FCM: Notification - Title: Nova mensagem, Body: <preview>
-FCM: MePassaService started to sync messages
-MePassaService: Service start command received
-MePassaService: <poll message store>
+FCM: ZapLivreService started to sync messages
+ZapLivreService: Service start command received
+ZapLivreService: <poll message store>
 ```
 
 - **Notificação Device A:**
@@ -345,7 +345,7 @@ adb shell am broadcast -a com.google.firebase.INSTANCE_ID_EVENT
 
 2. **Ou desinstalar/reinstalar app:**
 ```bash
-adb uninstall com.mepassa
+adb uninstall com.zaplivre
 ./gradlew installDebug
 ```
 
@@ -355,7 +355,7 @@ adb logcat | grep "New FCM token"
 ```
 
 **Resultado esperado:**
-- `MePassaFirebaseMessagingService.onNewToken()` é chamado
+- `ZapLivreFirebaseMessagingService.onNewToken()` é chamado
 - Token é enviado ao Push Server via `/api/v1/register`
 - Banco de dados é atualizado (mesmo peer_id + device_id)
 

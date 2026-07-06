@@ -12,7 +12,7 @@ use libsignal_protocol_syft::{
 };
 use rand::{rngs::StdRng, SeedableRng};
 
-use crate::utils::error::{Result, MePassaError};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// A single prekey record
 #[derive(Clone)]
@@ -27,7 +27,7 @@ impl PreKey {
     pub fn from_record(record: PreKeyRecord) -> Result<Self> {
         let id = record
             .id()
-            .map_err(|e| MePassaError::Identity(format!("PreKey id error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("PreKey id error: {}", e)))?;
         Ok(Self {
             id: id.into(),
             record,
@@ -44,7 +44,7 @@ impl PreKey {
         let public_key = self
             .record
             .public_key()
-            .map_err(|e| MePassaError::Identity(format!("PreKey public key error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("PreKey public key error: {}", e)))?;
         Ok(public_key.serialize().to_vec())
     }
 }
@@ -156,12 +156,12 @@ impl PreKeyPool {
             signed_prekey: self
                 .signed_prekey
                 .serialize()
-                .map_err(|e| MePassaError::Crypto(format!("serialize signed prekey: {}", e)))?
+                .map_err(|e| ZapLivreError::Crypto(format!("serialize signed prekey: {}", e)))?
                 .to_vec(),
             kyber_prekey: self
                 .kyber_prekey
                 .serialize()
-                .map_err(|e| MePassaError::Crypto(format!("serialize kyber prekey: {}", e)))?
+                .map_err(|e| ZapLivreError::Crypto(format!("serialize kyber prekey: {}", e)))?
                 .to_vec(),
             one_time_prekeys: self
                 .one_time_prekeys
@@ -170,7 +170,7 @@ impl PreKeyPool {
                     record
                         .serialize()
                         .map(|bytes| (*id, bytes.to_vec()))
-                        .map_err(|e| MePassaError::Crypto(format!("serialize prekey: {}", e)))
+                        .map_err(|e| ZapLivreError::Crypto(format!("serialize prekey: {}", e)))
                 })
                 .collect::<Result<Vec<_>>>()?,
             next_prekey_id: self.next_prekey_id,
@@ -178,7 +178,7 @@ impl PreKeyPool {
             next_kyber_prekey_id: self.next_kyber_prekey_id,
         };
         serde_json::to_vec(&snapshot)
-            .map_err(|e| MePassaError::Storage(format!("serialize prekey pool: {}", e)))
+            .map_err(|e| ZapLivreError::Storage(format!("serialize prekey pool: {}", e)))
     }
 
     /// SEC-07: reconstrói o pool a partir de um snapshot persistido.
@@ -189,19 +189,19 @@ impl PreKeyPool {
         bytes: &[u8],
     ) -> Result<Self> {
         let snapshot: PreKeyPoolSnapshot = serde_json::from_slice(bytes)
-            .map_err(|e| MePassaError::Storage(format!("deserialize prekey pool: {}", e)))?;
+            .map_err(|e| ZapLivreError::Storage(format!("deserialize prekey pool: {}", e)))?;
 
         let signed_prekey = SignedPreKeyRecord::deserialize(&snapshot.signed_prekey)
-            .map_err(|e| MePassaError::Crypto(format!("deserialize signed prekey: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("deserialize signed prekey: {}", e)))?;
         let kyber_prekey = KyberPreKeyRecord::deserialize(&snapshot.kyber_prekey)
-            .map_err(|e| MePassaError::Crypto(format!("deserialize kyber prekey: {}", e)))?;
+            .map_err(|e| ZapLivreError::Crypto(format!("deserialize kyber prekey: {}", e)))?;
         let one_time_prekeys = snapshot
             .one_time_prekeys
             .iter()
             .map(|(id, bytes)| {
                 PreKeyRecord::deserialize(bytes)
                     .map(|r| (*id, r))
-                    .map_err(|e| MePassaError::Crypto(format!("deserialize prekey: {}", e)))
+                    .map_err(|e| ZapLivreError::Crypto(format!("deserialize prekey: {}", e)))
             })
             .collect::<Result<HashMap<_, _>>>()?;
 
@@ -292,30 +292,30 @@ impl PreKeyPool {
     /// Get a prekey bundle for key exchange
     pub fn get_bundle(&self) -> Result<PreKeyBundle> {
         let identity_keypair_signal = IdentityKeyPair::try_from(self.signal_identity_keypair_record.as_slice())
-            .map_err(|e| MePassaError::Identity(format!("Signal identity keypair deserialize failed: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("Signal identity keypair deserialize failed: {}", e)))?;
         let signal_identity_key = identity_keypair_signal.identity_key().serialize().to_vec();
 
         let signed_prekey_public = self
             .signed_prekey
             .public_key()
-            .map_err(|e| MePassaError::Identity(format!("Signed prekey public error: {}", e)))?
+            .map_err(|e| ZapLivreError::Identity(format!("Signed prekey public error: {}", e)))?
             .serialize()
             .to_vec();
         let signed_prekey_signature = self
             .signed_prekey
             .signature()
-            .map_err(|e| MePassaError::Identity(format!("Signed prekey signature error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("Signed prekey signature error: {}", e)))?;
 
         let kyber_prekey_public = self
             .kyber_prekey
             .public_key()
-            .map_err(|e| MePassaError::Identity(format!("Kyber prekey public error: {}", e)))?
+            .map_err(|e| ZapLivreError::Identity(format!("Kyber prekey public error: {}", e)))?
             .serialize()
             .to_vec();
         let kyber_prekey_signature = self
             .kyber_prekey
             .signature()
-            .map_err(|e| MePassaError::Identity(format!("Kyber prekey signature error: {}", e)))?;
+            .map_err(|e| ZapLivreError::Identity(format!("Kyber prekey signature error: {}", e)))?;
 
         let one_time_prekey = self
             .peek_one_time_prekey()
@@ -336,14 +336,14 @@ impl PreKeyPool {
             signed_prekey_id: self
                 .signed_prekey
                 .id()
-                .map_err(|e| MePassaError::Identity(format!("Signed prekey id error: {}", e)))?
+                .map_err(|e| ZapLivreError::Identity(format!("Signed prekey id error: {}", e)))?
                 .into(),
             signed_prekey: signed_prekey_public,
             signed_prekey_signature,
             kyber_prekey_id: self
                 .kyber_prekey
                 .id()
-                .map_err(|e| MePassaError::Identity(format!("Kyber prekey id error: {}", e)))?
+                .map_err(|e| ZapLivreError::Identity(format!("Kyber prekey id error: {}", e)))?
                 .into(),
             kyber_prekey: kyber_prekey_public,
             kyber_prekey_signature,

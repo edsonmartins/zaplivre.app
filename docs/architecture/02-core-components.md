@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `mepassa-core` library is written in Rust and provides the foundational functionality for all MePassa applications (Android, iOS, Desktop). It exposes a unified API through FFI bindings (UniFFI).
+The `zaplivre-core` library is written in Rust and provides the foundational functionality for all ZapLivre applications (Android, iOS, Desktop). It exposes a unified API through FFI bindings (UniFFI).
 
 ## Module Structure
 
@@ -35,7 +35,7 @@ pub struct Keypair {
 }
 
 pub struct Identity {
-    pub peer_id: String,             // "mepassa_[base58(pubkey)]"
+    pub peer_id: String,             // "zaplivre_[base58(pubkey)]"
     pub keypair: Keypair,
     pub prekeys: Vec<PreKey>,        // Pool of 100 one-time prekeys
 }
@@ -125,7 +125,7 @@ pub struct DoubleRatchet {
 #### 3.1 Transport
 
 ```rust
-pub struct MePassaTransport {
+pub struct ZapLivreTransport {
     tcp: TcpTransport,
     quic: QuicTransport,
     noise: NoiseConfig,
@@ -380,10 +380,10 @@ pub struct Config {
 ### Error Handling:
 
 ```rust
-pub type Result<T> = std::result::Result<T, MePassaError>;
+pub type Result<T> = std::result::Result<T, ZapLivreError>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum MePassaError {
+pub enum ZapLivreError {
     #[error("Network error: {0}")]
     Network(String),
 
@@ -402,8 +402,8 @@ pub enum MePassaError {
 ### Definition:
 
 ```rust
-// ffi/mepassa.udl
-namespace mepassa {
+// ffi/zaplivre.udl
+namespace zaplivre {
     Client create_client(Config config);
 };
 
@@ -419,8 +419,8 @@ callback interface MessageCallback {
 
 ### Generated Bindings:
 
-- **Kotlin**: `com.mepassa.bindings.MePassaCore`
-- **Swift**: `import MePassaCore`
+- **Kotlin**: `com.zaplivre.bindings.ZapLivreCore`
+- **Swift**: `import ZapLivreCore`
 
 ---
 

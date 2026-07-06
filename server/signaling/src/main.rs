@@ -1,4 +1,4 @@
-//! MePassa Signaling Server
+//! ZapLivre Signaling Server
 //!
 //! WebSocket relay for WebRTC signaling fallback.
 //!
@@ -53,7 +53,7 @@ enum WireMessage {
 async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "mepassa_signaling=info,info".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "zaplivre_signaling=info,info".into()),
         )
         .init();
 

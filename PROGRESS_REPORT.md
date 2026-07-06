@@ -1,4 +1,4 @@
-# MePassa Platform - Relatório de Progresso
+# ZapLivre Platform - Relatório de Progresso
 
 **Data:** 2025-01-20
 **Status:** FASES 1-5 CONCLUÍDAS ✅
@@ -134,11 +134,11 @@
 #### Implementado:
 - ✅ **5.1 - UniFFI Setup:**
   - Atualizado para UniFFI 0.31
-  - `src/mepassa.udl`: Interface definition
+  - `src/zaplivre.udl`: Interface definition
   - `ffi/types.rs`: FFI-safe types
   - `build.rs`: Scaffolding generation
 - ✅ **5.2 - Channel-Based Architecture:**
-  - `ffi/client.rs`: MePassaClient (400+ linhas)
+  - `ffi/client.rs`: ZapLivreClient (400+ linhas)
   - ClientHandle com mpsc channels
   - run_client_task em LocalSet
   - Resolve problema !Send do libp2p::Swarm ✅
@@ -196,7 +196,7 @@
 - [ ] 6.1.1 - Criar android/ (Gradle project)
 - [ ] 6.1.2 - Setup Jetpack Compose
 - [ ] 6.1.3 - Setup Navigation Compose
-- [ ] 6.1.4 - Integrar mepassa-core.so (FFI)
+- [ ] 6.1.4 - Integrar zaplivre-core.so (FFI)
 
 **6.2 - Telas Básicas**
 - [ ] 6.2.1 - OnboardingScreen (gerar keypair)
@@ -205,8 +205,8 @@
 - [ ] 6.2.4 - MessageInput (enviar texto)
 
 **6.3 - Integração Core**
-- [ ] 6.3.1 - MePassaService (background service)
-- [ ] 6.3.2 - Inicializar MePassaClient
+- [ ] 6.3.1 - ZapLivreService (background service)
+- [ ] 6.3.2 - Inicializar ZapLivreClient
 - [ ] 6.3.3 - Implementar send_message()
 - [ ] 6.3.4 - Event listener (receive messages)
 
@@ -228,7 +228,7 @@
 #### Tasks Principais:
 - [ ] 7.1 - Criar desktop/ (Tauri project)
 - [ ] 7.2 - Setup React frontend (Vite)
-- [ ] 7.3 - Integrar mepassa-core (Rust backend)
+- [ ] 7.3 - Integrar zaplivre-core (Rust backend)
 - [ ] 7.4 - Telas básicas (Onboarding, Conversations, Chat)
 - [ ] 7.5 - Tauri commands (init_client, send_message, events)
 - [ ] 7.6 - Tray icon + desktop notifications
@@ -380,7 +380,7 @@
 1. **VoIP (PRIORIDADE #1)** 🔥
 2. TURN relay
 3. Message Store
-4. TESTE DECISIVO: "Você usaria MePassa como chat principal?"
+4. TESTE DECISIVO: "Você usaria ZapLivre como chat principal?"
 
 ---
 

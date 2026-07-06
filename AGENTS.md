@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `core/` is the Rust workspace (`mepassa-core`) and contains core libraries, FFI, and most unit tests.
+- `core/` is the Rust workspace (`zaplivre-core`) and contains core libraries, FFI, and most unit tests.
 - `server/` hosts backend services (bootstrap, identity, push, store), each as its own Rust crate with local READMEs.
 - `android/`, `ios/`, and `desktop/` contain the platform apps (Android/Kotlin, iOS/Swift, Tauri/React/TypeScript).
 - `proto/` stores Protocol Buffers definitions used across services.

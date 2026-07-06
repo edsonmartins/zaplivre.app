@@ -3,7 +3,7 @@
 # Valida a UI de GroupChatView (navegação, campo, botão de enviar). O envio
 # ponta-a-ponta de grupo exige rede/outros membros e não persiste com 1 device
 # (mensagem própria não é salva offline) — cobertura completa em testing-manual.
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

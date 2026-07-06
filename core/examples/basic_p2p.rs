@@ -9,7 +9,7 @@
 //! Run with: `cargo run --example basic_p2p`
 
 use libp2p::identity::Keypair;
-use mepassa_core::network::NetworkManager;
+use zaplivre_core::network::NetworkManager;
 use std::error::Error;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, Level};
@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_max_level(Level::INFO)
         .init();
 
-    info!("🚀 Starting MePassa P2P Connectivity Example");
+    info!("🚀 Starting ZapLivre P2P Connectivity Example");
 
     // Create two peers with different keypairs
     let keypair1 = Keypair::generate_ed25519();

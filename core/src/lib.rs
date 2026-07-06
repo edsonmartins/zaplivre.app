@@ -1,6 +1,6 @@
-//! MePassa Core Library
+//! ZapLivre Core Library
 //!
-//! Core library for MePassa P2P chat platform.
+//! Core library for ZapLivre P2P chat platform.
 //!
 //! ## Architecture: HYBRID P2P + Server
 //!
@@ -28,8 +28,8 @@ pub use identity::{Identity, Keypair, PublicKey};
 
 // Re-export FFI types (required by UniFFI scaffolding)
 pub use ffi::{
-    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, FfiReaction, MePassaClient,
-    MePassaFfiError, MessageStatus,
+    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, FfiReaction, ZapLivreClient,
+    ZapLivreFfiError, MessageStatus,
 };
 
 // Re-export VoIP FFI types (always available - stubs when voip feature is disabled)
@@ -97,7 +97,7 @@ pub trait FfiMessageEventCallback: Send + Sync {
 }
 
 // Include UniFFI scaffolding (after all module declarations)
-uniffi::include_scaffolding!("mepassa");
+uniffi::include_scaffolding!("zaplivre");
 
 /// Initialize logging system
 pub fn init_logging(level: utils::LogLevel) {

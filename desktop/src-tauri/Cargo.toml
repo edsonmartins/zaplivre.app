@@ -1,10 +1,10 @@
 [package]
-name = "mepassa-desktop"
+name = "zaplivre-desktop"
 version = "0.1.0"
 edition = "2021"
 authors = ["IntegrallTech <contato@integralltech.com.br>"]
 license = "AGPL-3.0"
-description = "MePassa Desktop - Hybrid P2P messaging app"
+description = "ZapLivre Desktop - Hybrid P2P messaging app"
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -27,8 +27,8 @@ keyring = "2.3"
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
 
-# Local dependency - mepassa-core with video support
-mepassa-core = { path = "../../core", features = ["voip"] }
+# Local dependency - zaplivre-core with video support
+zaplivre-core = { path = "../../core", features = ["voip"] }
 
 # Error handling
 anyhow = "1.0"

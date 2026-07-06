@@ -4,13 +4,13 @@
 //! mudanças de membership trafegam como envelopes tipados dentro de
 //! mensagens 1:1 (E2E quando há sessão), no mesmo padrão do
 //! `ReactionEnvelope`. Substitui o hack anterior de mandar a seed como
-//! mensagem de texto com prefixo (`mepassa-group-key:v1:`), que era
+//! mensagem de texto com prefixo (`zaplivre-group-key:v1:`), que era
 //! spoofável e dependia de orquestração manual dos apps.
 
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 use serde::{Deserialize, Serialize};
 
-pub const GROUP_CONTROL_PREFIX: &str = "mepassa-group-ctrl:v1:";
+pub const GROUP_CONTROL_PREFIX: &str = "zaplivre-group-ctrl:v1:";
 
 /// Ações do protocolo de grupo
 pub mod actions {
@@ -57,7 +57,7 @@ pub struct GroupControlEnvelope {
 impl GroupControlEnvelope {
     pub fn encode(&self) -> Result<String> {
         let json = serde_json::to_string(self).map_err(|e| {
-            MePassaError::Protocol(format!("Failed to encode group control envelope: {}", e))
+            ZapLivreError::Protocol(format!("Failed to encode group control envelope: {}", e))
         })?;
         Ok(format!("{}{}", GROUP_CONTROL_PREFIX, json))
     }
@@ -101,6 +101,6 @@ mod tests {
     #[test]
     fn test_decode_rejects_other_content() {
         assert!(GroupControlEnvelope::decode("hello world").is_none());
-        assert!(GroupControlEnvelope::decode("mepassa-group-key:v1:abc").is_none());
+        assert!(GroupControlEnvelope::decode("zaplivre-group-key:v1:abc").is_none());
     }
 }

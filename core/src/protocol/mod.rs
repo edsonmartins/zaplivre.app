@@ -9,7 +9,7 @@ pub mod codec;
 #[allow(clippy::all)]
 #[allow(warnings)]
 pub mod pb {
-    include!("generated/mepassa.protocol.rs");
+    include!("generated/zaplivre.protocol.rs");
 }
 
 // Re-export common types

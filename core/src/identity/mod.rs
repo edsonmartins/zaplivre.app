@@ -5,7 +5,7 @@
 //! # Examples
 //!
 //! ```no_run
-//! use mepassa_core::identity::{Identity, FileIdentityStorage, IdentityStorage};
+//! use zaplivre_core::identity::{Identity, FileIdentityStorage, IdentityStorage};
 //!
 //! // Generate a new identity
 //! let identity = Identity::generate(100);

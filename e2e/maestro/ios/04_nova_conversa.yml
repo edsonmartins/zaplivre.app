@@ -4,7 +4,7 @@
 # de 1 device). Com o peer placeholder offline, o comportamento determinístico
 # é o app tratar a falha de rede sem travar — é isso que validamos aqui.
 # O envio ponta-a-ponta está em docs/guides/testing-manual.md (2 devices).
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 env:
   PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
 ---

@@ -6,7 +6,7 @@
 //! - Testes do MessageHandler (processamento + ACK) com a API atual
 
 use libp2p::PeerId;
-use mepassa_core::{
+use zaplivre_core::{
     api::ClientBuilder,
     crypto::SignalSessionManager,
     identity::Identity,
@@ -165,7 +165,7 @@ async fn test_message_handler_processing() {
 
     // Sender precisa existir como contato (FK)
     let sender_peer = PeerId::random();
-    use mepassa_core::storage::contacts::NewContact;
+    use zaplivre_core::storage::contacts::NewContact;
     let contact = NewContact {
         peer_id: sender_peer.to_string(),
         username: None,
@@ -233,7 +233,7 @@ async fn test_ack_handling() {
     let db = Database::in_memory().expect("Failed to create database");
     init_schema(&db).expect("Failed to init schema");
 
-    use mepassa_core::storage::contacts::NewContact;
+    use zaplivre_core::storage::contacts::NewContact;
     let local_peer_id = "local-peer".to_string();
     let remote_peer_id = PeerId::random().to_string();
 
@@ -255,7 +255,7 @@ async fn test_ack_handling() {
         .get_or_create_conversation(&remote_peer_id)
         .expect("Failed to create conversation");
 
-    use mepassa_core::storage::messages::NewMessage;
+    use zaplivre_core::storage::messages::NewMessage;
     let message_id = Uuid::new_v4().to_string();
     db.insert_message(&NewMessage {
         message_id: message_id.clone(),
@@ -274,7 +274,7 @@ async fn test_ack_handling() {
     let tmp = tempfile::TempDir::new().unwrap();
     let handler = build_test_handler(&local_peer_id, &db, tmp.path().to_path_buf(), event_tx);
 
-    use mepassa_core::protocol::AckMessage;
+    use zaplivre_core::protocol::AckMessage;
     handler
         .handle_outgoing_ack(AckMessage {
             message_id: message_id.clone(),

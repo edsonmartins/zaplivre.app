@@ -1,4 +1,4 @@
-# Código de Conduta - MePassa
+# Código de Conduta - ZapLivre
 
 ## Nosso Compromisso
 

@@ -6,7 +6,7 @@ DESKTOP_DIR="$ROOT_DIR/desktop"
 TAURI_CONF="$DESKTOP_DIR/src-tauri/tauri.conf.json"
 PACKAGE_JSON="$DESKTOP_DIR/package.json"
 DMG_SCRIPT="$DESKTOP_DIR/src-tauri/target/release/bundle/dmg/bundle_dmg.sh"
-APP_PATH="$DESKTOP_DIR/src-tauri/target/release/bundle/macos/MePassa.app"
+APP_PATH="$DESKTOP_DIR/src-tauri/target/release/bundle/macos/ZapLivre.app"
 ICON_PATH="$DESKTOP_DIR/src-tauri/icons/icon.icns"
 
 read_version_from_tauri() {
@@ -31,7 +31,7 @@ if [[ -z "$VERSION" ]]; then
   exit 1
 fi
 
-DMG_PATH="$DESKTOP_DIR/src-tauri/target/release/bundle/dmg/MePassa_${VERSION}_x64.dmg"
+DMG_PATH="$DESKTOP_DIR/src-tauri/target/release/bundle/dmg/ZapLivre_${VERSION}_x64.dmg"
 
 if [[ ! -x "$DMG_SCRIPT" ]]; then
   echo "DMG script not found. Run 'npm run tauri:build' first." >&2
@@ -49,13 +49,13 @@ if [[ ! -f "$ICON_PATH" ]]; then
   exit 1
 fi
 
-STAGING_DIR="$(mktemp -d /tmp/mepassa-dmg.XXXX)"
+STAGING_DIR="$(mktemp -d /tmp/zaplivre-dmg.XXXX)"
 cleanup() {
   rm -rf "$STAGING_DIR"
 }
 trap cleanup EXIT
 
-ditto -rsrc "$APP_PATH" "$STAGING_DIR/MePassa.app"
+ditto -rsrc "$APP_PATH" "$STAGING_DIR/ZapLivre.app"
 
 echo "Building DMG for version $VERSION"
 echo "Source: $APP_PATH"
@@ -64,9 +64,9 @@ echo "Staging: $STAGING_DIR"
 
 bash "$DMG_SCRIPT" \
   --skip-jenkins \
-  --volname "MePassa" \
+  --volname "ZapLivre" \
   --volicon "$ICON_PATH" \
-  --icon "MePassa.app" 140 160 \
+  --icon "ZapLivre.app" 140 160 \
   --app-drop-link 420 160 \
   --window-size 600 400 \
   --icon-size 128 \

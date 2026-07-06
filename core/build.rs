@@ -1,4 +1,4 @@
-// Build script for mepassa-core
+// Build script for zaplivre-core
 // 1. Compiles Protocol Buffers definitions into Rust code
 // 2. Generates UniFFI scaffolding from UDL
 
@@ -19,7 +19,7 @@ fn main() {
 
     // 2. Generate UniFFI scaffolding
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    let udl_path = std::path::PathBuf::from(manifest_dir).join("src/mepassa.udl");
+    let udl_path = std::path::PathBuf::from(manifest_dir).join("src/zaplivre.udl");
     let udl_path = camino::Utf8PathBuf::from_path_buf(udl_path)
         .expect("UDL path must be valid UTF-8");
     println!("cargo:rerun-if-changed={}", udl_path);

@@ -3,7 +3,7 @@ name = "turn-credentials"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "TURN credentials generation service for MePassa WebRTC"
+description = "TURN credentials generation service for ZapLivre WebRTC"
 license.workspace = true
 
 [dependencies]

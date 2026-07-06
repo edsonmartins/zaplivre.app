@@ -3,13 +3,13 @@
 ## 🚨 PROBLEMA IDENTIFICADO
 
 Claude Code leu a documentação e entendeu:
-> "MePassa é P2P descentralizado, sem servidores"
+> "ZapLivre é P2P descentralizado, sem servidores"
 
 **ISSO ESTÁ ERRADO.**
 
 ## ✅ VERDADE
 
-**MePassa é HÍBRIDO: P2P quando possível + Servidor quando necessário**
+**ZapLivre é HÍBRIDO: P2P quando possível + Servidor quando necessário**
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -31,7 +31,7 @@ Claude Code leu a documentação e entendeu:
 ## 📚 DOCUMENTOS ATUALIZADOS
 
 ### 1. **NOVO DOCUMENTO (LEIA ESTE PRIMEIRO):**
-**mepassa_arquitetura_hibrida.md**
+**zaplivre_arquitetura_hibrida.md**
 
 Explica COMPLETAMENTE:
 - Por que híbrido (não P2P puro)
@@ -46,8 +46,8 @@ Explica COMPLETAMENTE:
 
 ### ❌ Frases INCORRETAS que podem aparecer:
 
-1. **"MePassa é completamente descentralizado"**
-   - ✅ CORRETO: "MePassa usa P2P quando possível, servidor como fallback"
+1. **"ZapLivre é completamente descentralizado"**
+   - ✅ CORRETO: "ZapLivre usa P2P quando possível, servidor como fallback"
 
 2. **"Sem servidores"**
    - ✅ CORRETO: "Com servidores mínimos (bootstrap, relay, store-and-forward)"
@@ -64,7 +64,7 @@ Explica COMPLETAMENTE:
 
 **Para qualquer contexto (devs, users, marketing):**
 
-> "MePassa usa arquitetura híbrida: tenta P2P primeiro para privacidade e economia, mas tem servidores de fallback para garantir que mensagens sempre cheguem, mesmo com destinatário offline ou atrás de firewall. 80% do tráfego vai direto peer-to-peer."
+> "ZapLivre usa arquitetura híbrida: tenta P2P primeiro para privacidade e economia, mas tem servidores de fallback para garantir que mensagens sempre cheguem, mesmo com destinatário offline ou atrás de firewall. 80% do tráfego vai direto peer-to-peer."
 
 ---
 
@@ -108,13 +108,13 @@ Explica COMPLETAMENTE:
 - DHT precisa convergir
 - UX horrível
 
-**Por isso MePassa é híbrido.**
+**Por isso ZapLivre é híbrido.**
 
 ---
 
 ## ✅ O QUE FUNCIONA EM HÍBRIDO
 
-### MePassa (P2P + Server):
+### ZapLivre (P2P + Server):
 
 ✅ **Mensagem offline:**
 - Server guarda até destinatário ficar online
@@ -157,7 +157,7 @@ MAS:
 - Adoção impossível ❌
 ```
 
-### HÍBRIDO (MePassa):
+### HÍBRIDO (ZapLivre):
 ```
 Bootstrap:   R$ 150/mês
 TURN:        R$ 250/mês (só 15% uso)
@@ -205,7 +205,7 @@ UX: Igual WhatsApp ✅
 
 Antes de Claude Code começar:
 
-- [ ] Leu mepassa_arquitetura_hibrida.md?
+- [ ] Leu zaplivre_arquitetura_hibrida.md?
 - [ ] Entendeu que NÃO é P2P puro?
 - [ ] Entendeu os 3 cenários (P2P, relay, offline)?
 - [ ] Sabe que precisa implementar Message Store?
@@ -219,10 +219,10 @@ Antes de Claude Code começar:
 
 ## 🔗 LEITURA OBRIGATÓRIA
 
-1. **mepassa_arquitetura_hibrida.md** ← LER PRIMEIRO
-2. mepassa_tech_stack_completo.md
-3. mepassa_chamadas_voip.md
-4. mepassa_roadmap_atualizado.md
+1. **zaplivre_arquitetura_hibrida.md** ← LER PRIMEIRO
+2. zaplivre_tech_stack_completo.md
+3. zaplivre_chamadas_voip.md
+4. zaplivre_roadmap_atualizado.md
 
 **Ordem importa.**
 
@@ -231,13 +231,13 @@ Antes de Claude Code começar:
 ## 💬 FAQs
 
 **Q: "Mas P2P puro é mais privado, não?"**
-A: Sim, MAS não funciona offline. MePassa prioriza funcionalidade + privacidade razoável vs privacidade máxima + não funcionar.
+A: Sim, MAS não funciona offline. ZapLivre prioriza funcionalidade + privacidade razoável vs privacidade máxima + não funcionar.
 
 **Q: "Servidor pode ler mensagens?"**
 A: NÃO. E2E encrypted. Servidor vê: alice → bob, timestamp, size. NÃO vê conteúdo.
 
 **Q: "Preciso self-hostear?"**
-A: Não. Pode usar servidores MePassa oficiais. MAS pode self-hostear se quiser (compliance/privacidade).
+A: Não. Pode usar servidores ZapLivre oficiais. MAS pode self-hostear se quiser (compliance/privacidade).
 
 **Q: "P2P é 80%, por quê?"**
 A: Baseado em estudos: 80% usuários móveis conseguem P2P direto. 15% precisam relay (NAT). 5% offline.
@@ -289,7 +289,7 @@ Se muito diferente → investigar
 
 **RESUMO FINAL:**
 
-**MePassa = 80% P2P + 20% Servidor**
+**ZapLivre = 80% P2P + 20% Servidor**
 **= Privacidade boa + Confiabilidade alta + Custo baixo**
 
 ✅ Não é P2P puro

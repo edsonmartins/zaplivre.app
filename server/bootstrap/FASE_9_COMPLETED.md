@@ -8,7 +8,7 @@
 
 ## 📋 Resumo
 
-Implementação completa do Bootstrap Node para peer discovery via Kademlia DHT. O servidor serve como ponto de entrada inicial para novos peers na rede P2P do MePassa.
+Implementação completa do Bootstrap Node para peer discovery via Kademlia DHT. O servidor serve como ponto de entrada inicial para novos peers na rede P2P do ZapLivre.
 
 ### Características Principais
 - ✅ Kademlia DHT para peer discovery
@@ -48,7 +48,7 @@ pub struct Config {
 **Funcionalidades:**
 - NetworkBehaviour customizado
 - Kademlia DHT configuration (60s query timeout, replication factor 20)
-- Identify protocol (/mepassa/1.0.0)
+- Identify protocol (/zaplivre/1.0.0)
 - Ping para keep-alive
 
 **Nota:** AutoNAT foi removido para simplificar MVP (pode ser adicionado futuramente se necessário)
@@ -181,7 +181,7 @@ BootstrapBehaviour
 ├── Kademlia (DHT)
 │   ├── Query timeout: 60s
 │   └── Replication factor: 20
-├── Identify (/mepassa/1.0.0)
+├── Identify (/zaplivre/1.0.0)
 │   └── Peer info exchange
 └── Ping
     └── Keep-alive
@@ -232,12 +232,12 @@ PeerId (determinístico)
 1. **Iniciar Bootstrap Node:**
 ```bash
 cd server/bootstrap
-DATA_DIR=/tmp/mepassa-bootstrap cargo run
+DATA_DIR=/tmp/zaplivre-bootstrap cargo run
 ```
 
 **Logs esperados:**
 ```
-🚀 MePassa Bootstrap Node starting...
+🚀 ZapLivre Bootstrap Node starting...
    Peer ID: 12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK
    Listening on: /ip4/0.0.0.0/tcp/4001
 ✅ Bootstrap node ready!
@@ -268,10 +268,10 @@ client.bootstrap().await?;
 docker-compose up bootstrap-node-1
 
 # Verificar health
-docker exec mepassa-bootstrap-1 curl http://localhost:8000/health
+docker exec zaplivre-bootstrap-1 curl http://localhost:8000/health
 
 # Verificar logs
-docker logs -f mepassa-bootstrap-1
+docker logs -f zaplivre-bootstrap-1
 ```
 
 ---
@@ -288,7 +288,7 @@ docker logs -f mepassa-bootstrap-1
 
 ### Data Directory
 - **Docker**: `/app/data` (volume: `bootstrap_data`)
-- **Local dev**: `/tmp/mepassa-bootstrap` ou custom via DATA_DIR
+- **Local dev**: `/tmp/zaplivre-bootstrap` ou custom via DATA_DIR
 
 ---
 

@@ -9,7 +9,7 @@ use libp2p::{
 };
 use std::time::Duration;
 
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 /// Build a libp2p transport with:
 /// - TCP + QUIC (dual-stack)
@@ -24,7 +24,7 @@ pub fn build_transport(
     let relay_transport = relay_transport
         .upgrade(upgrade::Version::V1Lazy)
         .authenticate(noise::Config::new(keypair).map_err(|e| {
-            MePassaError::Network(format!("Failed to create Noise config: {}", e))
+            ZapLivreError::Network(format!("Failed to create Noise config: {}", e))
         })?)
         .multiplex(yamux::Config::default())
         .timeout(Duration::from_secs(20))
@@ -34,7 +34,7 @@ pub fn build_transport(
     let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
         .upgrade(upgrade::Version::V1Lazy)
         .authenticate(noise::Config::new(keypair).map_err(|e| {
-            MePassaError::Network(format!("Failed to create Noise config: {}", e))
+            ZapLivreError::Network(format!("Failed to create Noise config: {}", e))
         })?)
         .multiplex(yamux::Config::default())
         .timeout(Duration::from_secs(20))
@@ -60,7 +60,7 @@ pub fn build_transport(
     // endereços por domínio (bootstraps de produção) falham com
     // MultiaddrNotSupported (bug encontrado no primeiro run real)
     let transport = libp2p::dns::tokio::Transport::system(transport)
-        .map_err(|e| MePassaError::Network(format!("Failed to create DNS transport: {}", e)))?
+        .map_err(|e| ZapLivreError::Network(format!("Failed to create DNS transport: {}", e)))?
         .boxed();
 
     Ok((transport, relay_behaviour))

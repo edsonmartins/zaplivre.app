@@ -1,6 +1,6 @@
 //! Simple Identity Example
 //!
-//! Demonstrates basic usage of MePassa Core identity module:
+//! Demonstrates basic usage of ZapLivre Core identity module:
 //! - Generating keypairs
 //! - Creating identities with prekey pools
 //! - Signing and verifying messages
@@ -8,10 +8,10 @@
 //!
 //! Run with: cargo run --example simple_identity
 
-use mepassa_core::identity::{Identity, Keypair};
+use zaplivre_core::identity::{Identity, Keypair};
 
 fn main() {
-    println!("=== MePassa Core - Identity Example ===\n");
+    println!("=== ZapLivre Core - Identity Example ===\n");
 
     // 1. Generate a new identity with 100 prekeys
     println!("1. Generating identity with 100 prekeys...");
@@ -22,7 +22,7 @@ fn main() {
 
     // 2. Sign a message
     println!("2. Signing a message...");
-    let message = b"Hello, MePassa!";
+    let message = b"Hello, ZapLivre!";
     let signature = identity.keypair().sign(message);
     println!("   ✅ Message signed!");
     println!("   Signature: {}...", hex::encode(&signature[..16]));

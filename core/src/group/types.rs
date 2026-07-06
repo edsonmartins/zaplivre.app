@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::identity::{Keypair, PublicKey};
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 /// Group metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ pub struct Group {
     /// Whether local user has left the group
     pub is_left: bool,
 
-    /// GossipSub topic name (format: "/mepassa/group/{group_id}")
+    /// GossipSub topic name (format: "/zaplivre/group/{group_id}")
     pub topic: String,
 }
 
@@ -50,7 +50,7 @@ impl Group {
         description: Option<String>,
         creator_peer_id: String,
     ) -> Self {
-        let topic = format!("/mepassa/group/{}", id);
+        let topic = format!("/zaplivre/group/{}", id);
         let mut members = HashSet::new();
         members.insert(creator_peer_id.clone());
 
@@ -181,7 +181,7 @@ impl GroupMessage {
         let mut clone = self.clone();
         clone.signature = Vec::new();
         serde_json::to_vec(&clone)
-            .map_err(|e| MePassaError::Protocol(format!("Failed to encode group message: {}", e)))
+            .map_err(|e| ZapLivreError::Protocol(format!("Failed to encode group message: {}", e)))
     }
 
     pub fn sign(&mut self, keypair: &Keypair) -> Result<()> {
@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(group.member_count(), 1);
         assert!(group.is_member("peer-456"));
         assert!(group.is_admin("peer-456"));
-        assert_eq!(group.topic, "/mepassa/group/group-123");
+        assert_eq!(group.topic, "/zaplivre/group/group-123");
     }
 
     #[test]

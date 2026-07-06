@@ -1,7 +1,7 @@
 # Onboarding iOS: primeira execução → criar identidade → app funcional
 # Regressão: IDN-02 (auto-init atropelava a LoginView; import impossível)
 # Único flow com clearState: os demais reaproveitam a identidade criada aqui.
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - clearState
 # Pré-concede notificações; dispensa o diálogo do iOS se ainda aparecer

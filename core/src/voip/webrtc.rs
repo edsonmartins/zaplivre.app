@@ -246,7 +246,7 @@ impl WebRTCPeer {
                 rtcp_feedback: vec![],
             },
             "audio".to_owned(),
-            "mepassa-audio".to_owned(),
+            "zaplivre-audio".to_owned(),
         ));
 
         // Add track to peer connection
@@ -274,7 +274,7 @@ impl WebRTCPeer {
                 rtcp_feedback: vec![],
             },
             "video".to_owned(),
-            "mepassa-video".to_owned(),
+            "zaplivre-video".to_owned(),
         ));
 
         // Add track to peer connection

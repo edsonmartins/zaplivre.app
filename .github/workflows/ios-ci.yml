@@ -45,10 +45,10 @@ jobs:
       - name: Build Rust core for iOS device
         run: |
           cd core
-          cargo build --release --target aarch64-apple-ios --features voip -p mepassa-core
+          cargo build --release --target aarch64-apple-ios --features voip -p zaplivre-core
           mkdir -p ../ios/Libraries
-          cp ../target/aarch64-apple-ios/release/libmepassa_core.a \
-             ../ios/Libraries/libmepassa_core_ios.a
+          cp ../target/aarch64-apple-ios/release/libzaplivre_core.a \
+             ../ios/Libraries/libzaplivre_core_ios.a
 
       - name: Generate Swift bindings
         run: ./ios/generate-bindings.sh
@@ -64,8 +64,8 @@ jobs:
       - name: Build iOS project
         run: |
           cd ios
-          xcodebuild -project MePassa.xcodeproj \
-            -scheme MePassa \
+          xcodebuild -project ZapLivre.xcodeproj \
+            -scheme ZapLivre \
             -sdk iphoneos \
             -configuration Release \
             -destination 'generic/platform=iOS' \

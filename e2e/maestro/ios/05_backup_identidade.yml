@@ -2,7 +2,7 @@
 # Regressão: backup implementado mas inacessível (tela órfã)
 # O sheet "Exportar Identidade" SÓ abre se exportIdentity() teve sucesso
 # (erro vira um alert "Erro" no lugar do sheet)
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

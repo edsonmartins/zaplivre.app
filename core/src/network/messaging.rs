@@ -10,10 +10,10 @@ use crate::protocol::{codec, Message};
 
 /// Codec for encoding/decoding messages over the wire
 #[derive(Clone, Debug, Default)]
-pub struct MePassaCodec;
+pub struct ZapLivreCodec;
 
 #[async_trait::async_trait]
-impl request_response::Codec for MePassaCodec {
+impl request_response::Codec for ZapLivreCodec {
     type Protocol = StreamProtocol;
     type Request = Message;
     type Response = Message;

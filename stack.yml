@@ -5,9 +5,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mepassa}
-      POSTGRES_USER: ${POSTGRES_USER:-mepassa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mepassa_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-zaplivre}
+      POSTGRES_USER: ${POSTGRES_USER:-zaplivre}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zaplivre_dev_password}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5432:5432"
@@ -15,12 +15,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./server/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mepassa}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zaplivre}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       restart_policy:
@@ -34,7 +34,7 @@ services:
   # Redis - Presence & Queue
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-mepassa_redis_dev}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-zaplivre_redis_dev}
     ports:
       - "6379:6379"
     volumes:
@@ -45,7 +45,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       restart_policy:
@@ -77,7 +77,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       restart_policy:
@@ -87,10 +87,10 @@ services:
 
   # TURN Credentials Service
   turn-credentials:
-    image: mepassa-turn-credentials:latest
+    image: zaplivre-turn-credentials:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-mepassa_turn_dev_secret}
+      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-zaplivre_turn_dev_secret}
       - SERVER_PORT=8082
     ports:
       - "8082:8082"
@@ -101,16 +101,16 @@ services:
       retries: 3
       start_period: 5s
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-turn-credentials.rule=Host(`turn.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-turn-credentials.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-turn-credentials.tls=true"
-        - "traefik.http.routers.mepassa-turn-credentials.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-turn-credentials.loadbalancer.server.port=8082"
+        - "traefik.http.routers.zaplivre-turn-credentials.rule=Host(`turn.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-turn-credentials.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-turn-credentials.tls=true"
+        - "traefik.http.routers.zaplivre-turn-credentials.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-turn-credentials.loadbalancer.server.port=8082"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -118,7 +118,7 @@ services:
 
   # Bootstrap Node 1
   bootstrap-node-1:
-    image: mepassa-bootstrap:latest
+    image: zaplivre-bootstrap:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - BOOTSTRAP_PORT=4001
@@ -140,23 +140,23 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-bootstrap-1.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-bootstrap-1.tls=true"
-        - "traefik.http.routers.mepassa-bootstrap-1.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-bootstrap-1.loadbalancer.server.port=8000"
+        - "traefik.http.routers.zaplivre-bootstrap-1.rule=Host(`dht1.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-1.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-bootstrap-1.tls=true"
+        - "traefik.http.routers.zaplivre-bootstrap-1.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-bootstrap-1.loadbalancer.server.port=8000"
       restart_policy:
         condition: on-failure
         delay: 5s
         max_attempts: 5
 
   bootstrap-node-2:
-    image: mepassa-bootstrap:latest
+    image: zaplivre-bootstrap:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - BOOTSTRAP_PORT=4001
@@ -178,16 +178,16 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-bootstrap-2.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-bootstrap-2.tls=true"
-        - "traefik.http.routers.mepassa-bootstrap-2.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-bootstrap-2.loadbalancer.server.port=8000"
+        - "traefik.http.routers.zaplivre-bootstrap-2.rule=Host(`dht2.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-bootstrap-2.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-bootstrap-2.tls=true"
+        - "traefik.http.routers.zaplivre-bootstrap-2.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-bootstrap-2.loadbalancer.server.port=8000"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -195,11 +195,11 @@ services:
 
   # Message Store Server
   message-store:
-    image: mepassa-store:latest
+    image: zaplivre-store:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
       - SERVER_PORT=8080
       - ENABLE_TTL_CLEANUP=${ENABLE_TTL_CLEANUP:-true}
       # PSH-02: acordar destinatários offline via push
@@ -213,16 +213,16 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-store.rule=Host(`store.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-store.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-store.tls=true"
-        - "traefik.http.routers.mepassa-store.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-store.loadbalancer.server.port=8080"
+        - "traefik.http.routers.zaplivre-store.rule=Host(`store.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-store.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-store.tls=true"
+        - "traefik.http.routers.zaplivre-store.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-store.loadbalancer.server.port=8080"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -230,7 +230,7 @@ services:
 
   # Push Notification Server
   push-server:
-    image: mepassa-push:latest
+    image: zaplivre-push:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       # FCM HTTP v1: JSON do service account em server/push/certs/
@@ -239,25 +239,25 @@ services:
       - APNS_KEY_PATH=/etc/push/apns_key.p8
       - APNS_KEY_ID=${APNS_KEY_ID:-}
       - APNS_TEAM_ID=${APNS_TEAM_ID:-}
-      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.mepassa.ios}
+      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.zaplivre.ios}
       - APNS_PRODUCTION=${APNS_PRODUCTION:-true}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
       - PORT=8081
     ports:
       - "8081:8081"
     volumes:
       - ./server/push/certs:/etc/push:ro
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-push.rule=Host(`push.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-push.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-push.tls=true"
-        - "traefik.http.routers.mepassa-push.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-push.loadbalancer.server.port=8081"
+        - "traefik.http.routers.zaplivre-push.rule=Host(`push.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-push.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-push.tls=true"
+        - "traefik.http.routers.zaplivre-push.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-push.loadbalancer.server.port=8081"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -265,11 +265,11 @@ services:
 
   # Identity Server (usernames + prekey bundles - ADR 001)
   identity-server:
-    image: mepassa-identity:latest
+    image: zaplivre-identity:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mepassa}:${POSTGRES_PASSWORD:-mepassa_dev_password}@postgres:5432/${POSTGRES_DB:-mepassa}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-mepassa_redis_dev}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
       - BIND_ADDR=0.0.0.0:8083
     ports:
       - "8083:8083"
@@ -280,16 +280,16 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-identity.rule=Host(`identity.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-identity.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-identity.tls=true"
-        - "traefik.http.routers.mepassa-identity.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-identity.loadbalancer.server.port=8083"
+        - "traefik.http.routers.zaplivre-identity.rule=Host(`identity.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-identity.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-identity.tls=true"
+        - "traefik.http.routers.zaplivre-identity.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-identity.loadbalancer.server.port=8083"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -297,7 +297,7 @@ services:
 
   # Signaling Server (WebRTC fallback)
   signaling-server:
-    image: ghcr.io/integrall-tech/mepassa-signaling:latest
+    image: ghcr.io/integrall-tech/zaplivre-signaling:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
     ports:
@@ -309,16 +309,16 @@ services:
       retries: 3
       start_period: 5s
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.mepassa-signaling.rule=Host(`signaling.associahub.com.br`)"
-        - "traefik.http.routers.mepassa-signaling.entrypoints=websecure"
-        - "traefik.http.routers.mepassa-signaling.tls=true"
-        - "traefik.http.routers.mepassa-signaling.tls.certresolver=letsencrypt"
-        - "traefik.http.services.mepassa-signaling.loadbalancer.server.port=8086"
+        - "traefik.http.routers.zaplivre-signaling.rule=Host(`signaling.associahub.com.br`)"
+        - "traefik.http.routers.zaplivre-signaling.entrypoints=websecure"
+        - "traefik.http.routers.zaplivre-signaling.tls=true"
+        - "traefik.http.routers.zaplivre-signaling.tls.certresolver=letsencrypt"
+        - "traefik.http.services.zaplivre-signaling.loadbalancer.server.port=8086"
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -336,7 +336,7 @@ services:
       - ./server/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       replicas: 0
@@ -359,7 +359,7 @@ services:
       - ./server/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./server/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     networks:
-      - mepassa-network
+      - zaplivre-network
       - traefik-network
     deploy:
       replicas: 0
@@ -383,7 +383,7 @@ volumes:
     driver: local
 
 networks:
-  mepassa-network:
+  zaplivre-network:
     driver: overlay
   traefik-network:
     external: true

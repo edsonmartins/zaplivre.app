@@ -1,7 +1,7 @@
 # Anti-órfã iOS: telas principais alcançáveis a partir de Conversas
 # (Settings, Grupos e Nova Conversa abrem como sheets; Settings e Grupos
 # não têm botão Fechar, então o sheet é dispensado com swipe para baixo)
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - runFlow: common/_setup_identity.yml
 

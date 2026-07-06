@@ -1,6 +1,6 @@
 # Informações do grupo: criar/abrir grupo → info → nome e "Sair do grupo"
 # visíveis → fechar SEM sair do grupo
-appId: app.mepassa.ios
+appId: app.zaplivre.ios
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

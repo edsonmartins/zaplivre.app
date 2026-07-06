@@ -31,9 +31,9 @@ impl Database {
     /// # Examples
     ///
     /// ```no_run
-    /// use mepassa_core::storage::Database;
+    /// use zaplivre_core::storage::Database;
     ///
-    /// let db = Database::open("./data/mepassa.db").unwrap();
+    /// let db = Database::open("./data/zaplivre.db").unwrap();
     /// ```
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         // Create parent directory if it doesn't exist

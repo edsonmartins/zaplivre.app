@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to generate Swift bindings from mepassa-core
+# Script to generate Swift bindings from zaplivre-core
 # This uses UniFFI to generate Swift code from the UDL definition
 
 set -e
@@ -7,19 +7,19 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CORE_DIR="$PROJECT_ROOT/core"
-OUTPUT_DIR="$SCRIPT_DIR/MePassa/Generated"
+OUTPUT_DIR="$SCRIPT_DIR/ZapLivre/Generated"
 
-echo "🔨 Generating Swift bindings for MePassa Core..."
+echo "🔨 Generating Swift bindings for ZapLivre Core..."
 
 # 1. Build the core library first
-echo "📦 Building mepassa-core..."
+echo "📦 Building zaplivre-core..."
 cd "$CORE_DIR"
 cargo build --release --lib
 
 # 2. Find the library path (workspace root target directory)
 # Note: Cargo workspace builds go to workspace root, not package directory
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    LIB_PATH="$PROJECT_ROOT/target/release/libmepassa_core.dylib"
+    LIB_PATH="$PROJECT_ROOT/target/release/libzaplivre_core.dylib"
 else
     echo "❌ Error: This script is currently only for macOS/iOS"
     exit 1
@@ -59,8 +59,8 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "🎯 Next steps:"
     echo "   1. Add generated files to Xcode project"
-    echo "   2. Add libmepassa_core.dylib to 'Frameworks and Libraries'"
-    echo "   3. Import mepassa in Swift: import mepassa"
+    echo "   2. Add libzaplivre_core.dylib to 'Frameworks and Libraries'"
+    echo "   3. Import zaplivre in Swift: import zaplivre"
 else
     echo "❌ Error generating Swift bindings"
     exit 1

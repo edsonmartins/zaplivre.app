@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::error::{MePassaError, Result};
+use crate::utils::error::{ZapLivreError, Result};
 
 pub const REACTION_ENVELOPE_PREFIX: &str = "MP_REACTION_V1:";
 
@@ -15,7 +15,7 @@ pub struct ReactionEnvelope {
 impl ReactionEnvelope {
     pub fn encode(&self) -> Result<String> {
         let json = serde_json::to_string(self).map_err(|e| {
-            MePassaError::Protocol(format!("Failed to encode reaction envelope: {}", e))
+            ZapLivreError::Protocol(format!("Failed to encode reaction envelope: {}", e))
         })?;
         Ok(format!("{}{}", REACTION_ENVELOPE_PREFIX, json))
     }

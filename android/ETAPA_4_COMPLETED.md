@@ -20,7 +20,7 @@ Integração completa do Android app com o Push Server, incluindo:
 
 ### 1. PushServerClient (HTTP Client)
 
-**Arquivo:** `android/app/src/main/kotlin/com/mepassa/push/PushServerClient.kt` (195 linhas)
+**Arquivo:** `android/app/src/main/kotlin/com/zaplivre/push/PushServerClient.kt` (195 linhas)
 
 **Funcionalidades:**
 - ✅ `registerToken()` - Registra/atualiza FCM token no Push Server
@@ -52,26 +52,26 @@ val success = pushClient.registerToken(
 
 ### 2. Integração com FirebaseMessagingService
 
-**Arquivo:** `android/app/src/main/kotlin/com/mepassa/service/MePassaFirebaseMessagingService.kt`
+**Arquivo:** `android/app/src/main/kotlin/com/zaplivre/service/ZapLivreFirebaseMessagingService.kt`
 
 **Mudanças:**
 - ✅ Adicionado `PushServerClient` lazy initialization
 - ✅ Implementado `sendTokenToServer()` real (não mais TODO)
 - ✅ Coroutine scope para operações async
-- ✅ Integração com `MePassaClientWrapper.localPeerId`
+- ✅ Integração com `ZapLivreClientWrapper.localPeerId`
 - ✅ Logs detalhados de sucesso/erro
 
 **Fluxo:**
 1. FCM gera novo token → `onNewToken()` chamado
 2. Verifica se `peer_id` está disponível
 3. Se sim: envia token ao Push Server
-4. Se não: aguarda inicialização do MePassaClient
+4. Se não: aguarda inicialização do ZapLivreClient
 
 ---
 
-### 3. Integração com MePassaService
+### 3. Integração com ZapLivreService
 
-**Arquivo:** `android/app/src/main/kotlin/com/mepassa/service/MePassaService.kt`
+**Arquivo:** `android/app/src/main/kotlin/com/zaplivre/service/ZapLivreService.kt`
 
 **Mudanças:**
 - ✅ Adicionado `PushServerClient` lazy initialization
@@ -80,21 +80,21 @@ val success = pushClient.registerToken(
 - ✅ Registra token com Push Server no startup
 
 **Fluxo:**
-1. `MePassaService.onCreate()` é chamado
-2. Inicializa `MePassaClient` (obtém peer_id)
+1. `ZapLivreService.onCreate()` é chamado
+2. Inicializa `ZapLivreClient` (obtém peer_id)
 3. Obtém FCM token do Firebase
 4. Registra token no Push Server
 5. Inicia P2P listener e bootstrap
 
 **Logs esperados:**
 ```
-MePassaService: Initializing MePassaClient from service
-MePassaService: 🔐 Getting FCM token...
-MePassaService: 📱 FCM token obtained: AAAA...
-MePassaService: 📤 Registering FCM token with Push Server...
+ZapLivreService: Initializing ZapLivreClient from service
+ZapLivreService: 🔐 Getting FCM token...
+ZapLivreService: 📱 FCM token obtained: AAAA...
+ZapLivreService: 📤 Registering FCM token with Push Server...
 PushServerClient: 📤 Registering token - peer_id: xxx, device_id: yyy
 PushServerClient: ✅ Token registered successfully
-MePassaService: ✅ FCM token successfully registered with Push Server
+ZapLivreService: ✅ FCM token successfully registered with Push Server
 ```
 
 ---
@@ -117,7 +117,7 @@ implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
 ### 5. Documentação de Testes
 
-**Arquivo:** `/Users/edsonmartins/desenvolvimento/mepassa/FASE_8_TESTING_GUIDE.md` (500+ linhas)
+**Arquivo:** `/Users/edsonmartins/desenvolvimento/zaplivre/FASE_8_TESTING_GUIDE.md` (500+ linhas)
 
 **Conteúdo:**
 - ✅ Setup completo (Push Server, Firebase, Android, Desktop)
@@ -146,10 +146,10 @@ implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 ```
 1. MainActivity inicia
    ↓
-2. MePassaService.start() é chamado
+2. ZapLivreService.start() é chamado
    ↓
-3. MePassaService.onCreate():
-   - Inicializa MePassaClient
+3. ZapLivreService.onCreate():
+   - Inicializa ZapLivreClient
    - Obtém peer_id
    ↓
 4. registerPushToken():
@@ -170,7 +170,7 @@ implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 ```
 1. Firebase gera novo token
    ↓
-2. MePassaFirebaseMessagingService.onNewToken()
+2. ZapLivreFirebaseMessagingService.onNewToken()
    ↓
 3. sendTokenToServer():
    - Verifica se peer_id está disponível
@@ -188,13 +188,13 @@ implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 ## 📊 Arquivos Criados/Modificados
 
 ### Criados (2 arquivos)
-1. `android/app/src/main/kotlin/com/mepassa/push/PushServerClient.kt` - 195 linhas
+1. `android/app/src/main/kotlin/com/zaplivre/push/PushServerClient.kt` - 195 linhas
 2. `FASE_8_TESTING_GUIDE.md` - 500+ linhas
 
 ### Modificados (3 arquivos)
 1. `android/app/build.gradle.kts` - Adicionado OkHttp dependencies
-2. `android/app/src/main/kotlin/com/mepassa/service/MePassaFirebaseMessagingService.kt` - Implementado sendTokenToServer()
-3. `android/app/src/main/kotlin/com/mepassa/service/MePassaService.kt` - Adicionado registerPushToken()
+2. `android/app/src/main/kotlin/com/zaplivre/service/ZapLivreFirebaseMessagingService.kt` - Implementado sendTokenToServer()
+3. `android/app/src/main/kotlin/com/zaplivre/service/ZapLivreService.kt` - Adicionado registerPushToken()
 
 **Total:** ~700 linhas de código/documentação
 
@@ -218,7 +218,7 @@ cd android
 
 3. **Verificar logs:**
 ```bash
-adb logcat -s FCM MePassaService PushServerClient | grep -E "(📤|✅|❌)"
+adb logcat -s FCM ZapLivreService PushServerClient | grep -E "(📤|✅|❌)"
 ```
 
 4. **Enviar notificação teste:**
@@ -344,7 +344,7 @@ if (isNetworkAvailable(context)) {
 
 **Problema:** Se o Android app inicia sem conexão de rede, o token não é registrado.
 
-**Workaround:** MePassaService tenta novamente quando app volta ao foreground.
+**Workaround:** ZapLivreService tenta novamente quando app volta ao foreground.
 
 **Solução permanente:** Implementar retry logic ou WorkManager para background sync.
 
@@ -371,7 +371,7 @@ if (isNetworkAvailable(context)) {
 - [x] OkHttp adicionado ao build.gradle.kts
 - [x] PushServerClient implementado
 - [x] FirebaseMessagingService integrado
-- [x] MePassaService integrado
+- [x] ZapLivreService integrado
 - [x] Logs informativos em todas as operações
 - [x] Error handling robusto
 - [x] Documentação de testes criada

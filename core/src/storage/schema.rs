@@ -1,6 +1,6 @@
 //! Database Schema Definitions
 //!
-//! SQL schema for MePassa local storage.
+//! SQL schema for ZapLivre local storage.
 
 use super::{Database, Result};
 

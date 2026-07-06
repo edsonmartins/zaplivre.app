@@ -1,6 +1,6 @@
-# Guia de Contribuição - MePassa
+# Guia de Contribuição - ZapLivre
 
-Obrigado por considerar contribuir com o MePassa! 🎉
+Obrigado por considerar contribuir com o ZapLivre! 🎉
 
 ## 📋 Código de Conduta
 
@@ -105,8 +105,8 @@ cargo install cargo-edit
 
 ### Clone e Build
 ```bash
-git clone https://github.com/integralltech/mepassa.git
-cd mepassa
+git clone https://github.com/integralltech/zaplivre.git
+cd zaplivre
 
 # Build core
 cd core
@@ -205,7 +205,7 @@ docs(readme): atualizar instruções de build
 cargo test --workspace
 
 # Testes de um módulo específico
-cargo test --package mepassa-core --lib identity
+cargo test --package zaplivre-core --lib identity
 
 # Testes com output
 cargo test -- --nocapture
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_keypair_generation() {
         let keypair = Keypair::generate();
-        assert!(keypair.peer_id().starts_with("mepassa_"));
+        assert!(keypair.peer_id().starts_with("zaplivre_"));
     }
 
     #[tokio::test]

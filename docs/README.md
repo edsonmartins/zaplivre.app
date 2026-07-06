@@ -1,12 +1,12 @@
-# MePassa Documentation
+# ZapLivre Documentation
 
-Welcome to the MePassa documentation! This folder contains comprehensive guides, architecture documentation, and API references.
+Welcome to the ZapLivre documentation! This folder contains comprehensive guides, architecture documentation, and API references.
 
 ## 📚 Documentation Structure
 
 ### Architecture (`architecture/`)
 
-Deep-dive into the technical architecture of MePassa:
+Deep-dive into the technical architecture of ZapLivre:
 
 1. **[Hybrid Architecture](architecture/01-hybrid-architecture.md)**
    - Overview of P2P + Server hybrid model
@@ -14,7 +14,7 @@ Deep-dive into the technical architecture of MePassa:
    - Cost comparisons and trade-offs
 
 2. **[Core Components](architecture/02-core-components.md)**
-   - Detailed breakdown of `mepassa-core` modules
+   - Detailed breakdown of `zaplivre-core` modules
    - Identity, Crypto, Network, Storage, VoIP, etc.
    - FFI bindings and API design
 
@@ -109,8 +109,8 @@ Protocol and format specifications:
 
 ## 📖 External Resources
 
-- **Official Website**: https://mepassa.app _(coming soon)_
-- **GitHub Repository**: https://github.com/integralltech/mepassa
+- **Official Website**: https://zaplivre.app _(coming soon)_
+- **GitHub Repository**: https://github.com/integralltech/zaplivre
 - **Technical Blog**: _(coming soon)_
 
 ### Related Technologies
@@ -139,8 +139,8 @@ Documentation improvements are always welcome! To contribute:
 
 ## 📝 License
 
-This documentation is part of the MePassa project and is licensed under [AGPL-3.0](../LICENSE).
+This documentation is part of the ZapLivre project and is licensed under [AGPL-3.0](../LICENSE).
 
 ---
 
-**Questions or feedback?** Open an issue or discussion on [GitHub](https://github.com/integralltech/mepassa).
+**Questions or feedback?** Open an issue or discussion on [GitHub](https://github.com/integralltech/zaplivre).

@@ -30,16 +30,16 @@ jobs:
       - name: Check core with voip feature
         # A feature voip é opcional e já escondeu código quebrado (ENV-04);
         # verificar sempre no CI
-        run: cargo check -p mepassa-core --features voip
+        run: cargo check -p zaplivre-core --features voip
 
       - name: Unit tests (core lib)
-        run: cargo test -p mepassa-core --lib
+        run: cargo test -p zaplivre-core --lib
 
       - name: Integration tests (working suites)
-        run: cargo test -p mepassa-core --test p2p_messaging --test relay_integration --test message_integration --test reliability
+        run: cargo test -p zaplivre-core --test p2p_messaging --test relay_integration --test message_integration --test reliability
 
       - name: Server tests
-        run: cargo test -p mepassa-store -p mepassa-push -p turn-credentials -p mepassa-signaling
+        run: cargo test -p zaplivre-store -p zaplivre-push -p turn-credentials -p zaplivre-signaling
 
   identity-integration:
     name: Identity server integration
@@ -48,8 +48,8 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: mepassa
-          POSTGRES_DB: mepassa_identity
+          POSTGRES_USER: zaplivre
+          POSTGRES_DB: zaplivre_identity
           # Banco efêmero do runner (só localhost, destruído ao fim do job):
           # sem senha, autenticação por trust. Evita hardcodar credencial.
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -65,7 +65,7 @@ jobs:
         ports:
           - 6379:6379
     env:
-      DATABASE_URL: postgres://mepassa@localhost:5432/mepassa_identity
+      DATABASE_URL: postgres://zaplivre@localhost:5432/zaplivre_identity
       REDIS_URL: redis://localhost:6379
       IDENTITY_SERVER_URL: http://localhost:8083
     steps:
@@ -86,15 +86,15 @@ jobs:
 
       - name: Build and start identity-server
         run: |
-          cargo build -p mepassa-identity-server
-          BIND_ADDR=127.0.0.1:8083 RATE_LIMIT_DISABLED=1 ./target/debug/mepassa-identity-server &
+          cargo build -p zaplivre-identity-server
+          BIND_ADDR=127.0.0.1:8083 RATE_LIMIT_DISABLED=1 ./target/debug/zaplivre-identity-server &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8083/health && break
             sleep 1
           done
 
       - name: Identity integration tests
-        run: cargo test -p mepassa-core --test identity_integration --features integration-tests -- --test-threads=1
+        run: cargo test -p zaplivre-core --test identity_integration --features integration-tests -- --test-threads=1
 
   voip-integration:
     name: VoIP integration (non-blocking)
@@ -115,7 +115,7 @@ jobs:
 
       - name: VoIP integration tests (including ignored)
         timeout-minutes: 20
-        run: cargo test -p mepassa-core --test voip_integration --features voip -- --include-ignored --test-threads=1
+        run: cargo test -p zaplivre-core --test voip_integration --features voip -- --include-ignored --test-threads=1
 
   desktop:
     name: Desktop (TypeScript)

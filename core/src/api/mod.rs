@@ -1,6 +1,6 @@
 //! Public API module
 //!
-//! Main Client API for MePassa.
+//! Main Client API for ZapLivre.
 
 pub mod builder;
 pub mod client;

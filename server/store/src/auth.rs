@@ -2,9 +2,9 @@
 //!
 //! O cliente assina `"{METHOD}:/api/store:{timestamp}"` com a chave de
 //! identidade e envia:
-//!   x-mepassa-peer: peer id (libp2p, com a chave Ed25519 inline)
-//!   x-mepassa-ts:   unix timestamp (janela de 5 min)
-//!   x-mepassa-sig:  assinatura base64
+//!   x-zaplivre-peer: peer id (libp2p, com a chave Ed25519 inline)
+//!   x-zaplivre-ts:   unix timestamp (janela de 5 min)
+//!   x-zaplivre-sig:  assinatura base64
 //!
 //! A chave pública é extraída do próprio peer ID (multihash identity),
 //! então não há registro prévio: provar posse do peer ID é a autenticação.
@@ -16,11 +16,11 @@ pub struct AuthError(pub &'static str);
 
 /// Verifica a assinatura da requisição e retorna o peer ID autenticado.
 pub fn verify_request(req: &HttpRequest) -> Result<String, AuthError> {
-    let peer = header(req, "x-mepassa-peer").ok_or(AuthError("missing x-mepassa-peer"))?;
-    let ts: i64 = header(req, "x-mepassa-ts")
+    let peer = header(req, "x-zaplivre-peer").ok_or(AuthError("missing x-zaplivre-peer"))?;
+    let ts: i64 = header(req, "x-zaplivre-ts")
         .and_then(|v| v.parse().ok())
-        .ok_or(AuthError("missing or invalid x-mepassa-ts"))?;
-    let sig_b64 = header(req, "x-mepassa-sig").ok_or(AuthError("missing x-mepassa-sig"))?;
+        .ok_or(AuthError("missing or invalid x-zaplivre-ts"))?;
+    let sig_b64 = header(req, "x-zaplivre-sig").ok_or(AuthError("missing x-zaplivre-sig"))?;
 
     let now = chrono::Utc::now().timestamp();
     if (now - ts).abs() > 300 {

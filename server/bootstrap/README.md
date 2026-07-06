@@ -1,10 +1,10 @@
-# MePassa Bootstrap Node
+# ZapLivre Bootstrap Node
 
-Bootstrap node for peer discovery in the MePassa P2P network using Kademlia DHT.
+Bootstrap node for peer discovery in the ZapLivre P2P network using Kademlia DHT.
 
 ## Overview
 
-The Bootstrap Node serves as the initial entry point for peers joining the MePassa network. It maintains a Kademlia DHT routing table to help peers discover each other and establish direct P2P connections.
+The Bootstrap Node serves as the initial entry point for peers joining the ZapLivre network. It maintains a Kademlia DHT routing table to help peers discover each other and establish direct P2P connections.
 
 ## Features
 
@@ -40,7 +40,7 @@ docker-compose up bootstrap-node-1
 View logs:
 
 ```bash
-docker logs -f mepassa-bootstrap-1
+docker logs -f zaplivre-bootstrap-1
 ```
 
 ### VPS (Docker build + Docker Stack)
@@ -48,30 +48,30 @@ docker logs -f mepassa-bootstrap-1
 1. Build the image on your VPS:
 
 ```bash
-docker build -f server/bootstrap/Dockerfile -t mepassa-bootstrap:latest .
+docker build -f server/bootstrap/Dockerfile -t zaplivre-bootstrap:latest .
 ```
 
 2. Create the env file on the VPS (example):
 
 ```bash
-sudo mkdir -p /etc/mepassa
-sudo cp server/bootstrap/.env.example /etc/mepassa/bootstrap.env
-sudo cp server/bootstrap/.env.bootstrap-2.example /etc/mepassa/bootstrap-2.env
-sudo nano /etc/mepassa/bootstrap.env
-sudo nano /etc/mepassa/bootstrap-2.env
+sudo mkdir -p /etc/zaplivre
+sudo cp server/bootstrap/.env.example /etc/zaplivre/bootstrap.env
+sudo cp server/bootstrap/.env.bootstrap-2.example /etc/zaplivre/bootstrap-2.env
+sudo nano /etc/zaplivre/bootstrap.env
+sudo nano /etc/zaplivre/bootstrap-2.env
 ```
 
 3. Deploy with Docker Stack:
 
 ```bash
-docker stack deploy -c server/bootstrap/stack.yml mepassa
+docker stack deploy -c server/bootstrap/stack.yml zaplivre
 ```
 
 4. Logs and health check:
 
 ```bash
-docker service logs -f mepassa_bootstrap-node
-docker service logs -f mepassa_bootstrap-node-2
+docker service logs -f zaplivre_bootstrap-node
+docker service logs -f zaplivre_bootstrap-node-2
 curl http://localhost:8000/health
 curl http://localhost:8001/health
 ```
@@ -142,7 +142,7 @@ Example response:
 
 ## Client Connection
 
-To connect to the bootstrap node from a MePassa client:
+To connect to the bootstrap node from a ZapLivre client:
 
 ```rust
 use libp2p::{Multiaddr, PeerId};
@@ -161,7 +161,7 @@ client.bootstrap().await?;
 The bootstrap node peer ID will be printed in the logs when it starts:
 
 ```
-🚀 MePassa Bootstrap Node starting...
+🚀 ZapLivre Bootstrap Node starting...
    Peer ID: 12D3KooWABC123...
    Listening on: /ip4/0.0.0.0/tcp/4001
 ✅ Bootstrap node ready!
@@ -267,7 +267,7 @@ ports:
 
 1. Check firewall rules allow port 4001
 2. Verify bootstrap node is running: `curl http://localhost:8000/health`
-3. Check logs for errors: `docker logs mepassa-bootstrap-1`
+3. Check logs for errors: `docker logs zaplivre-bootstrap-1`
 4. Ensure clients are using correct peer ID and multiaddr
 
 ### High CPU usage

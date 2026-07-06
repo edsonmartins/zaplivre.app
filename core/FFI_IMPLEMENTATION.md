@@ -1,8 +1,8 @@
-# FFI Implementation Documentation - MePassa Core
+# FFI Implementation Documentation - ZapLivre Core
 
 ## Visão Geral
 
-A camada FFI (Foreign Function Interface) do mepassa-core utiliza **UniFFI 0.31** para gerar bindings automáticos para Kotlin (Android) e Swift (iOS/macOS). Esta implementação resolve desafios complexos de threading impostos pela arquitetura do libp2p.
+A camada FFI (Foreign Function Interface) do zaplivre-core utiliza **UniFFI 0.31** para gerar bindings automáticos para Kotlin (Android) e Swift (iOS/macOS). Esta implementação resolve desafios complexos de threading impostos pela arquitetura do libp2p.
 
 ## Arquitetura
 
@@ -22,7 +22,7 @@ Em vez de expor o `Client` diretamente através do FFI, implementamos uma arquit
          │ FFI calls
          ▼
 ┌─────────────────┐
-│ MePassaClient   │  (Send + Sync - apenas contém String)
+│ ZapLivreClient   │  (Send + Sync - apenas contém String)
 │  (FFI wrapper)  │
 └────────┬────────┘
          │ mpsc::channel
@@ -46,7 +46,7 @@ Em vez de expor o `Client` diretamente através do FFI, implementamos uma arquit
 
 ### Componentes
 
-#### 1. MePassaClient (src/ffi/client.rs)
+#### 1. ZapLivreClient (src/ffi/client.rs)
 
 Struct thread-safe que:
 - **Não** contém `Arc<Client>` diretamente
@@ -114,22 +114,22 @@ pub struct Database {
 
 ## Arquivos Principais
 
-### UDL Definition (src/mepassa.udl)
+### UDL Definition (src/zaplivre.udl)
 
 Define a interface FFI declarativamente:
 
 ```webidl
-interface MePassaClient {
-    [Throws=MePassaFfiError]
+interface ZapLivreClient {
+    [Throws=ZapLivreFfiError]
     constructor(string data_dir);
 
-    [Throws=MePassaFfiError]
+    [Throws=ZapLivreFfiError]
     string local_peer_id();
 
-    [Throws=MePassaFfiError, Async]
+    [Throws=ZapLivreFfiError, Async]
     void listen_on(string multiaddr);
 
-    [Throws=MePassaFfiError, Async]
+    [Throws=ZapLivreFfiError, Async]
     string send_text_message(string to_peer_id, string content);
 
     // ... outros métodos
@@ -139,7 +139,7 @@ interface MePassaClient {
 ### FFI Types (src/ffi/types.rs)
 
 Tipos FFI-safe:
-- `MePassaFfiError` - enum de erros com mensagens
+- `ZapLivreFfiError` - enum de erros com mensagens
 - `FfiMessage` - mensagem com todos os campos serializáveis
 - `FfiConversation` - conversação
 - `MessageStatus` - enum de status
@@ -147,7 +147,7 @@ Tipos FFI-safe:
 Conversões automáticas via `From` traits:
 ```rust
 impl From<crate::storage::Message> for FfiMessage { ... }
-impl From<crate::utils::error::MePassaError> for MePassaFfiError { ... }
+impl From<crate::utils::error::ZapLivreError> for ZapLivreFfiError { ... }
 ```
 
 ### Client Implementation (src/ffi/client.rs)
@@ -190,7 +190,7 @@ for (addr_str, peer_id_str) in bootstrap_peers {
 2. FFI binding converte para Rust
    │
    ▼
-3. MePassaClient::send_text_message()
+3. ZapLivreClient::send_text_message()
    │
    ▼
 4. Cria oneshot channel para resposta
@@ -208,7 +208,7 @@ for (addr_str, peer_id_str) in bootstrap_peers {
 8. Envia resultado via oneshot
    │
    ▼
-9. MePassaClient recebe resultado (await)
+9. ZapLivreClient recebe resultado (await)
    │
    ▼
 10. Retorna para Kotlin via FFI
@@ -230,7 +230,7 @@ uniffi = { workspace = true, features = ["build"] }
 
 ```rust
 // Gera scaffolding do UDL
-uniffi::generate_scaffolding("src/mepassa.udl")
+uniffi::generate_scaffolding("src/zaplivre.udl")
     .expect("Failed to generate UniFFI scaffolding");
 ```
 
@@ -238,12 +238,12 @@ uniffi::generate_scaffolding("src/mepassa.udl")
 
 ```rust
 // Include scaffolding NO CRATE ROOT (não em submodule!)
-uniffi::include_scaffolding!("mepassa");
+uniffi::include_scaffolding!("zaplivre");
 
 // Re-exportar tipos FFI no crate root
 pub use ffi::{
-    FfiConversation, FfiMessage, MePassaClient,
-    MePassaFfiError, MessageStatus,
+    FfiConversation, FfiMessage, ZapLivreClient,
+    ZapLivreFfiError, MessageStatus,
 };
 ```
 
@@ -264,15 +264,15 @@ cargo run --example generate_bindings
 ```
 
 Isso gera:
-- `target/bindings/mepassa.kt` (Kotlin)
-- `target/bindings/mepassa.swift` (Swift)
+- `target/bindings/zaplivre.kt` (Kotlin)
+- `target/bindings/zaplivre.swift` (Swift)
 
 ### Via uniffi-bindgen (futuro)
 
 Quando disponível para 0.31:
 ```bash
-uniffi-bindgen generate src/mepassa.udl --language kotlin --out-dir target/bindings
-uniffi-bindgen generate src/mepassa.udl --language swift --out-dir target/bindings
+uniffi-bindgen generate src/zaplivre.udl --language kotlin --out-dir target/bindings
+uniffi-bindgen generate src/zaplivre.udl --language swift --out-dir target/bindings
 ```
 
 ## Testes
@@ -289,7 +289,7 @@ cargo test            # Testes unitários
 ### Verificar Scaffolding Gerado
 
 ```bash
-ls ../target/debug/build/mepassa-core-*/out/mepassa.uniffi.rs
+ls ../target/debug/build/zaplivre-core-*/out/zaplivre.uniffi.rs
 ```
 
 ## Limitações e Trade-offs
@@ -313,7 +313,7 @@ ls ../target/debug/build/mepassa-core-*/out/mepassa.uniffi.rs
 2. **Complexity** - Arquitetura mais complexa que FFI direto
 
 3. **Single client** - Apenas um Client global (via OnceLock)
-   - Múltiplos MePassaClient compartilham mesmo Client
+   - Múltiplos ZapLivreClient compartilham mesmo Client
    - data_dir do primeiro new() é usado
 
 4. **Lifet ime management** - Client vive até o fim do programa
@@ -328,20 +328,20 @@ ls ../target/debug/build/mepassa-core-*/out/mepassa.uniffi.rs
 - [x] Arquitetura de channels implementada
 - [x] Compilação bem-sucedida
 - [x] Feature bindgen habilitada
-- [x] Bindings Kotlin gerados (80KB - uniffi/mepassa/mepassa.kt)
-- [x] Bindings Swift gerados (47KB - mepassa.swift + 26KB - mepassaFFI.h)
+- [x] Bindings Kotlin gerados (80KB - uniffi/zaplivre/zaplivre.kt)
+- [x] Bindings Swift gerados (47KB - zaplivre.swift + 26KB - zaplivreFFI.h)
 - [x] Cross-compilation Android configurada (NDK 26.3.11579264)
-- [x] libmepassa_core.so compilada para Android ARM64 (6.3MB)
+- [x] libzaplivre_core.so compilada para Android ARM64 (6.3MB)
 - [x] Cross-compilation iOS configurada
-- [x] libmepassa_core.a compilada para iOS ARM64 Device (96MB)
-- [x] libmepassa_core.a compilada para iOS Simulator ARM64 (96MB)
-- [x] libmepassa_core.a compilada para iOS Simulator x86_64 (95MB)
+- [x] libzaplivre_core.a compilada para iOS ARM64 Device (96MB)
+- [x] libzaplivre_core.a compilada para iOS Simulator ARM64 (96MB)
+- [x] libzaplivre_core.a compilada para iOS Simulator x86_64 (95MB)
 
 ### FASE 6 - Android App (próximo)
 
 1. Integrar bindings Kotlin
-2. Copiar `libmepassa_core.so` para `jniLibs/`
-3. Criar MePassaService (foreground service)
+2. Copiar `libzaplivre_core.so` para `jniLibs/`
+3. Criar ZapLivreService (foreground service)
 4. Implementar UI básica (Jetpack Compose)
 
 ### Melhorias Futuras

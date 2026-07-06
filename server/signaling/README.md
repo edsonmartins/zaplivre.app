@@ -1,4 +1,4 @@
-# MePassa Signaling Server
+# ZapLivre Signaling Server
 
 WebSocket signaling server used as a fallback when P2P signaling fails.
 
@@ -14,8 +14,8 @@ Server listens on `0.0.0.0:8086`.
 ## Docker
 
 ```bash
-docker build -t mepassa-signaling:latest -f server/signaling/Dockerfile .
-docker run --rm -p 8086:8086 mepassa-signaling:latest
+docker build -t zaplivre-signaling:latest -f server/signaling/Dockerfile .
+docker run --rm -p 8086:8086 zaplivre-signaling:latest
 ```
 
 ## Client config

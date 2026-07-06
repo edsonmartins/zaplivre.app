@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: MePassa Identity Server API
+  title: ZapLivre Identity Server API
   description: |
     Identity Server for username → peer_id mapping (ADR 001)
 
@@ -20,13 +20,13 @@ info:
 
   version: 1.0.0
   contact:
-    name: MePassa Team
-    url: https://mepassa.app
+    name: ZapLivre Team
+    url: https://zaplivre.app
   license:
     name: MIT
 
 servers:
-  - url: https://identity.mepassa.app/api/v1
+  - url: https://identity.zaplivre.app/api/v1
     description: Production server
   - url: http://localhost:8080/api/v1
     description: Local development server
@@ -66,7 +66,7 @@ paths:
                 summary: Valid registration request
                 value:
                   username: "joao_silva"
-                  peer_id: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+                  peer_id: "zaplivre_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
                   public_key: "MCowBQYDK2VwAyEA..."
                   prekey_bundle:
                     identity_key: "MCowBQYDK2VwAyEA..."
@@ -299,8 +299,8 @@ components:
           example: "joao_silva"
         peer_id:
           type: string
-          description: Peer ID (base58-encoded public key with mepassa_ prefix)
-          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+          description: Peer ID (base58-encoded public key with zaplivre_ prefix)
+          example: "zaplivre_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
         public_key:
           type: string
           format: byte
@@ -329,7 +329,7 @@ components:
           example: "joao_silva"
         peer_id:
           type: string
-          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+          example: "zaplivre_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
         created_at:
           type: string
           format: date-time
@@ -343,7 +343,7 @@ components:
           example: "joao_silva"
         peer_id:
           type: string
-          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+          example: "zaplivre_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
         prekey_bundle:
           $ref: '#/components/schemas/PreKeyBundle'
         last_updated:
@@ -362,7 +362,7 @@ components:
         peer_id:
           type: string
           description: Peer ID (for authentication)
-          example: "mepassa_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
+          example: "zaplivre_BfvwEnRx79B9LQYdYyyABHirY3y6GzPHVNAkbbTy66ta"
         prekey_bundle:
           $ref: '#/components/schemas/PreKeyBundle'
         signature:

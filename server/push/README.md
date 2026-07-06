@@ -1,6 +1,6 @@
-# MePassa Push Notification Server
+# ZapLivre Push Notification Server
 
-Push notification service for the MePassa P2P messaging platform.
+Push notification service for the ZapLivre P2P messaging platform.
 
 ## Features
 
@@ -76,7 +76,7 @@ Create a `.env` file in the `server/push` directory:
 
 ```env
 # Database
-DATABASE_URL=postgresql://mepassa:mepassa_dev_password@localhost:5432/mepassa
+DATABASE_URL=postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre
 
 # Firebase Cloud Messaging (Android)
 FCM_SERVER_KEY=your_fcm_server_key_here
@@ -85,11 +85,11 @@ FCM_SERVER_KEY=your_fcm_server_key_here
 APNS_KEY_PATH=/path/to/AuthKey_XXXXXXXXXX.p8
 APNS_KEY_ID=AB12CD34EF          # Your 10-character Key ID
 APNS_TEAM_ID=XY98ZW76UV         # Your 10-character Team ID
-APNS_BUNDLE_ID=com.mepassa.ios  # Your app's Bundle ID
+APNS_BUNDLE_ID=com.zaplivre.ios  # Your app's Bundle ID
 APNS_PRODUCTION=false           # Use false for development/TestFlight, true for App Store
 
 # Server (optional)
-RUST_LOG=mepassa_push=debug,info
+RUST_LOG=zaplivre_push=debug,info
 ```
 
 **Note:** APNs configuration is optional. If not provided, the server will only support FCM (Android) notifications. For complete APNs setup instructions, see [APNS_SETUP_GUIDE.md](../../docs/APNS_SETUP_GUIDE.md).
@@ -103,7 +103,7 @@ RUST_LOG=mepassa_push=debug,info
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # PostgreSQL (via Docker)
-cd /Users/edsonmartins/desenvolvimento/mepassa
+cd /Users/edsonmartins/desenvolvimento/zaplivre
 docker-compose up -d postgres
 ```
 
@@ -128,7 +128,7 @@ cp .env.example .env
 cargo build --release
 ```
 
-Binary will be at: `../../target/release/mepassa-push`
+Binary will be at: `../../target/release/zaplivre-push`
 
 ## Running
 
@@ -140,7 +140,7 @@ cargo run
 
 ### Production
 ```bash
-./target/release/mepassa-push
+./target/release/zaplivre-push
 ```
 
 Server will start on `http://0.0.0.0:8081`
@@ -149,18 +149,18 @@ Server will start on `http://0.0.0.0:8081`
 
 ### Build Image
 ```bash
-docker build -t mepassa-push:latest .
+docker build -t zaplivre-push:latest .
 ```
 
 ### Run Container
 ```bash
 docker run -d \
-  --name mepassa-push \
+  --name zaplivre-push \
   -p 8081:8081 \
-  -e DATABASE_URL=postgresql://mepassa:password@postgres:5432/mepassa \
+  -e DATABASE_URL=postgresql://zaplivre:password@postgres:5432/zaplivre \
   -e FCM_SERVER_KEY=your_key \
-  --network mepassa_network \
-  mepassa-push:latest
+  --network zaplivre_network \
+  zaplivre-push:latest
 ```
 
 ## Testing
@@ -231,7 +231,7 @@ CREATE TABLE push_tokens (
 ### Logs
 ```bash
 # Debug logs
-RUST_LOG=mepassa_push=debug cargo run
+RUST_LOG=zaplivre_push=debug cargo run
 
 # Info logs (default)
 RUST_LOG=info cargo run
@@ -243,9 +243,9 @@ curl http://localhost:8081/health
 # Response: OK
 ```
 
-## Integration with MePassa Core
+## Integration with ZapLivre Core
 
-The push server is designed to integrate with the MePassa core system:
+The push server is designed to integrate with the ZapLivre core system:
 
 1. **On app startup**: Each client registers its FCM/APNs token
 2. **On message send**: If peer is offline, trigger push notification
@@ -267,7 +267,7 @@ The push server is designed to integrate with the MePassa core system:
 ### "Database connection failed"
 - Ensure PostgreSQL is running: `docker-compose up postgres`
 - Check DATABASE_URL in .env
-- Verify database exists: `psql -U mepassa -d mepassa -c "\dt"`
+- Verify database exists: `psql -U zaplivre -d zaplivre -c "\dt"`
 
 ### "FCM send failed"
 - Verify FCM_SERVER_KEY is correct

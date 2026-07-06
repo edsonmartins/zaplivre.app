@@ -1,6 +1,6 @@
-# Build Guide - MePassa Desktop
+# Build Guide - ZapLivre Desktop
 
-Complete step-by-step build process for MePassa Desktop (Tauri 2.0).
+Complete step-by-step build process for ZapLivre Desktop (Tauri 2.0).
 
 ## 📦 Build Process Overview
 
@@ -101,7 +101,7 @@ sudo apt install -y \
 ### Step 1: Clone & Navigate
 
 ```bash
-cd /Users/edsonmartins/desenvolvimento/mepassa/desktop
+cd /Users/edsonmartins/desenvolvimento/zaplivre/desktop
 
 # Verify structure
 ls -la
@@ -169,23 +169,23 @@ cargo build --release
 
 # This compiles:
 # - Tauri runtime
-# - mepassa-core (local dependency)
+# - zaplivre-core (local dependency)
 # - All Rust dependencies
 
 # Expected output:
-#    Compiling mepassa-core v0.1.0 (/path/to/core)
-#    Compiling mepassa-desktop v0.1.0 (/path/to/desktop/src-tauri)
+#    Compiling zaplivre-core v0.1.0 (/path/to/core)
+#    Compiling zaplivre-desktop v0.1.0 (/path/to/desktop/src-tauri)
 #     Finished `release` profile [optimized] target(s) in 2m 34s
 ```
 
 **Verify:**
 ```bash
-ls -lh target/release/mepassa-desktop
+ls -lh target/release/zaplivre-desktop
 # Should exist and be ~15 MB (macOS)
 
 # Test executable (quick check)
-./target/release/mepassa-desktop --version
-# Should output: mepassa-desktop 0.1.0
+./target/release/zaplivre-desktop --version
+# Should output: zaplivre-desktop 0.1.0
 ```
 
 ### Step 5: Create Bundle
@@ -200,12 +200,12 @@ npm run tauri:build
 
 # Expected output (macOS):
 #     Finished 2 bundles at:
-#         /path/to/desktop/src-tauri/target/release/bundle/macos/MePassa.app
-#         /path/to/desktop/src-tauri/target/release/bundle/dmg/MePassa_0.1.0_aarch64.dmg
+#         /path/to/desktop/src-tauri/target/release/bundle/macos/ZapLivre.app
+#         /path/to/desktop/src-tauri/target/release/bundle/dmg/ZapLivre_0.1.0_aarch64.dmg
 #
 #     Bundle sizes:
-#         MePassa.app: 18.5 MB
-#         MePassa_0.1.0_aarch64.dmg: 19.2 MB
+#         ZapLivre.app: 18.5 MB
+#         ZapLivre_0.1.0_aarch64.dmg: 19.2 MB
 ```
 
 **Verify bundles:**
@@ -213,28 +213,28 @@ npm run tauri:build
 #### macOS
 ```bash
 ls -lh src-tauri/target/release/bundle/macos/
-# MePassa.app (application bundle)
+# ZapLivre.app (application bundle)
 
 ls -lh src-tauri/target/release/bundle/dmg/
-# MePassa_0.1.0_aarch64.dmg (disk image installer)
+# ZapLivre_0.1.0_aarch64.dmg (disk image installer)
 ```
 
 #### Linux
 ```bash
 ls -lh src-tauri/target/release/bundle/appimage/
-# mepassa-desktop_0.1.0_amd64.AppImage
+# zaplivre-desktop_0.1.0_amd64.AppImage
 
 ls -lh src-tauri/target/release/bundle/deb/
-# mepassa-desktop_0.1.0_amd64.deb
+# zaplivre-desktop_0.1.0_amd64.deb
 ```
 
 #### Windows
 ```bash
 ls -lh src-tauri/target/release/bundle/msi/
-# MePassa_0.1.0_x64_en-US.msi
+# ZapLivre_0.1.0_x64_en-US.msi
 
 ls -lh src-tauri/target/release/bundle/nsis/
-# MePassa_0.1.0_x64-setup.exe
+# ZapLivre_0.1.0_x64-setup.exe
 ```
 
 ## 🚀 Running the Application
@@ -260,25 +260,25 @@ npm run tauri:dev
 #### macOS
 ```bash
 # Run .app directly
-open src-tauri/target/release/bundle/macos/MePassa.app
+open src-tauri/target/release/bundle/macos/ZapLivre.app
 
 # Or install .dmg
-open src-tauri/target/release/bundle/dmg/MePassa_0.1.0_aarch64.dmg
-# Drag MePassa.app to Applications folder
+open src-tauri/target/release/bundle/dmg/ZapLivre_0.1.0_aarch64.dmg
+# Drag ZapLivre.app to Applications folder
 ```
 
 #### Linux (AppImage)
 ```bash
 # Make executable
-chmod +x src-tauri/target/release/bundle/appimage/mepassa-desktop_0.1.0_amd64.AppImage
+chmod +x src-tauri/target/release/bundle/appimage/zaplivre-desktop_0.1.0_amd64.AppImage
 
 # Run
-./src-tauri/target/release/bundle/appimage/mepassa-desktop_0.1.0_amd64.AppImage
+./src-tauri/target/release/bundle/appimage/zaplivre-desktop_0.1.0_amd64.AppImage
 ```
 
 #### Windows (MSI)
 ```
-Double-click: src-tauri\target\release\bundle\msi\MePassa_0.1.0_x64_en-US.msi
+Double-click: src-tauri\target\release\bundle\msi\ZapLivre_0.1.0_x64_en-US.msi
 Follow installer wizard
 ```
 
@@ -293,7 +293,7 @@ Follow installer wizard
 
 ### Post-Build
 - [ ] `dist/` directory exists with index.html
-- [ ] `src-tauri/target/release/mepassa-desktop` binary exists
+- [ ] `src-tauri/target/release/zaplivre-desktop` binary exists
 - [ ] Bundle created in `src-tauri/target/release/bundle/`
 - [ ] Application launches without errors
 - [ ] System tray icon appears
@@ -388,7 +388,7 @@ Create `build.sh` in desktop root:
 #!/bin/bash
 set -e  # Exit on error
 
-echo "🔨 MePassa Desktop Build Script"
+echo "🔨 ZapLivre Desktop Build Script"
 echo "================================"
 
 # 1. Check prerequisites
@@ -414,7 +414,7 @@ if [ -d "src-tauri/target/release/bundle" ]; then
     echo "✅ Build successful!"
     echo ""
     echo "📦 Bundles created:"
-    find src-tauri/target/release/bundle -type f -name "MePassa*" -o -name "mepassa*"
+    find src-tauri/target/release/bundle -type f -name "ZapLivre*" -o -name "zaplivre*"
 else
     echo "❌ Build failed!"
     exit 1

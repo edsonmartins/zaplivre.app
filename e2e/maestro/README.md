@@ -2,7 +2,7 @@
 
 Flows black-box com [Maestro](https://maestro.mobile.dev): rodam contra o app
 **real** em emulador/simulador, sem nenhuma alteração no código do app —
-escolhido porque o `MePassaClientWrapper`/`MePassaCore` são singletons FFI
+escolhido porque o `ZapLivreClientWrapper`/`ZapLivreCore` são singletons FFI
 sem injeção de dependência (mockar exigiria refatoração).
 
 ## Estado de validação
@@ -45,11 +45,11 @@ não persiste a identidade e o backup falha (o app real assinado não tem esse
 problema porque usa `application-identifier`).
 
 Foi adicionado `keychain-access-groups` ao
-`ios/MePassa/MePassa.dev.entitlements`. Buildar assim (**não** use
+`ios/ZapLivre/ZapLivre.dev.entitlements`. Buildar assim (**não** use
 `CODE_SIGNING_ALLOWED=NO`):
 
 ```bash
-xcodebuild -project ios/MePassa.xcodeproj -scheme MePassa \
+xcodebuild -project ios/ZapLivre.xcodeproj -scheme ZapLivre \
   -sdk iphonesimulator -configuration Debug \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath build ARCHS=arm64 \
@@ -181,7 +181,7 @@ Estes cenários **não são cobríveis com um único device** e vivem só em
 
 - **Envio de mensagem 1:1** — exige um peer real alcançável. Confirmado por
   inspeção do SQLite do app: com o peer offline o envio **nem persiste
-  localmente** e a UI mostra erro `MePassaFfiError.Network`. Por isso o iOS `04`
+  localmente** e a UI mostra erro `ZapLivreFfiError.Network`. Por isso o iOS `04`
   virou "nova conversa" (valida a NewChatView + tratamento de peer offline, não a
   entrega).
 - **Envio de mensagem em grupo** — mesma limitação: com 1 device a mensagem
@@ -211,7 +211,7 @@ Estes cenários **não são cobríveis com um único device** e vivem só em
   um peer real: `maestro test -e PEER_ID=12D3KooW... 03_enviar_mensagem.yml`.
 - Flows 07/08 geram nome de grupo único (`Date.now()`), então podem rodar
   repetidamente sem colidir com grupos de execuções anteriores.
-- iOS: os flows assumem o bundle id `app.mepassa.ios`; Android `com.mepassa`.
+- iOS: os flows assumem o bundle id `app.zaplivre.ios`; Android `com.zaplivre`.
 
 ## Bug de produto observado (envio offline)
 

@@ -12,11 +12,11 @@ use tracing_subscriber;
 fn main() {
     // Setup logging
     tracing_subscriber::fmt()
-        .with_env_filter("mepassa_desktop=debug,mepassa_core=debug")
+        .with_env_filter("zaplivre_desktop=debug,zaplivre_core=debug")
         .init();
 
     // Initialize client state
-    let client_state: Arc<Mutex<Option<Arc<mepassa_core::ffi::MePassaClient>>>> =
+    let client_state: Arc<Mutex<Option<Arc<zaplivre_core::ffi::ZapLivreClient>>>> =
         Arc::new(Mutex::new(None));
 
     if std::env::var("MESSAGE_STORE_URL").is_err() {
@@ -81,7 +81,7 @@ fn main() {
         ])
         .setup(|_app| {
             // Setup app-specific initialization here
-            tracing::info!("MePassa Desktop starting...");
+            tracing::info!("ZapLivre Desktop starting...");
             Ok(())
         })
         .run(tauri::generate_context!())

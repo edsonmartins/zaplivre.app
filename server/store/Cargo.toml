@@ -1,5 +1,5 @@
 [package]
-name = "mepassa-store"
+name = "zaplivre-store"
 version = "0.1.0"
 edition = "2021"
 authors = ["Integrall Tech <contato@integralltech.com.br>"]
@@ -44,5 +44,5 @@ ed25519-dalek = "2.1"
 libp2p-identity = { version = "0.2", features = ["ed25519", "peerid"] }
 
 [[bin]]
-name = "mepassa-store"
+name = "zaplivre-store"
 path = "src/main.rs"

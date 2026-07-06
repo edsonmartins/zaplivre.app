@@ -1,6 +1,6 @@
 # Galeria de mídia: conversa sem mídia → galeria abre com empty state
 # ("Nenhuma mídia") em vez de crashar
-appId: com.mepassa
+appId: com.zaplivre
 env:
   PEER_ID: "12D3KooWSubstituaPorUmPeerIdRealDeTeste000000000"
 ---

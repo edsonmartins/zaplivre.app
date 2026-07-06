@@ -1,5 +1,5 @@
 # Chat de grupo: criar grupo (nome único) → abrir → enviar mensagem → aparece
-appId: com.mepassa
+appId: com.zaplivre
 ---
 - runFlow: common/_setup_identity.yml
 - tapOn:

@@ -1,6 +1,6 @@
-# MePassa Identity Server
+# ZapLivre Identity Server
 
-Identity Server para o sistema de mensagens MePassa. Gerencia o registro e lookup de @usernames mapeados para Peer IDs (libp2p).
+Identity Server para o sistema de mensagens ZapLivre. Gerencia o registro e lookup de @usernames mapeados para Peer IDs (libp2p).
 
 ## Arquitetura
 
@@ -176,7 +176,7 @@ Crie um arquivo `.env`:
 
 ```bash
 # Database
-DATABASE_URL=postgres://mepassa:mepassa@localhost/mepassa_identity
+DATABASE_URL=postgres://zaplivre:zaplivre@localhost/zaplivre_identity
 
 # Redis
 REDIS_URL=redis://localhost
@@ -223,8 +223,8 @@ sudo apt install postgresql-15 redis-server
 
 2. Criar database:
 ```bash
-createdb mepassa_identity
-psql mepassa_identity < schema.sql
+createdb zaplivre_identity
+psql zaplivre_identity < schema.sql
 ```
 
 3. Iniciar Redis:
@@ -267,9 +267,9 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: mepassa_identity
-      POSTGRES_USER: mepassa
-      POSTGRES_PASSWORD: mepassa
+      POSTGRES_DB: zaplivre_identity
+      POSTGRES_USER: zaplivre
+      POSTGRES_PASSWORD: zaplivre
     volumes:
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - postgres_data:/var/lib/postgresql/data
@@ -282,7 +282,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: postgres://mepassa:mepassa@postgres/mepassa_identity
+      DATABASE_URL: postgres://zaplivre:zaplivre@postgres/zaplivre_identity
       REDIS_URL: redis://redis
       BIND_ADDR: 0.0.0.0:8080
     depends_on:

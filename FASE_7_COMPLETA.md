@@ -7,10 +7,10 @@
 
 ## 📊 Resumo Executivo
 
-Completamos com sucesso a **FASE 7** do projeto MePassa, criando:
+Completamos com sucesso a **FASE 7** do projeto ZapLivre, criando:
 
 1. **Desktop App completo** com Tauri 2.0 + React + TypeScript
-2. **FFI Integration** direta com mepassa-core
+2. **FFI Integration** direta com zaplivre-core
 3. **3 views funcionais** (Onboarding, Conversations, Chat)
 4. **System Tray** com menu contextual
 5. **Documentação completa** (README + BUILD_GUIDE)
@@ -33,7 +33,7 @@ Completamos com sucesso a **FASE 7** do projeto MePassa, criando:
 ### 1. Setup Projeto (100%)
 
 **Tauri 2.0 Configuration:**
-- ✅ `Cargo.toml` com dependencies (tauri 2.0, mepassa-core local)
+- ✅ `Cargo.toml` com dependencies (tauri 2.0, zaplivre-core local)
 - ✅ `tauri.conf.json` com bundle config (DMG, MSI, AppImage)
 - ✅ `build.rs` para Tauri scaffolding
 - ✅ System tray configuration
@@ -65,11 +65,11 @@ Completamos com sucesso a **FASE 7** do projeto MePassa, criando:
 
 #### `src-tauri/src/commands.rs` (~230 linhas)
 - 11 Tauri commands implementados
-- Direct FFI calls para mepassa-core
+- Direct FFI calls para zaplivre-core
 - Thread-safe state management (Arc<Mutex<Client>>)
 
 **Commands implementados:**
-1. ✅ `init_client(data_dir)` - Initialize MePassa client
+1. ✅ `init_client(data_dir)` - Initialize ZapLivre client
 2. ✅ `get_local_peer_id()` - Get local peer ID
 3. ✅ `listen_on(multiaddr)` - Start listening
 4. ✅ `connect_to_peer(peer_id, multiaddr)` - Connect to peer
@@ -97,7 +97,7 @@ Completamos com sucesso a **FASE 7** do projeto MePassa, criando:
 - Loading state management
 
 **Initialization flow:**
-1. Get home directory (~/.mepassa)
+1. Get home directory (~/.zaplivre)
 2. Call `init_client(dataDir)` via Tauri
 3. Call `listen_on()` and `bootstrap()`
 4. Navigate to `/conversations` or `/onboarding`
@@ -193,7 +193,7 @@ Completamos com sucesso a **FASE 7** do projeto MePassa, criando:
 
 ### Core Functionality
 
-- [x] Initialize MePassa client
+- [x] Initialize ZapLivre client
 - [x] P2P connection (listen + bootstrap)
 - [x] Send text messages
 - [x] Receive messages (auto-refresh)
@@ -229,7 +229,7 @@ Completamos com sucesso a **FASE 7** do projeto MePassa, criando:
 - [x] TypeScript for type safety
 - [x] TailwindCSS for styling
 - [x] Vite for fast dev/build
-- [x] FFI integration with mepassa-core
+- [x] FFI integration with zaplivre-core
 - [x] Cross-platform bundles (DMG, MSI, AppImage)
 
 ---
@@ -297,9 +297,9 @@ npm run tauri:build
 ```
 
 **Artifacts gerados:**
-- **macOS:** `MePassa.app` + `MePassa_0.1.0_aarch64.dmg`
-- **Linux:** `mepassa-desktop_0.1.0_amd64.AppImage` + `.deb`
-- **Windows:** `MePassa_0.1.0_x64_en-US.msi` + `.exe`
+- **macOS:** `ZapLivre.app` + `ZapLivre_0.1.0_aarch64.dmg`
+- **Linux:** `zaplivre-desktop_0.1.0_amd64.AppImage` + `.deb`
+- **Windows:** `ZapLivre_0.1.0_x64_en-US.msi` + `.exe`
 
 ---
 
@@ -313,7 +313,7 @@ npm run tauri:build
 
 2. **FFI State Management**
    - Problema: Client state needs to be thread-safe
-   - Solução: `Arc<Mutex<Option<MePassaClient>>>`
+   - Solução: `Arc<Mutex<Option<ZapLivreClient>>>`
    - Works with Tauri's async command system
 
 3. **Vite + Tauri Integration**
@@ -403,7 +403,7 @@ npm run tauri:build
 | **Bundle Size** | ~10 MB (APK) | ~18 MB (DMG/MSI) |
 
 **Semelhanças:**
-- Both use mepassa-core via FFI
+- Both use zaplivre-core via FFI
 - Both have 3 screens (Onboarding, Conversations, Chat)
 - Both have same functionality (send/receive messages)
 - Both have auto-refresh mechanisms
@@ -423,7 +423,7 @@ npm run tauri:build
 ✅ Desktop app cross-platform (Mac, Linux, Windows)
 ✅ Tauri 2.0 integration (latest version)
 ✅ React 18 + TypeScript (modern stack)
-✅ FFI direct calls to mepassa-core
+✅ FFI direct calls to zaplivre-core
 ✅ System tray with menu
 ✅ 20 arquivos, ~2.200 LoC funcionais
 ✅ ~750 linhas de documentação

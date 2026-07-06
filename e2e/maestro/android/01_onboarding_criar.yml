@@ -2,7 +2,7 @@
 # Regressão: IDN-01 (auto-init não pode atropelar o onboarding)
 # Único flow com clearState — os demais reaproveitam a identidade via
 # common/_setup_identity.yml e são independentes de ordem.
-appId: com.mepassa
+appId: com.zaplivre
 ---
 - clearState
 # Pré-concede notificações (Android 13+): o diálogo cobriria o onboarding

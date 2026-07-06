@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use mepassa_identity_server::{db, handlers, rate_limit, AppState};
+use zaplivre_identity_server::{db, handlers, rate_limit, AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "mepassa_identity_server=info,tower_http=info".into()),
+                .unwrap_or_else(|_| "zaplivre_identity_server=info,tower_http=info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Get configuration from environment
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://mepassa:mepassa@localhost/mepassa_identity".to_string());
+        .unwrap_or_else(|_| "postgres://zaplivre:zaplivre@localhost/zaplivre_identity".to_string());
 
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost".to_string());
 

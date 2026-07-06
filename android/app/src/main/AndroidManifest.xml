@@ -33,20 +33,20 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
-        android:name=".MePassaApplication"
+        android:name=".ZapLivreApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.MePassa"
+        android:theme="@style/Theme.ZapLivre"
         tools:targetApi="31">
 
         <!-- MainActivity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.MePassa"
+            android:theme="@style/Theme.ZapLivre"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -55,9 +55,9 @@
             </intent-filter>
         </activity>
 
-        <!-- MePassa Foreground Service (para manter conexão P2P + VoIP) -->
+        <!-- ZapLivre Foreground Service (para manter conexão P2P + VoIP) -->
         <service
-            android:name=".service.MePassaService"
+            android:name=".service.ZapLivreService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="remoteMessaging|phoneCall"
@@ -65,7 +65,7 @@
 
         <!-- Firebase Cloud Messaging Service (Push Notifications) -->
         <service
-            android:name=".service.MePassaFirebaseMessagingService"
+            android:name=".service.ZapLivreFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

@@ -14,7 +14,7 @@
 
 #[cfg(feature = "integration-tests")]
 mod integration_tests {
-    use mepassa_core::{
+    use zaplivre_core::{
         identity::Identity,
         identity_client::IdentityClient,
         storage::{Database, NewContact},
@@ -29,7 +29,7 @@ mod integration_tests {
     /// Setup: Create in-memory database with schema
     fn setup_db() -> Database {
         let db = Database::in_memory().unwrap();
-        mepassa_core::storage::migrate(&db).unwrap();
+        zaplivre_core::storage::migrate(&db).unwrap();
         db
     }
 

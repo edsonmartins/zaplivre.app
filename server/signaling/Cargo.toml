@@ -1,11 +1,11 @@
 [package]
-name = "mepassa-signaling"
+name = "zaplivre-signaling"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "WebSocket signaling server for MePassa VoIP fallback"
+description = "WebSocket signaling server for ZapLivre VoIP fallback"
 
 [dependencies]
 axum = { workspace = true, features = ["ws"] }

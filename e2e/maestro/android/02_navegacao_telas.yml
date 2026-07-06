@@ -1,6 +1,6 @@
 # Anti-órfã: toda tela principal precisa ser alcançável pela navegação
 # Regressão: AND-13 (Settings/Profile/Search ficaram órfãs por meses)
-appId: com.mepassa
+appId: com.zaplivre
 ---
 - runFlow: common/_setup_identity.yml
 

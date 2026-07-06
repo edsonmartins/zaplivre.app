@@ -15,14 +15,14 @@ use libp2p::{
 use libp2p::swarm::NetworkBehaviour;
 use std::time::Duration;
 
-use super::messaging::MePassaCodec;
-use crate::utils::error::MePassaError;
+use super::messaging::ZapLivreCodec;
+use crate::utils::error::ZapLivreError;
 #[cfg(any(feature = "voip", feature = "video"))]
 use crate::voip::signaling::SignalingCodec;
 
-/// MePassa network behaviour
+/// ZapLivre network behaviour
 #[derive(NetworkBehaviour)]
-pub struct MePassaBehaviour {
+pub struct ZapLivreBehaviour {
     /// Kademlia DHT for peer discovery and routing
     pub kademlia: kad::Behaviour<kad::store::MemoryStore>,
     /// mDNS for local network discovery
@@ -34,7 +34,7 @@ pub struct MePassaBehaviour {
     /// GossipSub for pub/sub messaging (groups)
     pub gossipsub: gossipsub::Behaviour,
     /// Request/Response for direct messaging
-    pub request_response: request_response::Behaviour<MePassaCodec>,
+    pub request_response: request_response::Behaviour<ZapLivreCodec>,
     /// Relay client (v2) for reservations and relayed connections
     pub relay: relay::client::Behaviour,
     /// Request/Response for VoIP signaling (WebRTC)
@@ -47,8 +47,8 @@ pub struct MePassaBehaviour {
     pub autonat: autonat::Behaviour,
 }
 
-impl MePassaBehaviour {
-    /// Create a new MePassa network behaviour
+impl ZapLivreBehaviour {
+    /// Create a new ZapLivre network behaviour
     pub fn new(
         local_peer_id: PeerId,
         keypair: &libp2p::identity::Keypair,
@@ -63,12 +63,12 @@ impl MePassaBehaviour {
 
         // mDNS for local discovery (using tokio runtime)
         let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id).map_err(|e| {
-            MePassaError::Network(format!("Failed to create mDNS behaviour: {}", e))
+            ZapLivreError::Network(format!("Failed to create mDNS behaviour: {}", e))
         })?;
 
         // Identify protocol
         let identify = identify::Behaviour::new(identify::Config::new(
-            "/mepassa/1.0.0".to_string(),
+            "/zaplivre/1.0.0".to_string(),
             keypair.public(),
         ));
 
@@ -89,21 +89,21 @@ impl MePassaBehaviour {
                 gossipsub::MessageId::from(hasher.finish().to_string())
             })
             .build()
-            .map_err(|e| MePassaError::Network(format!("Failed to create GossipSub config: {}", e)))?;
+            .map_err(|e| ZapLivreError::Network(format!("Failed to create GossipSub config: {}", e)))?;
 
         let gossipsub = gossipsub::Behaviour::new(
             gossipsub::MessageAuthenticity::Signed(keypair.clone()),
             gossipsub_config,
         )
-        .map_err(|e| MePassaError::Network(format!("Failed to create GossipSub behaviour: {}", e)))?;
+        .map_err(|e| ZapLivreError::Network(format!("Failed to create GossipSub behaviour: {}", e)))?;
 
         // Request/Response for direct messaging
         let protocols = std::iter::once((
-            StreamProtocol::new("/mepassa/message/1.0.0"),
+            StreamProtocol::new("/zaplivre/message/1.0.0"),
             request_response::ProtocolSupport::Full,
         ));
         let request_response = request_response::Behaviour::with_codec(
-            MePassaCodec,
+            ZapLivreCodec,
             protocols,
             request_response::Config::default(),
         );
@@ -111,7 +111,7 @@ impl MePassaBehaviour {
         // Request/Response for VoIP signaling (WebRTC)
         #[cfg(any(feature = "voip", feature = "video"))]
         let voip_protocols = std::iter::once((
-            StreamProtocol::new("/mepassa/voip/1.0.0"),
+            StreamProtocol::new("/zaplivre/voip/1.0.0"),
             request_response::ProtocolSupport::Full,
         ));
         #[cfg(any(feature = "voip", feature = "video"))]
@@ -165,7 +165,7 @@ mod tests {
         let local_peer_id = PeerId::from(keypair.public());
 
         let (_relay_transport, relay) = relay::client::new(local_peer_id);
-        let behaviour = MePassaBehaviour::new(local_peer_id, &keypair, relay);
+        let behaviour = ZapLivreBehaviour::new(local_peer_id, &keypair, relay);
 
         assert!(behaviour.is_ok());
     }
@@ -180,8 +180,8 @@ mod tests {
 
         let (_relay_transport1, relay1) = relay::client::new(peer1);
         let (_relay_transport2, relay2) = relay::client::new(peer2);
-        let behaviour1 = MePassaBehaviour::new(peer1, &keypair1, relay1);
-        let behaviour2 = MePassaBehaviour::new(peer2, &keypair2, relay2);
+        let behaviour1 = ZapLivreBehaviour::new(peer1, &keypair1, relay1);
+        let behaviour2 = ZapLivreBehaviour::new(peer2, &keypair2, relay2);
 
         assert!(behaviour1.is_ok());
         assert!(behaviour2.is_ok());

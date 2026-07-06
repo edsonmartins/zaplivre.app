@@ -1,19 +1,19 @@
 # ZapLivre
 
 > **Marca:** o produto se chama **ZapLivre**. Os identificadores internos
-> (crates `mepassa-*`, bundle IDs, namespace UniFFI, protocolo, envs
-> `MEPASSA_*`) mantêm o codinome original de propósito — renomear a marca
+> (crates `zaplivre-*`, bundle IDs, namespace UniFFI, protocolo, envs
+> `ZAPLIVRE_*`) mantêm o codinome original de propósito — renomear a marca
 > exibida não exige tocar neles.
 
 > **Comunicação verdadeiramente híbrida: P2P quando possível, servidor quando necessário**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=flat&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Status](https://img.shields.io/badge/status-FASE%2013%20iOS%20em%20progresso-yellow)](https://github.com/integralltech/mepassa)
+[![Status](https://img.shields.io/badge/status-FASE%2013%20iOS%20em%20progresso-yellow)](https://github.com/integralltech/zaplivre)
 
 ## 🎯 Visão
 
-**MePassa** é uma plataforma de mensagens instantâneas com arquitetura **HÍBRIDA P2P + Servidor**:
+**ZapLivre** é uma plataforma de mensagens instantâneas com arquitetura **HÍBRIDA P2P + Servidor**:
 
 - **80% P2P direto:** Mensagens vão peer-to-peer (privacidade máxima, zero custo)
 - **15% TURN relay:** Fallback quando NAT simétrico/firewall
@@ -21,7 +21,7 @@
 
 ### Diferencial
 
-| | WhatsApp | Telegram | Signal | **MePassa** |
+| | WhatsApp | Telegram | Signal | **ZapLivre** |
 |---|---|---|---|---|
 | **E2E por padrão** | ✅ | ❌ | ✅ | ✅ |
 | **Sem telefone** | ❌ | ❌ | ❌ | ✅ |
@@ -40,7 +40,7 @@
 
 ```
 ┌──────────────────────────────────────────────────┐
-│              MEPASSA HÍBRIDO                      │
+│              ZAPLIVRE HÍBRIDO                      │
 ├──────────────────────────────────────────────────┤
 │                                                   │
 │  CENÁRIO 1: P2P Direto (80%)                     │
@@ -111,7 +111,7 @@
 **FASE 6: Android App MVP (100%)** ✅
 - ✅ Jetpack Compose + Material3
 - ✅ 3 telas: Onboarding → Conversations → Chat
-- ✅ MePassaClientWrapper (singleton, coroutines)
+- ✅ ZapLivreClientWrapper (singleton, coroutines)
 - ✅ Foreground Service P2P + notificação persistente
 - ✅ Mensagens texto 1:1 funcionais
 - 📊 **~1.500 LoC**, 22 arquivos
@@ -163,13 +163,13 @@
 **FASE 13: iOS App (em progresso)** 🚧
 - ✅ Xcode project setup (via xcodegen CLI)
 - ✅ Swift + SwiftUI UI (Login, Conversations, Chat, Settings, Call) - 2.100+ LoC
-- ✅ UniFFI bindings gerados (mepassa.swift 2.357 LoC)
+- ✅ UniFFI bindings gerados (zaplivre.swift 2.357 LoC)
 - ✅ VoIP integration com CallKit (CallManager 309 LoC)
 - ✅ Audio I/O com AVAudioEngine (AudioManager 311 LoC)
 - ✅ QR Scanner com AVFoundation (238 LoC)
 - ✅ **Rust core compila para iOS** (conditional compilation #[cfg(feature = "voip")])
-- ✅ **Library integrada** (libmepassa_core_ios.a + libmepassa_core_sim.a)
-- ✅ **Build bem-sucedida:** xcodebuild -scheme MePassa build → BUILD SUCCEEDED!
+- ✅ **Library integrada** (libzaplivre_core_ios.a + libzaplivre_core_sim.a)
+- ✅ **Build bem-sucedida:** xcodebuild -scheme ZapLivre build → BUILD SUCCEEDED!
 - ✅ **Build pipeline automatizado** (build-all.sh, build-rust.sh, generate-bindings.sh)
 - ✅ **Documentação completa** (README.md com guias de setup, arquitetura, troubleshooting)
 - ⚠️ **Testes end-to-end:** pendente
@@ -236,7 +236,7 @@
 - [x] AVAudioEngine audio I/O
 - [x] QR Scanner
 - [x] **Build Rust core para iOS** (conditional compilation ✅)
-- [x] **Library integrada com Xcode** (libmepassa_core_sim.a ✅)
+- [x] **Library integrada com Xcode** (libzaplivre_core_sim.a ✅)
 - [ ] Testes end-to-end no Simulator
 - [ ] Testes em dispositivos físicos
 - [ ] Videochamadas 1:1 (FASE 14)
@@ -370,7 +370,7 @@ Aceitamos contribuições! Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes
 - ✅ Relay comunitário (best-effort)
 
 ### Opções pagas (futuro):
-- **MePassa Cloud Relay** ($5-20/mês): SLA 99.9%, suporte
+- **ZapLivre Cloud Relay** ($5-20/mês): SLA 99.9%, suporte
 - **Enterprise Self-Hosted:** Suporte técnico, instalação
 - **Custom Development:** Features sob demanda
 
@@ -381,7 +381,7 @@ Aceitamos contribuições! Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes
 **TESTE DECISIVO após FASE 12:**
 
 Perguntar a 20+ beta testers:
-> **"Você usaria MePassa como seu chat principal?"**
+> **"Você usaria ZapLivre como seu chat principal?"**
 
 - **< 50% SIM:** ⛔ PARA TUDO e conserta VoIP
 - **50-70% SIM:** ⚠️ Continua com cautela, itera feedback
@@ -395,7 +395,7 @@ Perguntar a 20+ beta testers:
 
 [AGPL-3.0](LICENSE) - Este projeto é open source.
 
-**IMPORTANTE:** AGPL impede forks fechados. Se você usar MePassa em um serviço, deve disponibilizar o código-fonte.
+**IMPORTANTE:** AGPL impede forks fechados. Se você usar ZapLivre em um serviço, deve disponibilizar o código-fonte.
 
 ---
 
@@ -413,8 +413,8 @@ Construído com tecnologias open source incríveis:
 
 ## 📞 Contato
 
-- **Website:** [mepassa.app](https://mepassa.app) *(em breve)*
-- **GitHub:** [github.com/integralltech/mepassa](https://github.com/integralltech/mepassa)
+- **Website:** [zaplivre.app](https://zaplivre.app) *(em breve)*
+- **GitHub:** [github.com/integralltech/zaplivre](https://github.com/integralltech/zaplivre)
 - **Discord:** *(em breve)*
 - **Email:** contato@integralltech.com.br
 
@@ -425,8 +425,8 @@ Construído com tecnologias open source incríveis:
 **Feito com ❤️ por [IntegrallTech](https://integralltech.com.br)**
 
 *"Não adianta ter privacidade perfeita se ninguém usar.*
-*MePassa escolhe privacidade boa o suficiente + UX boa o suficiente = Adoção real."*
+*ZapLivre escolhe privacidade boa o suficiente + UX boa o suficiente = Adoção real."*
 
-[![Star on GitHub](https://img.shields.io/github/stars/integralltech/mepassa?style=social)](https://github.com/integralltech/mepassa)
+[![Star on GitHub](https://img.shields.io/github/stars/integralltech/zaplivre?style=social)](https://github.com/integralltech/zaplivre)
 
 </div>

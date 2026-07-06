@@ -121,7 +121,7 @@ describe('CallView', () => {
 
   it('reflete estado mutado hidratado do voipState (localStorage)', () => {
     setupTauri()
-    localStorage.setItem('mepassa:voip_state', JSON.stringify({ 'call-1': { isMuted: true } }))
+    localStorage.setItem('zaplivre:voip_state', JSON.stringify({ 'call-1': { isMuted: true } }))
 
     renderCallView()
 

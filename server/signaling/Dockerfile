@@ -1,4 +1,4 @@
-# MePassa Signaling Server Dockerfile
+# ZapLivre Signaling Server Dockerfile
 
 FROM rust:1.88-slim-bookworm as builder
 
@@ -11,14 +11,14 @@ COPY Cargo.toml Cargo.lock ./
 COPY core ./core
 COPY server ./server
 
-RUN cargo build --release --package mepassa-signaling
+RUN cargo build --release --package zaplivre-signaling
 
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/mepassa-signaling /usr/local/bin/mepassa-signaling
+COPY --from=builder /app/target/release/zaplivre-signaling /usr/local/bin/zaplivre-signaling
 
 EXPOSE 8086
 
-CMD ["mepassa-signaling"]
+CMD ["zaplivre-signaling"]

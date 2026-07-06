@@ -1,6 +1,6 @@
 use keyring::Entry;
 
-const SERVICE: &str = "mepassa";
+const SERVICE: &str = "zaplivre";
 const USERNAME: &str = "identity.keypair";
 
 pub fn load_identity_b64() -> Result<Option<String>, keyring::Error> {

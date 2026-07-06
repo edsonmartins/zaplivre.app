@@ -1,0 +1,879 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04987C32D640041F5DCF4A70 /* GroupInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E9E8F76C61965818C0D746 /* GroupInfoView.swift */; };
+		0FACB9DAEB08803356633894 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9562DB7C3FBCCE508218F1B2 /* HapticFeedback.swift */; };
+		10D31B1FFCB721E4C1108AEA /* VideoFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DA188D6C15ECF6003D9295 /* VideoFrameHandler.swift */; };
+		10F97877A32095FC5D50703A /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AF020CDAAE4E15D80C629C /* LoginView.swift */; };
+		1300FD8B5A8F9B7CD4A5EED0 /* VideoCallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10A174E547C9DC2FD369FE5F /* VideoCallScreen.swift */; };
+		13C86850B4F1C5C3DC8AEFA9 /* MediaGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FE8FCADD1A1CF58A36B831 /* MediaGalleryView.swift */; };
+		19FAA376C1E4AE9CFE928E3B /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42832E6B751FE1FFDD5E05FB /* AppDelegate.swift */; };
+		1A9BE11A0C2D1FEDDFD770B3 /* GroupListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0972B3343D34375766EFD8DB /* GroupListView.swift */; };
+		1B4C052FED4754E7F138DFE8 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31CABBBFADB87E5204877F57 /* KeychainStore.swift */; };
+		1B8C1A752CAA7714D0D9F6F1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B2B85F390AA12C2EFDC502 /* SettingsView.swift */; };
+		1C6386CA6181C95718F1816C /* libresolv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A75FB752E10FA1D2D168215 /* libresolv.tbd */; };
+		1F0AF64EE7EAB39D0B30B814 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182D0E863F1BC824C2D0460F /* AudioRecorder.swift */; };
+		21AE7793FB8392D6343C2181 /* ZapTextBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3D106EC66F3020345A2319F /* ZapTextBubble.swift */; };
+		24351DC9CED709DDF81657E4 /* zaplivre.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98BA2BC23BF2FF8C3D887F7 /* zaplivre.swift */; };
+		2B3DA73BA92ADA3E248E2621 /* AudioFrameHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08498A37309A64E373E411A9 /* AudioFrameHandler.swift */; };
+		2BC568B05EB73664E07C6D99 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1249D47DA998C712D9DC9D2 /* QRScannerView.swift */; };
+		30085FDC775F73384D7E0BA6 /* ZapLivreCoreProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 653FC5C093EBD3ECDEE39F9C /* ZapLivreCoreProtocol.swift */; };
+		30C410F28D917FEC71DF2BB7 /* SelectedImagesPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5DD26330F0C4F2BF9126D36 /* SelectedImagesPreview.swift */; };
+		324FFF4BCA4643796E2A8BA6 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DF739A18AF72481A619C5C /* ChatView.swift */; };
+		369C1AC20B71FF3E2B237C50 /* MediaViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E61968DFB58669EECAB6D9 /* MediaViewerView.swift */; };
+		3779D73893855BB2DD9DE064 /* ConversationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 662E4A3C915FFA73EB39A189 /* ConversationsView.swift */; };
+		380AEE14C1E54551702B210F /* ReactionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76EDC5684CB896402C5A628C /* ReactionBar.swift */; };
+		39B08313BFB6458E670E32A8 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 647E05A8D7BDC6DC724E63B4 /* SwiftUI.framework */; };
+		3B690CEB4D14525D65B82D70 /* NewChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E621DF63C10EEE2B03F10A /* NewChatView.swift */; };
+		42750F1BFEF7578F3A3E0FCB /* MessageUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8DA407F1838F191B1AEBF5 /* MessageUtils.swift */; };
+		463C5FF61C9524100441F4B6 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C16ED1A60D399276714AA3D /* AudioManager.swift */; };
+		47C7543BE0A45F2AF643922A /* MessageSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F5A20D24D6CAE5F06E310 /* MessageSearchView.swift */; };
+		4949F83A31E9487C4D39F940 /* MessageStatusIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47DC89FBCB19C79AE015D513 /* MessageStatusIndicator.swift */; };
+		4AEF86E722C7646DE57DF607 /* CallEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DCF35D9D3A9A7CB0525CEC3 /* CallEventHandler.swift */; };
+		4BB4ACFCEEA8D5E46684F14C /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E4C957406ACD82A7FCF1F6 /* CallManager.swift */; };
+		4D7F1A9AAF09EE81830790A6 /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5F6BEFC3C620CD354AC9B8 /* ImagePicker.swift */; };
+		5798DBDDC926DB9F45A0EC1E /* MessageEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7A1CE5D31B34FAB7BC06A7 /* MessageEventHandler.swift */; };
+		5ECBE015B53734A3E3DC8D51 /* AvatarPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7FDD64BEB7E855B75462F21 /* AvatarPicker.swift */; };
+		5F3DE67F5401C1EF76297522 /* SkeletonLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3220A1CF789C0442FC846BBF /* SkeletonLoader.swift */; };
+		603DAE64AA3B98D3216C6A12 /* CallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41C962CC354C94AAD0CB323E /* CallScreen.swift */; };
+		64FA832CE37E222A0622B438 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699B5D6908584CAB3E66ECBA /* AppStateTests.swift */; };
+		660ECC683E6A406B5943810D /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858406E38617F039E4EAD289 /* DocumentPicker.swift */; };
+		6F788CD76A50C35FA43B55E3 /* GroupChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C86D00A705A3C2B0540C337B /* GroupChatView.swift */; };
+		754BD8B643172556224B9E64 /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA670C61C4E01403DCA1BF5 /* VideoEncoder.swift */; };
+		786A95767A779949ABEA8AED /* MediaPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9816C2850D3BF4A0D3D03945 /* MediaPickerViewModel.swift */; };
+		789DEF4D7995B12FC093F3B8 /* ZapButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3616F2752B91E1B4523B0FF /* ZapButtonStyle.swift */; };
+		79A8F08B7DE553DFFA2CF284 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50C7F888B51C27D5726DA603 /* AVFoundation.framework */; };
+		7BB0C96ECD4E2840E3CEC396 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FB6B9122FFBE35C49C6203CC /* Assets.xcassets */; };
+		80ED318C2F4F9C4733AE8AF9 /* ZapTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E94253EA87CC4C222BF346D5 /* ZapTheme.swift */; };
+		82EEE4C4ABC5F09F1DF31819 /* PushKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EA2FCD51C3176B84FAAFE310 /* PushKit.framework */; };
+		84FAED292C66B6F2717A0D37 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36CD7D4CAB877FFB802F27B /* ContentView.swift */; };
+		880C78B8EBCEA0B24B4AB5E5 /* VoiceRecorderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D941263CFED041CD6C8F370E /* VoiceRecorderViewModel.swift */; };
+		8DD7AD2C466FB82982B3BAA6 /* MyQRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8261AAB326C55BAF7D3CF61E /* MyQRCodeView.swift */; };
+		9342526C897434CC33561F70 /* ImageGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B49776DB228B6AC4878023D /* ImageGalleryView.swift */; };
+		9C60ACF5F34F59EB49B5FEC4 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD32A6056EA6506DC3F375E /* QRScannerViewController.swift */; };
+		9CD177FD58DDC31959EE1EAA /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6E550D4EA60F0FF2B5FE7B31 /* CoreImage.framework */; };
+		9E04684B4EBC6E96692BF4F2 /* ZapLivreCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE85424C870E1B1954AAB96C /* ZapLivreCore.swift */; };
+		9FEDC6B97313C4F1CC186B09 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347BFD294BB03C9AD4E2CBF1 /* VideoPlayerView.swift */; };
+		A3D727ADD8106DD8B0BD5D10 /* MessageUtilsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 965FF1CE7F5A43090EDE50E3 /* MessageUtilsTests.swift */; };
+		AD857FA306DFD5DD78C4B017 /* ImagePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847258FD1487A47A649A9101 /* ImagePreviewView.swift */; };
+		ADF43D7C853F0514D26E2D2E /* VoiceMessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 640FB0247A27CABBC8D5F6AB /* VoiceMessageBubble.swift */; };
+		AE29A9936796ABA896D6D2D0 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7981694CAAC99179C28E5302 /* TypingIndicator.swift */; };
+		AFC405F63B4315A86EC806ED /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58C02136AFE4C8433BFF6D27 /* UserNotifications.framework */; };
+		B20D7107C1B7B9320785D2D8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 857DA85F17CF353B6B45E650 /* Foundation.framework */; };
+		B30C7B7701607A2CC49C1220 /* PushNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAD21D51599DFD1422E1A90 /* PushNotificationManager.swift */; };
+		B63D72B116361CC88123DEE1 /* ReactionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4B056EEFF9C8F222BA1BCD /* ReactionPicker.swift */; };
+		BF45860064C2CC119852FD3C /* DesignPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AB5F6038507C8ABDF6DC3B /* DesignPreviewView.swift */; };
+		C5F69DC6A7AFC999400DDA5B /* VoiceRecordButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4037CF4DF7B9066DCB9B88CC /* VoiceRecordButton.swift */; };
+		CA58D3B970E793F6FB1EFD3D /* VideoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C37FCB0012C5318EAA585B /* VideoPicker.swift */; };
+		CFBD8143FFC18F316F72E44C /* VoipEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38E83A05F9CD0F4EC7B9974 /* VoipEventHandler.swift */; };
+		D0ACE5815228AEE814AC8162 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D68C99560F26B8876BCA7C /* ProfileView.swift */; };
+		DD67A02DCBE2A0D4EA6B6A4F /* IncomingCallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4191FD7D305D6F04A7F51064 /* IncomingCallScreen.swift */; };
+		DDC5D4FE2F73C519B16B3679 /* ZapLivreApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 549A352586575F128D896711 /* ZapLivreApp.swift */; };
+		DFC4A1EB200F16098D9194E2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F12EE981C1F5D59A0FF8DDC2 /* Security.framework */; };
+		E5CD35CC76D64F93BEDF2A1C /* CallKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD130A8A648DC749697E3DA1 /* CallKit.framework */; };
+		E83926E659F3F1A5785C7799 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43818B671BF6B2296E6D288E /* AvatarView.swift */; };
+		F35A163D68061FB9A7EE518B /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B62F2B3AF961B5EC3A3D9F5 /* CameraManager.swift */; };
+		F89235D3D2318A038BD1C31A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3F1953A0EA37FF3E682F0D5A /* SystemConfiguration.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7882D373170E48CFDE7E971A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C127630547A53E53268609C2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0D1959D25F120207C1211CF2;
+			remoteInfo = ZapLivre;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		08498A37309A64E373E411A9 /* AudioFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFrameHandler.swift; sourceTree = "<group>"; };
+		0972B3343D34375766EFD8DB /* GroupListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupListView.swift; sourceTree = "<group>"; };
+		0C7A1CE5D31B34FAB7BC06A7 /* MessageEventHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageEventHandler.swift; sourceTree = "<group>"; };
+		10A174E547C9DC2FD369FE5F /* VideoCallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCallScreen.swift; sourceTree = "<group>"; };
+		182D0E863F1BC824C2D0460F /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		1A75FB752E10FA1D2D168215 /* libresolv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; path = libresolv.tbd; sourceTree = "<group>"; };
+		21DA188D6C15ECF6003D9295 /* VideoFrameHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrameHandler.swift; sourceTree = "<group>"; };
+		263728704EB8B962C2C8ACFA /* ZapLivreTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ZapLivreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		308F5DB3BBBD619707FD499B /* ZapLivre.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ZapLivre.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		31CABBBFADB87E5204877F57 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		3220A1CF789C0442FC846BBF /* SkeletonLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonLoader.swift; sourceTree = "<group>"; };
+		347BFD294BB03C9AD4E2CBF1 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		37FE8FCADD1A1CF58A36B831 /* MediaGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryView.swift; sourceTree = "<group>"; };
+		3F1953A0EA37FF3E682F0D5A /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SystemConfiguration.framework; sourceTree = "<group>"; };
+		4037CF4DF7B9066DCB9B88CC /* VoiceRecordButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordButton.swift; sourceTree = "<group>"; };
+		4191FD7D305D6F04A7F51064 /* IncomingCallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingCallScreen.swift; sourceTree = "<group>"; };
+		41C962CC354C94AAD0CB323E /* CallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallScreen.swift; sourceTree = "<group>"; };
+		42832E6B751FE1FFDD5E05FB /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		43818B671BF6B2296E6D288E /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
+		47DC89FBCB19C79AE015D513 /* MessageStatusIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageStatusIndicator.swift; sourceTree = "<group>"; };
+		4B49776DB228B6AC4878023D /* ImageGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageGalleryView.swift; sourceTree = "<group>"; };
+		4DCF35D9D3A9A7CB0525CEC3 /* CallEventHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallEventHandler.swift; sourceTree = "<group>"; };
+		50C7F888B51C27D5726DA603 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = AVFoundation.framework; sourceTree = "<group>"; };
+		549A352586575F128D896711 /* ZapLivreApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapLivreApp.swift; sourceTree = "<group>"; };
+		58C02136AFE4C8433BFF6D27 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = UserNotifications.framework; sourceTree = "<group>"; };
+		640FB0247A27CABBC8D5F6AB /* VoiceMessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceMessageBubble.swift; sourceTree = "<group>"; };
+		647E05A8D7BDC6DC724E63B4 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SwiftUI.framework; sourceTree = "<group>"; };
+		64DF739A18AF72481A619C5C /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		653FC5C093EBD3ECDEE39F9C /* ZapLivreCoreProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapLivreCoreProtocol.swift; sourceTree = "<group>"; };
+		662E4A3C915FFA73EB39A189 /* ConversationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsView.swift; sourceTree = "<group>"; };
+		699B5D6908584CAB3E66ECBA /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
+		6C16ED1A60D399276714AA3D /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
+		6E550D4EA60F0FF2B5FE7B31 /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CoreImage.framework; sourceTree = "<group>"; };
+		75E4C957406ACD82A7FCF1F6 /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallManager.swift; sourceTree = "<group>"; };
+		76EDC5684CB896402C5A628C /* ReactionBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionBar.swift; sourceTree = "<group>"; };
+		7981694CAAC99179C28E5302 /* TypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypingIndicator.swift; sourceTree = "<group>"; };
+		7B4B056EEFF9C8F222BA1BCD /* ReactionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactionPicker.swift; sourceTree = "<group>"; };
+		7F0F5A20D24D6CAE5F06E310 /* MessageSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSearchView.swift; sourceTree = "<group>"; };
+		8261AAB326C55BAF7D3CF61E /* MyQRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyQRCodeView.swift; sourceTree = "<group>"; };
+		847258FD1487A47A649A9101 /* ImagePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreviewView.swift; sourceTree = "<group>"; };
+		857DA85F17CF353B6B45E650 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Foundation.framework; sourceTree = "<group>"; };
+		858406E38617F039E4EAD289 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
+		8F8DA407F1838F191B1AEBF5 /* MessageUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageUtils.swift; sourceTree = "<group>"; };
+		9562DB7C3FBCCE508218F1B2 /* HapticFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticFeedback.swift; sourceTree = "<group>"; };
+		965FF1CE7F5A43090EDE50E3 /* MessageUtilsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageUtilsTests.swift; sourceTree = "<group>"; };
+		97D68C99560F26B8876BCA7C /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		9816C2850D3BF4A0D3D03945 /* MediaPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPickerViewModel.swift; sourceTree = "<group>"; };
+		98AD166AEFA02D2CA60F00C3 /* zaplivreFFI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zaplivreFFI.h; sourceTree = "<group>"; };
+		9AA670C61C4E01403DCA1BF5 /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
+		9B62F2B3AF961B5EC3A3D9F5 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
+		A1AB5F6038507C8ABDF6DC3B /* DesignPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignPreviewView.swift; sourceTree = "<group>"; };
+		A98BA2BC23BF2FF8C3D887F7 /* zaplivre.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = zaplivre.swift; sourceTree = "<group>"; };
+		B36CD7D4CAB877FFB802F27B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B5E9E8F76C61965818C0D746 /* GroupInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupInfoView.swift; sourceTree = "<group>"; };
+		C1249D47DA998C712D9DC9D2 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
+		C5AF020CDAAE4E15D80C629C /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		C86D00A705A3C2B0540C337B /* GroupChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupChatView.swift; sourceTree = "<group>"; };
+		CAAD21D51599DFD1422E1A90 /* PushNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationManager.swift; sourceTree = "<group>"; };
+		CC5F6BEFC3C620CD354AC9B8 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		D38E83A05F9CD0F4EC7B9974 /* VoipEventHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoipEventHandler.swift; sourceTree = "<group>"; };
+		D5DD26330F0C4F2BF9126D36 /* SelectedImagesPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectedImagesPreview.swift; sourceTree = "<group>"; };
+		D941263CFED041CD6C8F370E /* VoiceRecorderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecorderViewModel.swift; sourceTree = "<group>"; };
+		DAD32A6056EA6506DC3F375E /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
+		DE85424C870E1B1954AAB96C /* ZapLivreCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapLivreCore.swift; sourceTree = "<group>"; };
+		E2B2B85F390AA12C2EFDC502 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E3616F2752B91E1B4523B0FF /* ZapButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapButtonStyle.swift; sourceTree = "<group>"; };
+		E3D106EC66F3020345A2319F /* ZapTextBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapTextBubble.swift; sourceTree = "<group>"; };
+		E4AAC7F6262A0CB9BE909D07 /* zaplivreFFI.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = zaplivreFFI.modulemap; sourceTree = "<group>"; };
+		E5E621DF63C10EEE2B03F10A /* NewChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewChatView.swift; sourceTree = "<group>"; };
+		E94253EA87CC4C222BF346D5 /* ZapTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapTheme.swift; sourceTree = "<group>"; };
+		EA2FCD51C3176B84FAAFE310 /* PushKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = PushKit.framework; sourceTree = "<group>"; };
+		F12EE981C1F5D59A0FF8DDC2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = "<group>"; };
+		F2E61968DFB58669EECAB6D9 /* MediaViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaViewerView.swift; sourceTree = "<group>"; };
+		F7C37FCB0012C5318EAA585B /* VideoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPicker.swift; sourceTree = "<group>"; };
+		F7FDD64BEB7E855B75462F21 /* AvatarPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarPicker.swift; sourceTree = "<group>"; };
+		FB6B9122FFBE35C49C6203CC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FD130A8A648DC749697E3DA1 /* CallKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CallKit.framework; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1CDB5F5227510E73A0A64ABE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20D7107C1B7B9320785D2D8 /* Foundation.framework in Frameworks */,
+				39B08313BFB6458E670E32A8 /* SwiftUI.framework in Frameworks */,
+				E5CD35CC76D64F93BEDF2A1C /* CallKit.framework in Frameworks */,
+				79A8F08B7DE553DFFA2CF284 /* AVFoundation.framework in Frameworks */,
+				9CD177FD58DDC31959EE1EAA /* CoreImage.framework in Frameworks */,
+				AFC405F63B4315A86EC806ED /* UserNotifications.framework in Frameworks */,
+				82EEE4C4ABC5F09F1DF31819 /* PushKit.framework in Frameworks */,
+				DFC4A1EB200F16098D9194E2 /* Security.framework in Frameworks */,
+				F89235D3D2318A038BD1C31A /* SystemConfiguration.framework in Frameworks */,
+				1C6386CA6181C95718F1816C /* libresolv.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0C8F6546C3A15E74DF43CE07 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				308F5DB3BBBD619707FD499B /* ZapLivre.app */,
+				263728704EB8B962C2C8ACFA /* ZapLivreTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		26E9C839D2A146EF090821DB /* ZapLivre */ = {
+			isa = PBXGroup;
+			children = (
+				FB6B9122FFBE35C49C6203CC /* Assets.xcassets */,
+				B36CD7D4CAB877FFB802F27B /* ContentView.swift */,
+				549A352586575F128D896711 /* ZapLivreApp.swift */,
+				419CEBBD9FCD9FA5735BDA17 /* Components */,
+				A1A64ED6A55924DAEECE73B8 /* Core */,
+				5A45651B4B894B0698E2273C /* DesignSystem */,
+				5986F2668D1DAFCAF6AAED3E /* Utils */,
+				3B69715E18A4CFF727960486 /* Views */,
+				712940576ACB5EC8EC58F2E1 /* VoIP */,
+			);
+			name = ZapLivre;
+			path = ZapLivre/ZapLivre;
+			sourceTree = "<group>";
+		};
+		2F55D066C2AAB2BF26C83B9F /* ZapLivreTests */ = {
+			isa = PBXGroup;
+			children = (
+				699B5D6908584CAB3E66ECBA /* AppStateTests.swift */,
+				965FF1CE7F5A43090EDE50E3 /* MessageUtilsTests.swift */,
+			);
+			name = ZapLivreTests;
+			path = ZapLivre/ZapLivreTests;
+			sourceTree = "<group>";
+		};
+		36D0377CF1002A570C214BE4 = {
+			isa = PBXGroup;
+			children = (
+				9752D05F83A4E4BF00E8697C /* Generated */,
+				26E9C839D2A146EF090821DB /* ZapLivre */,
+				2F55D066C2AAB2BF26C83B9F /* ZapLivreTests */,
+				E29F5D945AA6FC9BA648842E /* Frameworks */,
+				0C8F6546C3A15E74DF43CE07 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3B69715E18A4CFF727960486 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				41C962CC354C94AAD0CB323E /* CallScreen.swift */,
+				64DF739A18AF72481A619C5C /* ChatView.swift */,
+				662E4A3C915FFA73EB39A189 /* ConversationsView.swift */,
+				C86D00A705A3C2B0540C337B /* GroupChatView.swift */,
+				B5E9E8F76C61965818C0D746 /* GroupInfoView.swift */,
+				0972B3343D34375766EFD8DB /* GroupListView.swift */,
+				4B49776DB228B6AC4878023D /* ImageGalleryView.swift */,
+				CC5F6BEFC3C620CD354AC9B8 /* ImagePicker.swift */,
+				847258FD1487A47A649A9101 /* ImagePreviewView.swift */,
+				4191FD7D305D6F04A7F51064 /* IncomingCallScreen.swift */,
+				C5AF020CDAAE4E15D80C629C /* LoginView.swift */,
+				37FE8FCADD1A1CF58A36B831 /* MediaGalleryView.swift */,
+				F2E61968DFB58669EECAB6D9 /* MediaViewerView.swift */,
+				7F0F5A20D24D6CAE5F06E310 /* MessageSearchView.swift */,
+				8261AAB326C55BAF7D3CF61E /* MyQRCodeView.swift */,
+				E5E621DF63C10EEE2B03F10A /* NewChatView.swift */,
+				97D68C99560F26B8876BCA7C /* ProfileView.swift */,
+				C1249D47DA998C712D9DC9D2 /* QRScannerView.swift */,
+				DAD32A6056EA6506DC3F375E /* QRScannerViewController.swift */,
+				D5DD26330F0C4F2BF9126D36 /* SelectedImagesPreview.swift */,
+				E2B2B85F390AA12C2EFDC502 /* SettingsView.swift */,
+				10A174E547C9DC2FD369FE5F /* VideoCallScreen.swift */,
+				347BFD294BB03C9AD4E2CBF1 /* VideoPlayerView.swift */,
+				640FB0247A27CABBC8D5F6AB /* VoiceMessageBubble.swift */,
+				4037CF4DF7B9066DCB9B88CC /* VoiceRecordButton.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		419CEBBD9FCD9FA5735BDA17 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				F7FDD64BEB7E855B75462F21 /* AvatarPicker.swift */,
+				858406E38617F039E4EAD289 /* DocumentPicker.swift */,
+				47DC89FBCB19C79AE015D513 /* MessageStatusIndicator.swift */,
+				76EDC5684CB896402C5A628C /* ReactionBar.swift */,
+				7B4B056EEFF9C8F222BA1BCD /* ReactionPicker.swift */,
+				3220A1CF789C0442FC846BBF /* SkeletonLoader.swift */,
+				7981694CAAC99179C28E5302 /* TypingIndicator.swift */,
+				F7C37FCB0012C5318EAA585B /* VideoPicker.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		5986F2668D1DAFCAF6AAED3E /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				9562DB7C3FBCCE508218F1B2 /* HapticFeedback.swift */,
+				8F8DA407F1838F191B1AEBF5 /* MessageUtils.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		5A45651B4B894B0698E2273C /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				43818B671BF6B2296E6D288E /* AvatarView.swift */,
+				A1AB5F6038507C8ABDF6DC3B /* DesignPreviewView.swift */,
+				E3616F2752B91E1B4523B0FF /* ZapButtonStyle.swift */,
+				E3D106EC66F3020345A2319F /* ZapTextBubble.swift */,
+				E94253EA87CC4C222BF346D5 /* ZapTheme.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		712940576ACB5EC8EC58F2E1 /* VoIP */ = {
+			isa = PBXGroup;
+			children = (
+				08498A37309A64E373E411A9 /* AudioFrameHandler.swift */,
+				6C16ED1A60D399276714AA3D /* AudioManager.swift */,
+				4DCF35D9D3A9A7CB0525CEC3 /* CallEventHandler.swift */,
+				75E4C957406ACD82A7FCF1F6 /* CallManager.swift */,
+				9B62F2B3AF961B5EC3A3D9F5 /* CameraManager.swift */,
+				9AA670C61C4E01403DCA1BF5 /* VideoEncoder.swift */,
+				21DA188D6C15ECF6003D9295 /* VideoFrameHandler.swift */,
+				D38E83A05F9CD0F4EC7B9974 /* VoipEventHandler.swift */,
+			);
+			path = VoIP;
+			sourceTree = "<group>";
+		};
+		9752D05F83A4E4BF00E8697C /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				A98BA2BC23BF2FF8C3D887F7 /* zaplivre.swift */,
+				98AD166AEFA02D2CA60F00C3 /* zaplivreFFI.h */,
+				E4AAC7F6262A0CB9BE909D07 /* zaplivreFFI.modulemap */,
+			);
+			name = Generated;
+			path = ZapLivre/Generated;
+			sourceTree = "<group>";
+		};
+		A1A64ED6A55924DAEECE73B8 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				42832E6B751FE1FFDD5E05FB /* AppDelegate.swift */,
+				182D0E863F1BC824C2D0460F /* AudioRecorder.swift */,
+				31CABBBFADB87E5204877F57 /* KeychainStore.swift */,
+				9816C2850D3BF4A0D3D03945 /* MediaPickerViewModel.swift */,
+				0C7A1CE5D31B34FAB7BC06A7 /* MessageEventHandler.swift */,
+				CAAD21D51599DFD1422E1A90 /* PushNotificationManager.swift */,
+				D941263CFED041CD6C8F370E /* VoiceRecorderViewModel.swift */,
+				DE85424C870E1B1954AAB96C /* ZapLivreCore.swift */,
+				653FC5C093EBD3ECDEE39F9C /* ZapLivreCoreProtocol.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		E29F5D945AA6FC9BA648842E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				50C7F888B51C27D5726DA603 /* AVFoundation.framework */,
+				FD130A8A648DC749697E3DA1 /* CallKit.framework */,
+				6E550D4EA60F0FF2B5FE7B31 /* CoreImage.framework */,
+				857DA85F17CF353B6B45E650 /* Foundation.framework */,
+				1A75FB752E10FA1D2D168215 /* libresolv.tbd */,
+				EA2FCD51C3176B84FAAFE310 /* PushKit.framework */,
+				F12EE981C1F5D59A0FF8DDC2 /* Security.framework */,
+				647E05A8D7BDC6DC724E63B4 /* SwiftUI.framework */,
+				3F1953A0EA37FF3E682F0D5A /* SystemConfiguration.framework */,
+				58C02136AFE4C8433BFF6D27 /* UserNotifications.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0D1959D25F120207C1211CF2 /* ZapLivre */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 851DE883A75F6E09857922FD /* Build configuration list for PBXNativeTarget "ZapLivre" */;
+			buildPhases = (
+				E857BD57010B2DB3944BBDC4 /* Sources */,
+				4326D07D8D7A499328E29E7C /* Resources */,
+				1CDB5F5227510E73A0A64ABE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZapLivre;
+			packageProductDependencies = (
+			);
+			productName = ZapLivre;
+			productReference = 308F5DB3BBBD619707FD499B /* ZapLivre.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4E3536F8665AC08627F7759D /* ZapLivreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2514C02F55C01B6A9735B48 /* Build configuration list for PBXNativeTarget "ZapLivreTests" */;
+			buildPhases = (
+				575EE37D404FC360397F4C07 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A287E792BBC4C7E69204596 /* PBXTargetDependency */,
+			);
+			name = ZapLivreTests;
+			packageProductDependencies = (
+			);
+			productName = ZapLivreTests;
+			productReference = 263728704EB8B962C2C8ACFA /* ZapLivreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C127630547A53E53268609C2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0D1959D25F120207C1211CF2 = {
+						DevelopmentTeam = T8N7A2P3TQ;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = "[\"com.apple.BackgroundModes\": [\"enabled\": 1], \"com.apple.Push\": [\"enabled\": 1]]";
+					};
+					4E3536F8665AC08627F7759D = {
+						DevelopmentTeam = T8N7A2P3TQ;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = D54D6BDBCEE8AC27C41AA1A8 /* Build configuration list for PBXProject "ZapLivre" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 36D0377CF1002A570C214BE4;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0C8F6546C3A15E74DF43CE07 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0D1959D25F120207C1211CF2 /* ZapLivre */,
+				4E3536F8665AC08627F7759D /* ZapLivreTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4326D07D8D7A499328E29E7C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7BB0C96ECD4E2840E3CEC396 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		575EE37D404FC360397F4C07 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				64FA832CE37E222A0622B438 /* AppStateTests.swift in Sources */,
+				A3D727ADD8106DD8B0BD5D10 /* MessageUtilsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E857BD57010B2DB3944BBDC4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				19FAA376C1E4AE9CFE928E3B /* AppDelegate.swift in Sources */,
+				2B3DA73BA92ADA3E248E2621 /* AudioFrameHandler.swift in Sources */,
+				463C5FF61C9524100441F4B6 /* AudioManager.swift in Sources */,
+				1F0AF64EE7EAB39D0B30B814 /* AudioRecorder.swift in Sources */,
+				5ECBE015B53734A3E3DC8D51 /* AvatarPicker.swift in Sources */,
+				E83926E659F3F1A5785C7799 /* AvatarView.swift in Sources */,
+				4AEF86E722C7646DE57DF607 /* CallEventHandler.swift in Sources */,
+				4BB4ACFCEEA8D5E46684F14C /* CallManager.swift in Sources */,
+				603DAE64AA3B98D3216C6A12 /* CallScreen.swift in Sources */,
+				F35A163D68061FB9A7EE518B /* CameraManager.swift in Sources */,
+				324FFF4BCA4643796E2A8BA6 /* ChatView.swift in Sources */,
+				84FAED292C66B6F2717A0D37 /* ContentView.swift in Sources */,
+				3779D73893855BB2DD9DE064 /* ConversationsView.swift in Sources */,
+				BF45860064C2CC119852FD3C /* DesignPreviewView.swift in Sources */,
+				660ECC683E6A406B5943810D /* DocumentPicker.swift in Sources */,
+				6F788CD76A50C35FA43B55E3 /* GroupChatView.swift in Sources */,
+				04987C32D640041F5DCF4A70 /* GroupInfoView.swift in Sources */,
+				1A9BE11A0C2D1FEDDFD770B3 /* GroupListView.swift in Sources */,
+				0FACB9DAEB08803356633894 /* HapticFeedback.swift in Sources */,
+				9342526C897434CC33561F70 /* ImageGalleryView.swift in Sources */,
+				4D7F1A9AAF09EE81830790A6 /* ImagePicker.swift in Sources */,
+				AD857FA306DFD5DD78C4B017 /* ImagePreviewView.swift in Sources */,
+				DD67A02DCBE2A0D4EA6B6A4F /* IncomingCallScreen.swift in Sources */,
+				1B4C052FED4754E7F138DFE8 /* KeychainStore.swift in Sources */,
+				10F97877A32095FC5D50703A /* LoginView.swift in Sources */,
+				13C86850B4F1C5C3DC8AEFA9 /* MediaGalleryView.swift in Sources */,
+				786A95767A779949ABEA8AED /* MediaPickerViewModel.swift in Sources */,
+				369C1AC20B71FF3E2B237C50 /* MediaViewerView.swift in Sources */,
+				5798DBDDC926DB9F45A0EC1E /* MessageEventHandler.swift in Sources */,
+				47C7543BE0A45F2AF643922A /* MessageSearchView.swift in Sources */,
+				4949F83A31E9487C4D39F940 /* MessageStatusIndicator.swift in Sources */,
+				42750F1BFEF7578F3A3E0FCB /* MessageUtils.swift in Sources */,
+				8DD7AD2C466FB82982B3BAA6 /* MyQRCodeView.swift in Sources */,
+				3B690CEB4D14525D65B82D70 /* NewChatView.swift in Sources */,
+				D0ACE5815228AEE814AC8162 /* ProfileView.swift in Sources */,
+				B30C7B7701607A2CC49C1220 /* PushNotificationManager.swift in Sources */,
+				2BC568B05EB73664E07C6D99 /* QRScannerView.swift in Sources */,
+				9C60ACF5F34F59EB49B5FEC4 /* QRScannerViewController.swift in Sources */,
+				380AEE14C1E54551702B210F /* ReactionBar.swift in Sources */,
+				B63D72B116361CC88123DEE1 /* ReactionPicker.swift in Sources */,
+				30C410F28D917FEC71DF2BB7 /* SelectedImagesPreview.swift in Sources */,
+				1B8C1A752CAA7714D0D9F6F1 /* SettingsView.swift in Sources */,
+				5F3DE67F5401C1EF76297522 /* SkeletonLoader.swift in Sources */,
+				AE29A9936796ABA896D6D2D0 /* TypingIndicator.swift in Sources */,
+				1300FD8B5A8F9B7CD4A5EED0 /* VideoCallScreen.swift in Sources */,
+				754BD8B643172556224B9E64 /* VideoEncoder.swift in Sources */,
+				10D31B1FFCB721E4C1108AEA /* VideoFrameHandler.swift in Sources */,
+				CA58D3B970E793F6FB1EFD3D /* VideoPicker.swift in Sources */,
+				9FEDC6B97313C4F1CC186B09 /* VideoPlayerView.swift in Sources */,
+				ADF43D7C853F0514D26E2D2E /* VoiceMessageBubble.swift in Sources */,
+				C5F69DC6A7AFC999400DDA5B /* VoiceRecordButton.swift in Sources */,
+				880C78B8EBCEA0B24B4AB5E5 /* VoiceRecorderViewModel.swift in Sources */,
+				CFBD8143FFC18F316F72E44C /* VoipEventHandler.swift in Sources */,
+				789DEF4D7995B12FC093F3B8 /* ZapButtonStyle.swift in Sources */,
+				DDC5D4FE2F73C519B16B3679 /* ZapLivreApp.swift in Sources */,
+				9E04684B4EBC6E96692BF4F2 /* ZapLivreCore.swift in Sources */,
+				30085FDC775F73384D7E0BA6 /* ZapLivreCoreProtocol.swift in Sources */,
+				21AE7793FB8392D6343C2181 /* ZapTextBubble.swift in Sources */,
+				80ED318C2F4F9C4733AE8AF9 /* ZapTheme.swift in Sources */,
+				24351DC9CED709DDF81657E4 /* zaplivre.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2A287E792BBC4C7E69204596 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0D1959D25F120207C1211CF2 /* ZapLivre */;
+			targetProxy = 7882D373170E48CFDE7E971A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		84F7344CD2BA11789DEFF018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.zaplivre.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ZapLivre.app/ZapLivre";
+			};
+			name = Debug;
+		};
+		97C8A1067BBA571DC9909ED1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ZapLivre/ZapLivre.prod.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				INFOPLIST_FILE = ZapLivre/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Libraries",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-L$(PROJECT_DIR)/Libraries",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-L$(PROJECT_DIR)/Libraries",
+					"-lzaplivre_core_ios",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-L$(PROJECT_DIR)/Libraries",
+					"-lzaplivre_core_sim",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.zaplivre.ios;
+				PRODUCT_NAME = ZapLivre;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/ZapLivre/ZapLivre-Bridging-Header.h";
+				SWIFT_OBJC_INTERFACE_HEADER_NAME = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		ACEB9D7E853B62ACBF2D1499 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CFB6C508EE80DED5FE65061B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DD424766A741BAEA394F4E7D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.zaplivre.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ZapLivre.app/ZapLivre";
+			};
+			name = Release;
+		};
+		FE2C02B4E091EB896E88F0B8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ZapLivre/ZapLivre.dev.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = T8N7A2P3TQ;
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				INFOPLIST_FILE = ZapLivre/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Libraries",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-L$(PROJECT_DIR)/Libraries",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-L$(PROJECT_DIR)/Libraries",
+					"-lzaplivre_core_ios",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-L$(PROJECT_DIR)/Libraries",
+					"-lzaplivre_core_sim",
+					"-Wl,-search_paths_first",
+					"-Wl,-headerpad_max_install_names",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.zaplivre.ios;
+				PRODUCT_NAME = ZapLivre;
+				SDKROOT = iphoneos;
+				SWIFT_INCLUDE_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ZapLivre/Generated",
+				);
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_DIR)/ZapLivre/ZapLivre-Bridging-Header.h";
+				SWIFT_OBJC_INTERFACE_HEADER_NAME = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		851DE883A75F6E09857922FD /* Build configuration list for PBXNativeTarget "ZapLivre" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE2C02B4E091EB896E88F0B8 /* Debug */,
+				97C8A1067BBA571DC9909ED1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2514C02F55C01B6A9735B48 /* Build configuration list for PBXNativeTarget "ZapLivreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84F7344CD2BA11789DEFF018 /* Debug */,
+				DD424766A741BAEA394F4E7D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D54D6BDBCEE8AC27C41AA1A8 /* Build configuration list for PBXProject "ZapLivre" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ACEB9D7E853B62ACBF2D1499 /* Debug */,
+				CFB6C508EE80DED5FE65061B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C127630547A53E53268609C2 /* Project object */;
+}
