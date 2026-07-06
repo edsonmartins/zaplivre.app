@@ -49,8 +49,10 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: mepassa
-          POSTGRES_PASSWORD: mepassa
           POSTGRES_DB: mepassa_identity
+          # Banco efêmero do runner (só localhost, destruído ao fim do job):
+          # sem senha, autenticação por trust. Evita hardcodar credencial.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -63,7 +65,7 @@ jobs:
         ports:
           - 6379:6379
     env:
-      DATABASE_URL: postgres://mepassa:mepassa@localhost:5432/mepassa_identity
+      DATABASE_URL: postgres://mepassa@localhost:5432/mepassa_identity
       REDIS_URL: redis://localhost:6379
       IDENTITY_SERVER_URL: http://localhost:8083
     steps:
