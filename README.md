@@ -1,10 +1,5 @@
 # ZapLivre
 
-> **Marca:** o produto se chama **ZapLivre**. Os identificadores internos
-> (crates `zaplivre-*`, bundle IDs, namespace UniFFI, protocolo, envs
-> `ZAPLIVRE_*`) mantêm o codinome original de propósito — renomear a marca
-> exibida não exige tocar neles.
-
 > **Comunicação verdadeiramente híbrida: P2P quando possível, servidor quando necessário**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
@@ -82,8 +77,12 @@
 
 ### Apps
 - **Android:** Kotlin + Jetpack Compose + Material3
-- **iOS:** Swift + SwiftUI *(em desenvolvimento)*
+- **iOS:** Swift + SwiftUI — design system ZapLivre (paleta de marca, bolhas com cauda, componentes reutilizáveis)
 - **Desktop:** Tauri 2.0 (Rust + React + TypeScript)
+
+> **Identidade visual:** o app adota uma linguagem inspirada nos mensageiros de mercado,
+> mas com a marca ZapLivre — azul `#2F6BFF` + gradiente "spark" (raio-pássaro) no lugar do
+> verde. O iOS já foi repaginado; o Android está em migração para o mesmo design system.
 
 ### Servidor (Self-hosted)
 - **Bootstrap Nodes:** libp2p DHT + Kademlia (peer discovery)
@@ -309,8 +308,8 @@ cargo bench
 ### Guias Principais
 - [**Plano de Execução**](EXECUCAO.md) - Fases detalhadas, progresso atual
 - [**Build & Test Guide**](BUILD_AND_TEST.md) - Como buildar e testar VoIP
-- [**Arquitetura Híbrida**](docs/architecture/hibrida.md) - Por que P2P + Servidor
-- [**Tech Stack**](docs/architecture/tech-stack.md) - Bibliotecas e justificativas
+- [**Arquitetura Híbrida**](docs/architecture/01-hybrid-architecture.md) - Por que P2P + Servidor
+- [**Tech Stack**](documentos/zaplivre_tech_stack_completo.md) - Bibliotecas e justificativas
 
 ### Por Componente
 - **Android:** [BUILD_GUIDE.md](android/BUILD_GUIDE.md) | [TESTING.md](android/TESTING.md) | [README.md](android/README.md)
