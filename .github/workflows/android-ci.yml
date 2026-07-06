@@ -14,12 +14,24 @@ on:
       - 'core/**'
       - '.github/workflows/android-ci.yml'
 
+# As .so nativas são geradas pelo step cargo-ndk; pula o buildRustCore do Gradle
+# (que chamaria build-native.sh com o NDK hardcoded do dev em core/.cargo/config.toml).
+env:
+  ORG_GRADLE_PROJECT_skipNativeBuild: "true"
+
 jobs:
   build:
     name: Build Android
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install system deps (protoc, cmake)
+        # protoc: exigido pelo build.rs do spqr-syft (libsignal PQXDH).
+        # cmake: exigido pelo audiopus_sys (Opus) ao compilar com --features voip.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler cmake
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

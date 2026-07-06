@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -22,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -35,6 +37,11 @@ import com.zaplivre.ui.components.ImagePickerButton
 import com.zaplivre.ui.components.MessageStatusIndicator
 import com.zaplivre.ui.components.SelectedImagesPreview
 import com.zaplivre.ui.components.VoiceRecordButton
+import com.zaplivre.ui.components.ZapAvatar
+import com.zaplivre.ui.components.ZapBubbleContainer
+import com.zaplivre.ui.theme.ZapColor
+import com.zaplivre.ui.theme.ZapMetric
+import com.zaplivre.ui.theme.ZapType
 import com.zaplivre.utils.rememberHapticFeedback
 import kotlinx.coroutines.launch
 import uniffi.zaplivre.FfiMessage
@@ -182,21 +189,27 @@ fun ChatScreen(
     }
 
     Scaffold(
+        containerColor = ZapColor.chatCanvas,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = peerId.take(16) + "...",
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = stringResource(R.string.chat_status_connected),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ZapAvatar(seed = peerId, name = peerId, size = ZapMetric.avatarSmall, online = true)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = peerId.take(14) + "…",
+                                style = ZapType.rowName,
+                                color = ZapColor.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = stringResource(R.string.chat_status_connected),
+                                style = ZapType.caption,
+                                color = ZapColor.online
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
@@ -206,47 +219,31 @@ fun ChatScreen(
                     ) {
                         Icon(
                             Icons.Filled.ArrowBack,
-                            contentDescription = "Voltar"
+                            contentDescription = "Voltar",
+                            tint = ZapColor.ink
                         )
                     }
                 },
                 actions = {
-                    // Botão de busca
                     IconButton(
                         onClick = onOpenSearch,
                         modifier = Modifier.testTag("chat_search")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar mensagens",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Icon(Icons.Default.Search, "Buscar mensagens", tint = ZapColor.slate)
                     }
-
-                    // Botão de galeria de mídia
                     IconButton(
                         onClick = onOpenMediaGallery,
                         modifier = Modifier.testTag("chat_media_gallery")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Photo,
-                            contentDescription = "Galeria de mídia",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Icon(Icons.Default.Photo, "Galeria de mídia", tint = ZapColor.slate)
                     }
-
-                    // Botão de chamada de voz
                     IconButton(onClick = onStartCall) {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = "Iniciar chamada",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        Icon(Icons.Default.Phone, "Iniciar chamada", tint = ZapColor.primary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = ZapColor.canvas,
+                    titleContentColor = ZapColor.ink
                 )
             )
         },
@@ -599,76 +596,86 @@ fun MessageInputBar(
     voiceRecorderViewModel: VoiceRecorderViewModel,
     isSending: Boolean
 ) {
-    Surface(
-        tonalElevation = 3.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Image picker button
-            ImagePickerButton(
-                onImagesPicked = onSelectImages,
-                maxSelection = 10,
-                enabled = !isSending
-            )
-
-            // File picker button
-            com.zaplivre.ui.components.FilePickerButton(
-                onFilePicked = onFilePicked,
-                enabled = !isSending
-            )
-
-            // Video picker button (placeholder - will be implemented later)
-            // TODO: Implement VideoPicker component
-            // com.zaplivre.ui.components.VideoPickerButton(
-            //     onVideoPicked = onVideoPicked,
-            //     enabled = !isSending
-            // )
-
-            OutlinedTextField(
-                value = messageInput,
-                onValueChange = onMessageInputChange,
+    Surface(color = ZapColor.surface, modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Divider(color = ZapColor.hairline)
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .testTag("chat_input"),
-                placeholder = {
-                    Text(stringResource(R.string.chat_input_hint))
-                },
-                maxLines = 4,
-                enabled = !isSending,
-                shape = RoundedCornerShape(24.dp)
-            )
-
-            // Send button or Voice record button
-            if (messageInput.isNotBlank()) {
-                IconButton(
-                    onClick = onSendClick,
-                    enabled = !isSending,
-                    modifier = Modifier.testTag("chat_send")
-                ) {
-                    if (isSending) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            Icons.Filled.Send,
-                            contentDescription = stringResource(R.string.chat_send),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            } else {
-                VoiceRecordButton(
-                    viewModel = voiceRecorderViewModel,
-                    onVoiceMessageRecorded = onVoiceMessageRecorded
+                    .padding(horizontal = 6.dp, vertical = 8.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Image picker button
+                ImagePickerButton(
+                    onImagesPicked = onSelectImages,
+                    maxSelection = 10,
+                    enabled = !isSending
                 )
+
+                // File picker button
+                com.zaplivre.ui.components.FilePickerButton(
+                    onFilePicked = onFilePicked,
+                    enabled = !isSending
+                )
+
+                OutlinedTextField(
+                    value = messageInput,
+                    onValueChange = onMessageInputChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("chat_input"),
+                    placeholder = {
+                        Text(stringResource(R.string.chat_input_hint), color = ZapColor.slate)
+                    },
+                    maxLines = 4,
+                    enabled = !isSending,
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = ZapColor.chatCanvas,
+                        unfocusedContainerColor = ZapColor.chatCanvas,
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
+                        cursorColor = ZapColor.primary,
+                        focusedTextColor = ZapColor.ink,
+                        unfocusedTextColor = ZapColor.ink,
+                    ),
+                )
+
+                // Send button (gradient) ou botão de gravar voz
+                if (messageInput.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 2.dp)
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(ZapColor.sparkBrush)
+                            .clickable(enabled = !isSending, onClick = onSendClick)
+                            .testTag("chat_send"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isSending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.Send,
+                                contentDescription = stringResource(R.string.chat_send),
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                } else {
+                    VoiceRecordButton(
+                        viewModel = voiceRecorderViewModel,
+                        onVoiceMessageRecorded = onVoiceMessageRecorded
+                    )
+                }
             }
         }
     }
@@ -691,51 +698,21 @@ fun MessageBubble(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start
-    ) {
-        Column(
-            horizontalAlignment = if (isOwnMessage) Alignment.End else Alignment.Start
-        ) {
-            Surface(
-                shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isOwnMessage) 16.dp else 4.dp,
-                    bottomEnd = if (isOwnMessage) 4.dp else 16.dp
-                ),
-                color = if (isOwnMessage) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box {
+            ZapBubbleContainer(
+                outgoing = isOwnMessage,
+                onLongPress = {
+                    onLongPress()
+                    showMenu = true
                 },
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = {
-                            onLongPress()
-                            showMenu = true
-                        }
-                    )
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp)
-                ) {
+            ) { fg ->
+                Column {
                     message.contentPlaintext?.let { content ->
-                        Text(
-                            text = content,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Text(text = content, style = ZapType.body, color = fg)
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    MessageStatusIndicator(
-                        message = message,
-                        isOwnMessage = isOwnMessage
-                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    MessageStatusIndicator(message = message, isOwnMessage = isOwnMessage)
                 }
             }
 
@@ -752,7 +729,7 @@ fun MessageBubble(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Excluir", color = MaterialTheme.colorScheme.error) },
+                    text = { Text("Excluir", color = ZapColor.danger) },
                     onClick = {
                         showMenu = false
                         onDelete()
@@ -763,12 +740,17 @@ fun MessageBubble(
 
         // Reaction bar
         if (reactions.isNotEmpty()) {
-            com.zaplivre.ui.components.ReactionBar(
-                reactions = reactions,
-                onReactionClick = onReactionClick,
-                onAddReactionClick = onAddReactionClick,
-                modifier = Modifier.widthIn(max = 280.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start
+            ) {
+                com.zaplivre.ui.components.ReactionBar(
+                    reactions = reactions,
+                    onReactionClick = onReactionClick,
+                    onAddReactionClick = onAddReactionClick,
+                    modifier = Modifier.widthIn(max = 280.dp)
+                )
+            }
         }
     }
 }

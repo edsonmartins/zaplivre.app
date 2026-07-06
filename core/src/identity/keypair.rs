@@ -258,11 +258,11 @@ impl PublicKey {
     ///
     /// Returns error if peer ID format is invalid
     pub fn from_peer_id(peer_id: &str) -> Result<Self> {
-        if !peer_id.starts_with("zaplivre_") {
-            return Err(ZapLivreError::Identity("Invalid peer ID format: must start with 'zaplivre_'".to_string()));
-        }
-
-        let encoded = &peer_id[8..]; // Skip "zaplivre_" prefix
+        // strip_prefix garante que o número de bytes pulados acompanhe o
+        // tamanho do prefixo (evita o bug do rename: "mepassa_"=8 → "zaplivre_"=9).
+        let encoded = peer_id.strip_prefix("zaplivre_").ok_or_else(|| {
+            ZapLivreError::Identity("Invalid peer ID format: must start with 'zaplivre_'".to_string())
+        })?;
         let bytes = bs58::decode(encoded)
             .into_vec()
             .map_err(|e| ZapLivreError::Identity(format!("Invalid base58 encoding: {}", e)))?;

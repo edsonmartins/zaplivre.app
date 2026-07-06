@@ -12,6 +12,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.zaplivre.R
 import com.zaplivre.core.ZapLivreClientWrapper
+import com.zaplivre.ui.components.ZapGradientButton
+import com.zaplivre.ui.components.ZapLogo
+import com.zaplivre.ui.theme.ZapColor
+import com.zaplivre.ui.theme.ZapType
 import kotlinx.coroutines.launch
 
 /**
@@ -53,51 +57,38 @@ fun OnboardingScreen(
         }
     }
 
-    Scaffold { paddingValues ->
+    Scaffold(containerColor = ZapColor.canvas) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
+                .padding(28.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Logo placeholder
-                Surface(
-                    modifier = Modifier.size(120.dp),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "ZL",
-                            style = MaterialTheme.typography.displayLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.weight(0.6f))
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // Logo (raio + gradiente spark) + wordmark
+                ZapLogo(size = 104.dp)
 
-                // Title
                 Text(
-                    text = stringResource(R.string.onboarding_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
+                    text = "ZapLivre",
+                    style = ZapType.brand,
+                    color = ZapColor.ink,
                 )
 
                 // Subtitle
                 Text(
                     text = stringResource(R.string.onboarding_subtitle),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = ZapType.preview,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = ZapColor.slate
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Status / Peer ID
                 if (isInitializing || isInitialized) {
@@ -141,41 +132,35 @@ fun OnboardingScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Botão começar
-                Button(
+                // Botão começar (gradiente spark — ação principal)
+                ZapGradientButton(
+                    text = stringResource(R.string.onboarding_button),
                     onClick = {
                         isInitializing = true
                         scope.launch {
                             val success = ZapLivreClientWrapper.initialize(context)
                             if (!success) {
-                                // TODO: Mostrar erro
                                 isInitializing = false
                             }
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .testTag("onboarding_create"),
-                    enabled = !isInitializing && !isInitialized
-                ) {
-                    Text(
-                        text = stringResource(R.string.onboarding_button),
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
+                    enabled = !isInitializing && !isInitialized,
+                    modifier = Modifier.testTag("onboarding_create"),
+                )
 
                 OutlinedButton(
                     onClick = { showImportDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .height(54.dp)
                         .testTag("onboarding_restore"),
+                    shape = MaterialTheme.shapes.small,
                     enabled = !isInitializing && !isInitialized
                 ) {
                     Text(
                         text = stringResource(R.string.onboarding_import_button),
-                        style = MaterialTheme.typography.labelLarge
+                        style = ZapType.rowName,
+                        color = ZapColor.primary,
                     )
                 }
             }

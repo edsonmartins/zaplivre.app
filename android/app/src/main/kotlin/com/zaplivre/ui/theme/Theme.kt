@@ -6,51 +6,52 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// ZapLivre color scheme
-private val md_theme_light_primary = Color(0xFF006C51)
-private val md_theme_light_onPrimary = Color(0xFFFFFFFF)
-private val md_theme_light_primaryContainer = Color(0xFF7FF9CE)
-private val md_theme_light_onPrimaryContainer = Color(0xFF002116)
-private val md_theme_light_secondary = Color(0xFF4B635A)
-private val md_theme_light_onSecondary = Color(0xFFFFFFFF)
-private val md_theme_light_secondaryContainer = Color(0xFFCDE9DC)
-private val md_theme_light_onSecondaryContainer = Color(0xFF072018)
-
-private val md_theme_dark_primary = Color(0xFF63DCB3)
-private val md_theme_dark_onPrimary = Color(0xFF00382A)
-private val md_theme_dark_primaryContainer = Color(0xFF00513C)
-private val md_theme_dark_onPrimaryContainer = Color(0xFF7FF9CE)
-private val md_theme_dark_secondary = Color(0xFFB1CCC1)
-private val md_theme_dark_onSecondary = Color(0xFF1D352D)
-private val md_theme_dark_secondaryContainer = Color(0xFF344C43)
-private val md_theme_dark_onSecondaryContainer = Color(0xFFCDE9DC)
-
-private val LightColors = lightColorScheme(
-    primary = md_theme_light_primary,
-    onPrimary = md_theme_light_onPrimary,
-    primaryContainer = md_theme_light_primaryContainer,
-    onPrimaryContainer = md_theme_light_onPrimaryContainer,
-    secondary = md_theme_light_secondary,
-    onSecondary = md_theme_light_onSecondary,
-    secondaryContainer = md_theme_light_secondaryContainer,
-    onSecondaryContainer = md_theme_light_onSecondaryContainer,
+/**
+ * Tema ZapLivre. O colorScheme Material é derivado dos tokens [ZapColors] para
+ * que componentes Material (TopAppBar, FAB, switches…) herdem a identidade azul
+ * automaticamente; os detalhes de assinatura (bolhas, gradiente spark, avatares)
+ * vêm de [ZapColor]/[LocalZapColors]. Espelha o design system do iOS.
+ */
+private fun materialLight(z: ZapColors) = lightColorScheme(
+    primary = z.primary,
+    onPrimary = z.onPrimary,
+    primaryContainer = z.primary,
+    onPrimaryContainer = z.onPrimary,
+    secondary = z.spark,
+    onSecondary = z.ink,
+    background = z.canvas,
+    onBackground = z.ink,
+    surface = z.surface,
+    onSurface = z.ink,
+    surfaceVariant = z.bubbleIn,
+    onSurfaceVariant = z.slate,
+    outline = z.hairline,
+    outlineVariant = z.hairline,
+    error = z.danger,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = md_theme_dark_primary,
-    onPrimary = md_theme_dark_onPrimary,
-    primaryContainer = md_theme_dark_primaryContainer,
-    onPrimaryContainer = md_theme_dark_onPrimaryContainer,
-    secondary = md_theme_dark_secondary,
-    onSecondary = md_theme_dark_onSecondary,
-    secondaryContainer = md_theme_dark_secondaryContainer,
-    onSecondaryContainer = md_theme_dark_onSecondaryContainer,
+private fun materialDark(z: ZapColors) = darkColorScheme(
+    primary = z.primary,
+    onPrimary = z.onPrimary,
+    primaryContainer = z.primary,
+    onPrimaryContainer = z.onPrimary,
+    secondary = z.spark,
+    onSecondary = z.ink,
+    background = z.canvas,
+    onBackground = z.ink,
+    surface = z.surface,
+    onSurface = z.ink,
+    surfaceVariant = z.bubbleIn,
+    onSurfaceVariant = z.slate,
+    outline = z.hairline,
+    outlineVariant = z.hairline,
+    error = z.danger,
 )
 
 @Composable
@@ -58,20 +59,26 @@ fun ZapLivreTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColors else LightColors
+    val zapColors = if (darkTheme) DarkZapColors else LightZapColors
+    val colorScheme = if (darkTheme) materialDark(zapColors) else materialLight(zapColors)
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            // Status bar acompanha o fundo da tela (canvas), estilo mensageiro
+            // moderno — ícones escuros no light, claros no dark.
+            window.statusBarColor = zapColors.canvas.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalZapColors provides zapColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            shapes = ZapShapes,
+            content = content
+        )
+    }
 }
