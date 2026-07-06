@@ -28,6 +28,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system deps (protoc, cmake)
+        # protoc: build.rs do spqr-syft (libsignal PQXDH). cmake: audiopus_sys (Opus, --features voip).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler cmake
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
