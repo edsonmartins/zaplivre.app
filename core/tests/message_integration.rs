@@ -6,6 +6,9 @@
 //! - Testes do MessageHandler (processamento + ACK) com a API atual
 
 use libp2p::PeerId;
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::RwLock, time::sleep};
+use uuid::Uuid;
 use zaplivre_core::{
     api::ClientBuilder,
     crypto::SignalSessionManager,
@@ -14,9 +17,6 @@ use zaplivre_core::{
     protocol::{pb::message::Payload, AckStatus, Message, MessageType, TextMessage},
     storage::{schema::init_schema, Database, MessageStatus},
 };
-use std::{sync::Arc, time::Duration};
-use tokio::{sync::RwLock, time::sleep};
-use uuid::Uuid;
 
 /// TST-02: troca de mensagem ponta a ponta entre dois Clients reais.
 /// Roda em LocalSet (requisito do ClientBuilder) com um driver de rede por
@@ -173,7 +173,8 @@ async fn test_message_handler_processing() {
         public_key: vec![1, 2, 3],
         prekey_bundle_json: None,
     };
-    db.insert_contact(&contact).expect("Failed to insert contact");
+    db.insert_contact(&contact)
+        .expect("Failed to insert contact");
 
     let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(64);
     let tmp = tempfile::TempDir::new().unwrap();

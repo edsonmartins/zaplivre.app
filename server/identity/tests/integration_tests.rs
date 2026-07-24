@@ -76,8 +76,7 @@ fn create_test_signature(username: &str, peer_id: &str, timestamp: i64) -> (Stri
     use rand::rngs::OsRng;
 
     let signing_key = SigningKey::generate(&mut OsRng);
-    let public_key =
-        general_purpose::STANDARD.encode(signing_key.verifying_key().as_bytes());
+    let public_key = general_purpose::STANDARD.encode(signing_key.verifying_key().as_bytes());
 
     let message = format!(
         "register:{}:{}:{}:{}",

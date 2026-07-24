@@ -7,7 +7,7 @@
 //! mensagem de texto com prefixo (`zaplivre-group-key:v1:`), que era
 //! spoofável e dependia de orquestração manual dos apps.
 
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 use serde::{Deserialize, Serialize};
 
 pub const GROUP_CONTROL_PREFIX: &str = "zaplivre-group-ctrl:v1:";

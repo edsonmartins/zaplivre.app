@@ -47,12 +47,7 @@ impl Database {
     }
 
     /// Remove a reaction from a message
-    pub fn remove_reaction(
-        &self,
-        message_id: &str,
-        peer_id: &str,
-        emoji: &str,
-    ) -> Result<()> {
+    pub fn remove_reaction(&self, message_id: &str, peer_id: &str, emoji: &str) -> Result<()> {
         self.conn().execute(
             "DELETE FROM message_reactions WHERE message_id = ?1 AND peer_id = ?2 AND emoji = ?3",
             rusqlite::params![message_id, peer_id, emoji],

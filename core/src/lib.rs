@@ -28,8 +28,8 @@ pub use identity::{Identity, Keypair, PublicKey};
 
 // Re-export FFI types (required by UniFFI scaffolding)
 pub use ffi::{
-    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, FfiReaction, ZapLivreClient,
-    ZapLivreFfiError, MessageStatus,
+    FfiConversation, FfiGroup, FfiMedia, FfiMediaType, FfiMessage, FfiReaction, MessageStatus,
+    ZapLivreClient, ZapLivreFfiError,
 };
 
 // Re-export VoIP FFI types (always available - stubs when voip feature is disabled)
@@ -52,9 +52,9 @@ pub mod protocol;
 pub mod reactions;
 pub mod storage;
 pub mod sync;
+pub mod utils;
 #[cfg(any(feature = "voip", feature = "video"))]
 pub mod voip;
-pub mod utils;
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

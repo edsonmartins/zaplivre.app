@@ -17,6 +17,12 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+ed25519-dalek = { workspace = true }
+libp2p-identity = { version = "0.2", features = ["ed25519", "peerid", "rand"] }
 
 # Database (PostgreSQL only; workspace version to avoid compiling two sqlx trees)
 sqlx = { workspace = true, features = ["postgres", "macros"] }

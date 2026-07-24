@@ -4,13 +4,13 @@ import android.content.Context
 import android.provider.Settings
 import android.util.Log
 import com.zaplivre.BuildConfig
+import com.zaplivre.core.ZapLivreClientWrapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -24,14 +24,7 @@ class PushServerClient(
     private val baseUrl: String = BuildConfig.PUSH_SERVER_URL
 ) {
     private val client: OkHttpClient by lazy {
-        val logging = HttpLoggingInterceptor { message ->
-            Log.d(TAG, message)
-        }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-
         OkHttpClient.Builder()
-            .addInterceptor(logging)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
@@ -70,11 +63,22 @@ class PushServerClient(
 
             Log.d(TAG, "📤 Registering token - peer_id: $peerId, device_id: $deviceId")
 
-            val requestBody = json.toString()
+            val bodyBytes = json.toString().toByteArray(Charsets.UTF_8)
+            val timestamp = System.currentTimeMillis() / 1000
+            val signature = ZapLivreClientWrapper.signAuthRequest(
+                "POST",
+                "/api/v1/register",
+                timestamp,
+                bodyBytes
+            )
+            val requestBody = bodyBytes
                 .toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()
                 .url("$baseUrl/api/v1/register")
+                .header("x-zaplivre-peer", peerId)
+                .header("x-zaplivre-ts", timestamp.toString())
+                .header("x-zaplivre-sig", signature)
                 .post(requestBody)
                 .build()
 
@@ -113,11 +117,22 @@ class PushServerClient(
 
             Log.d(TAG, "📤 Unregistering token - peer_id: $peerId, device_id: $deviceId")
 
-            val requestBody = json.toString()
+            val bodyBytes = json.toString().toByteArray(Charsets.UTF_8)
+            val timestamp = System.currentTimeMillis() / 1000
+            val signature = ZapLivreClientWrapper.signAuthRequest(
+                "DELETE",
+                "/api/v1/unregister",
+                timestamp,
+                bodyBytes
+            )
+            val requestBody = bodyBytes
                 .toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()
                 .url("$baseUrl/api/v1/unregister")
+                .header("x-zaplivre-peer", peerId)
+                .header("x-zaplivre-ts", timestamp.toString())
+                .header("x-zaplivre-sig", signature)
                 .delete(requestBody)
                 .build()
 

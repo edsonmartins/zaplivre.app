@@ -216,6 +216,12 @@ interface ZapLivreClient {
     string local_peer_id();
 
     [Throws=ZapLivreFfiError, Async]
+    string register_username(string username);
+
+    [Throws=ZapLivreFfiError, Async]
+    string sign_auth_request(string method, string path, i64 timestamp, sequence<u8> body);
+
+    [Throws=ZapLivreFfiError, Async]
     string get_prekey_bundle_json();
 
     [Throws=ZapLivreFfiError]

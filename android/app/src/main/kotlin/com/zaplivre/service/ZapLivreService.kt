@@ -269,7 +269,7 @@ class ZapLivreService : Service() {
             Log.d(TAG, "🔐 Getting FCM token...")
             // Obter token FCM atual
             val token = pendingToken ?: FirebaseMessaging.getInstance().token.await()
-            Log.d(TAG, "📱 FCM token obtained: ${token.take(20)}...")
+            Log.d(TAG, "FCM token obtained")
 
             // Registrar com Push Server
             Log.d(TAG, "📤 Registering FCM token with Push Server...")

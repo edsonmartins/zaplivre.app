@@ -13,17 +13,19 @@ pub struct Config {
 
     /// Server port
     pub server_port: u16,
+
+    /// Server-controlled credential lifetime
+    pub credential_ttl_seconds: i64,
 }
 
 impl Config {
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self> {
         let turn_static_secret = std::env::var("TURN_STATIC_SECRET")
-            .unwrap_or_else(|_| "zaplivre_turn_dev_secret".to_string());
+            .map_err(|_| anyhow::anyhow!("TURN_STATIC_SECRET must be set"))?;
 
         // In production, these should be the actual external IPs/domains
-        let turn_host = std::env::var("TURN_HOST")
-            .unwrap_or_else(|_| "coturn".to_string());
+        let turn_host = std::env::var("TURN_HOST").unwrap_or_else(|_| "coturn".to_string());
 
         let turn_uris = vec![
             format!("turn:{}:3478?transport=udp", turn_host),
@@ -34,11 +36,15 @@ impl Config {
         let server_port = std::env::var("SERVER_PORT")
             .unwrap_or_else(|_| "8082".to_string())
             .parse()?;
+        let credential_ttl_seconds = std::env::var("TURN_CREDENTIAL_TTL_SECONDS")
+            .unwrap_or_else(|_| "3600".to_string())
+            .parse()?;
 
         Ok(Config {
             turn_static_secret,
             turn_uris,
             server_port,
+            credential_ttl_seconds,
         })
     }
 
@@ -51,6 +57,9 @@ impl Config {
         if self.turn_uris.is_empty() {
             anyhow::bail!("TURN_URIS cannot be empty");
         }
+        if !(300..=86400).contains(&self.credential_ttl_seconds) {
+            anyhow::bail!("TURN_CREDENTIAL_TTL_SECONDS must be between 300 and 86400");
+        }
 
         Ok(())
     }
@@ -61,23 +70,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_config() {
-        let config = Config::from_env().unwrap();
-
-        assert!(!config.turn_static_secret.is_empty());
-        assert!(!config.turn_uris.is_empty());
-        assert!(config.server_port > 0);
-    }
-
-    #[test]
     fn test_validation() {
-        let config = Config::from_env().unwrap();
+        let config = Config {
+            turn_static_secret: "test-secret".to_string(),
+            turn_uris: vec!["turn:localhost:3478".to_string()],
+            server_port: 8082,
+            credential_ttl_seconds: 3600,
+        };
         assert!(config.validate().is_ok());
 
         let invalid_config = Config {
             turn_static_secret: "".to_string(),
             turn_uris: vec![],
             server_port: 8082,
+            credential_ttl_seconds: 3600,
         };
 
         assert!(invalid_config.validate().is_err());

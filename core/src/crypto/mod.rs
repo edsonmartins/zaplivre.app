@@ -2,12 +2,12 @@
 //!
 //! Implements Signal Protocol E2E encryption.
 
-pub mod signal;
 pub mod group;
+pub mod signal;
 pub mod storage;
 
+pub use group::{GroupSession, GroupSessionManager, SenderKey};
 pub use signal::{SignalEncryptedMessage, SignalSessionManager};
-pub use group::{SenderKey, GroupSession, GroupSessionManager};
 pub use storage::{decrypt_for_storage, encrypt_for_storage};
 
 use thiserror::Error;

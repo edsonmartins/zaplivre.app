@@ -79,7 +79,10 @@ impl StoreMessageRequest {
         }
 
         // Validate base64
-        if general_purpose::STANDARD.decode(&self.encrypted_payload).is_err() {
+        if general_purpose::STANDARD
+            .decode(&self.encrypted_payload)
+            .is_err()
+        {
             return Err("encrypted_payload must be valid base64".to_string());
         }
 
@@ -173,6 +176,8 @@ mod base64_serde {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        general_purpose::STANDARD.decode(&s).map_err(serde::de::Error::custom)
+        general_purpose::STANDARD
+            .decode(&s)
+            .map_err(serde::de::Error::custom)
     }
 }

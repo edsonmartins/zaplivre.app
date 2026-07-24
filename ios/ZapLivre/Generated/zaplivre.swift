@@ -641,6 +641,8 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func registerMessageEventCallback(callback: FfiMessageEventCallback) throws 
     
+    func registerUsername(username: String) async throws  -> String
+
     func registerVideoFrameCallback(callback: FfiVideoFrameCallback) throws 
     
     func registerVoipEventCallback(callback: FfiVoipEventCallback) throws 
@@ -671,6 +673,8 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func setContactPrekeyBundle(peerId: String, prekeyBundleJson: String) throws 
     
+    func signAuthRequest(method: String, path: String, timestamp: Int64, body: [UInt8]) async throws  -> String
+
     func startCall(toPeerId: String) async throws  -> String
     
     func switchCamera(callId: String) async throws 
@@ -1190,6 +1194,23 @@ open func registerMessageEventCallback(callback: FfiMessageEventCallback)throws 
 }
 }
     
+open func registerUsername(username: String)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_register_username(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(username)
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_zaplivre_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+
 open func registerVideoFrameCallback(callback: FfiVideoFrameCallback)throws   {try rustCallWithError(FfiConverterTypeZapLivreFfiError_lift) {
     uniffi_zaplivre_core_fn_method_zaplivreclient_register_video_frame_callback(
             self.uniffiCloneHandle(),
@@ -1404,6 +1425,23 @@ open func setContactPrekeyBundle(peerId: String, prekeyBundleJson: String)throws
 }
 }
     
+open func signAuthRequest(method: String, path: String, timestamp: Int64, body: [UInt8])async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_sign_auth_request(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(method),FfiConverterString.lower(path),FfiConverterInt64.lower(timestamp),FfiConverterSequenceUInt8.lower(body)
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_zaplivre_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+
 open func startCall(toPeerId: String)async throws  -> String  {
     return
         try  await uniffiRustCallAsync(
@@ -4327,6 +4365,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_register_message_event_callback() != 40193) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_register_username() != 23257) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_register_video_frame_callback() != 31564) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4370,6 +4411,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_set_contact_prekey_bundle() != 40860) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_sign_auth_request() != 10088) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_start_call() != 62308) {

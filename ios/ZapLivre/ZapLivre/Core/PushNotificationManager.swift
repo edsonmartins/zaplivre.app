@@ -50,7 +50,7 @@ class PushNotificationManager: NSObject, ObservableObject {
         // Convert device token to hex string
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
 
-        print("🍎 APNs device token: \(tokenString)")
+        print("🍎 APNs device token received")
 
         DispatchQueue.main.async {
             self.deviceToken = tokenString
@@ -104,7 +104,18 @@ class PushNotificationManager: NSObject, ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            let body = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+            let timestamp = Int64(Date().timeIntervalSince1970)
+            let signature = try await ZapLivreCore.shared.signAuthRequest(
+                method: "POST",
+                path: "/api/v1/register",
+                timestamp: timestamp,
+                body: body
+            )
+            request.setValue(peerId, forHTTPHeaderField: "x-zaplivre-peer")
+            request.setValue(String(timestamp), forHTTPHeaderField: "x-zaplivre-ts")
+            request.setValue(signature, forHTTPHeaderField: "x-zaplivre-sig")
+            request.httpBody = body
 
             let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -126,7 +137,7 @@ class PushNotificationManager: NSObject, ObservableObject {
 
     /// Handle incoming push notification
     func handleNotification(userInfo: [AnyHashable: Any]) {
-        print("📨 Received push notification: \(userInfo)")
+        print("📨 Push notification received")
 
         // Extract notification data
         if let aps = userInfo["aps"] as? [String: Any] {
@@ -134,7 +145,7 @@ class PushNotificationManager: NSObject, ObservableObject {
                 let title = alert["title"] ?? "New Message"
                 let body = alert["body"] ?? ""
                 print("   Title: \(title)")
-                print("   Body: \(body)")
+                _ = body
             }
 
             if let badge = aps["badge"] as? Int {

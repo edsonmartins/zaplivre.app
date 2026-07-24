@@ -8,17 +8,17 @@ use async_trait::async_trait;
 use rand::{rngs::StdRng, SeedableRng};
 
 use libsignal_protocol_syft::{
-    CiphertextMessage, CiphertextMessageType, GenericSignedPreKey, IdentityChange, IdentityKey,
-    IdentityKeyPair, PreKeyBundle, PreKeyBundleContent, PreKeyId, PreKeyRecord, ProtocolAddress,
-    PublicKey, SignedPreKeyId, SignedPreKeyRecord, SignalMessage, PreKeySignalMessage,
-    KyberPreKeyId, KyberPreKeyRecord, kem, DeviceId, SessionRecord, SignalProtocolError,
-    message_encrypt, message_decrypt, process_prekey_bundle,
-    Direction, IdentityKeyStore, PreKeyStore, SignedPreKeyStore, KyberPreKeyStore, SessionStore,
+    kem, message_decrypt, message_encrypt, process_prekey_bundle, CiphertextMessage,
+    CiphertextMessageType, DeviceId, Direction, GenericSignedPreKey, IdentityChange, IdentityKey,
+    IdentityKeyPair, IdentityKeyStore, KyberPreKeyId, KyberPreKeyRecord, KyberPreKeyStore,
+    PreKeyBundle, PreKeyBundleContent, PreKeyId, PreKeyRecord, PreKeySignalMessage, PreKeyStore,
+    ProtocolAddress, PublicKey, SessionRecord, SessionStore, SignalMessage, SignalProtocolError,
+    SignedPreKeyId, SignedPreKeyRecord, SignedPreKeyStore,
 };
 use tokio::sync::RwLock;
 
 use crate::identity::{Identity, PreKeyBundle as CorePreKeyBundle};
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// Encrypted message payload produced by Signal
 #[derive(Debug, Clone)]
@@ -66,12 +66,13 @@ impl SignalSessionManager {
 
             let mut sessions = self.store.inner.sessions.write().await;
             for (address, blob) in rows {
-                match crate::crypto::storage::decrypt_for_storage(&storage_key, &blob)
-                    .and_then(|bytes| {
+                match crate::crypto::storage::decrypt_for_storage(&storage_key, &blob).and_then(
+                    |bytes| {
                         SessionRecord::deserialize(&bytes).map_err(|e| {
                             ZapLivreError::Crypto(format!("Invalid session record: {}", e))
                         })
-                    }) {
+                    },
+                ) {
                     Ok(record) => {
                         sessions.insert(address, record);
                     }
@@ -79,7 +80,10 @@ impl SignalSessionManager {
                 }
             }
             if !sessions.is_empty() {
-                tracing::info!("🔐 Restored {} Signal sessions from storage", sessions.len());
+                tracing::info!(
+                    "🔐 Restored {} Signal sessions from storage",
+                    sessions.len()
+                );
             }
         }
 
@@ -180,14 +184,13 @@ impl SignalSessionManager {
         encrypted: &SignalEncryptedMessage,
     ) -> Result<Vec<u8>> {
         let address = protocol_address(peer_id, device_id)?;
-        let ciphertext_type =
-            CiphertextMessageType::try_from(encrypted.ciphertext_type as u8)
-                .map_err(|_| {
-                    ZapLivreError::Crypto(format!(
-                        "Unsupported ciphertext type: {}",
-                        encrypted.ciphertext_type
-                    ))
-                })?;
+        let ciphertext_type = CiphertextMessageType::try_from(encrypted.ciphertext_type as u8)
+            .map_err(|_| {
+                ZapLivreError::Crypto(format!(
+                    "Unsupported ciphertext type: {}",
+                    encrypted.ciphertext_type
+                ))
+            })?;
 
         let ciphertext = match ciphertext_type {
             CiphertextMessageType::Whisper => {
@@ -267,7 +270,9 @@ impl SignalStoreInner {
     /// bloquear o fluxo de mensagens
     async fn persist_session(&self, address: &str, record: &SessionRecord) {
         let persistence = self.persistence.read().await;
-        let Some((db, storage_key)) = persistence.as_ref() else { return };
+        let Some((db, storage_key)) = persistence.as_ref() else {
+            return;
+        };
 
         let result = record
             .serialize()
@@ -295,7 +300,9 @@ impl SignalStoreInner {
     /// Persiste uma identidade TOFU (chave pública)
     async fn persist_identity(&self, address: &str, identity: &IdentityKey) {
         let persistence = self.persistence.read().await;
-        let Some((db, _)) = persistence.as_ref() else { return };
+        let Some((db, _)) = persistence.as_ref() else {
+            return;
+        };
 
         let bytes = identity.serialize();
         let result = db.conn().execute(
@@ -319,10 +326,11 @@ struct SignalStoreHandle {
 
 #[async_trait(?Send)]
 impl IdentityKeyStore for SignalStoreHandle {
-    async fn get_identity_key_pair(&self) -> libsignal_protocol_syft::error::Result<IdentityKeyPair> {
+    async fn get_identity_key_pair(
+        &self,
+    ) -> libsignal_protocol_syft::error::Result<IdentityKeyPair> {
         let identity = self.inner.identity.read().await;
-        IdentityKeyPair::try_from(identity.signal_identity_keypair_record())
-            .map_err(|e| e)
+        IdentityKeyPair::try_from(identity.signal_identity_keypair_record()).map_err(|e| e)
     }
 
     async fn get_local_registration_id(&self) -> libsignal_protocol_syft::error::Result<u32> {
@@ -377,7 +385,9 @@ impl PreKeyStore for SignalStoreHandle {
     ) -> libsignal_protocol_syft::error::Result<PreKeyRecord> {
         let identity = self.inner.identity.read().await;
         let Some(pool) = identity.prekey_pool() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Missing prekey pool".to_string(),
+            ));
         };
         let id: u32 = prekey_id.into();
         pool.get_prekey(id)
@@ -393,7 +403,9 @@ impl PreKeyStore for SignalStoreHandle {
         let mut identity = self.inner.identity.write().await;
         identity.init_prekey_pool(100);
         let Some(pool) = identity.prekey_pool_mut() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Missing prekey pool".to_string(),
+            ));
         };
         let id: u32 = prekey_id.into();
         pool.store_prekey_record(id, record.clone());
@@ -422,13 +434,17 @@ impl SignedPreKeyStore for SignalStoreHandle {
     ) -> libsignal_protocol_syft::error::Result<SignedPreKeyRecord> {
         let identity = self.inner.identity.read().await;
         let Some(pool) = identity.prekey_pool() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Missing prekey pool".to_string(),
+            ));
         };
         let id: u32 = signed_prekey_id.into();
         let record = pool.signed_prekey_record().clone();
         let record_id: u32 = record.id()?.into();
         if record_id != id {
-            return Err(SignalProtocolError::InvalidArgument("Signed prekey id mismatch".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Signed prekey id mismatch".to_string(),
+            ));
         }
         Ok(record)
     }
@@ -441,7 +457,9 @@ impl SignedPreKeyStore for SignalStoreHandle {
         let mut identity = self.inner.identity.write().await;
         identity.init_prekey_pool(100);
         let Some(pool) = identity.prekey_pool_mut() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Missing prekey pool".to_string(),
+            ));
         };
         let id: u32 = signed_prekey_id.into();
         pool.store_signed_prekey_record(id, record.clone());
@@ -457,13 +475,17 @@ impl KyberPreKeyStore for SignalStoreHandle {
     ) -> libsignal_protocol_syft::error::Result<KyberPreKeyRecord> {
         let identity = self.inner.identity.read().await;
         let Some(pool) = identity.prekey_pool() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Missing prekey pool".to_string(),
+            ));
         };
         let id: u32 = kyber_prekey_id.into();
         let record = pool.kyber_prekey_record().clone();
         let record_id: u32 = record.id()?.into();
         if record_id != id {
-            return Err(SignalProtocolError::InvalidArgument("Kyber prekey id mismatch".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Kyber prekey id mismatch".to_string(),
+            ));
         }
         Ok(record)
     }
@@ -476,7 +498,9 @@ impl KyberPreKeyStore for SignalStoreHandle {
         let mut identity = self.inner.identity.write().await;
         identity.init_prekey_pool(100);
         let Some(pool) = identity.prekey_pool_mut() else {
-            return Err(SignalProtocolError::InvalidArgument("Missing prekey pool".to_string()));
+            return Err(SignalProtocolError::InvalidArgument(
+                "Missing prekey pool".to_string(),
+            ));
         };
         let id: u32 = kyber_prekey_id.into();
         pool.store_kyber_prekey_record(id, record.clone());
@@ -534,17 +558,16 @@ fn to_signal_bundle(bundle: &CorePreKeyBundle) -> Result<PreKeyBundle> {
         .signal_identity_key
         .as_ref()
         .ok_or_else(|| ZapLivreError::Crypto("Missing Signal identity key".to_string()))?;
-    let identity_key = IdentityKey::try_from(signal_identity_key.as_slice())
-        .map_err(signal_error)?;
+    let identity_key =
+        IdentityKey::try_from(signal_identity_key.as_slice()).map_err(signal_error)?;
 
-    let signed_prekey_public = PublicKey::deserialize(&bundle.signed_prekey)
-        .map_err(signal_error)?;
-    let kyber_prekey_public = kem::PublicKey::deserialize(&bundle.kyber_prekey)
-        .map_err(signal_error)?;
+    let signed_prekey_public =
+        PublicKey::deserialize(&bundle.signed_prekey).map_err(signal_error)?;
+    let kyber_prekey_public =
+        kem::PublicKey::deserialize(&bundle.kyber_prekey).map_err(signal_error)?;
 
     let pre_key = if let Some(opk) = &bundle.one_time_prekey {
-        let public = PublicKey::deserialize(&opk.public_key)
-            .map_err(signal_error)?;
+        let public = PublicKey::deserialize(&opk.public_key).map_err(signal_error)?;
         Some((PreKeyId::from(opk.id), public))
     } else {
         None
@@ -576,8 +599,7 @@ fn to_device_id(device_id: u32) -> Result<DeviceId> {
     let id: u8 = device_id
         .try_into()
         .map_err(|_| ZapLivreError::Crypto("Invalid device id".to_string()))?;
-    DeviceId::new(id)
-        .map_err(|_| ZapLivreError::Crypto("Invalid device id".to_string()))
+    DeviceId::new(id).map_err(|_| ZapLivreError::Crypto("Invalid device id".to_string()))
 }
 
 fn signal_error<E: std::fmt::Display>(err: E) -> ZapLivreError {

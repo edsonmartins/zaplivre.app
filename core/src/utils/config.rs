@@ -5,4 +5,3 @@
 pub struct Config {
     // TODO: Add configuration fields
 }
-

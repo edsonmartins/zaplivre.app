@@ -6,8 +6,8 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use std::net::SocketAddr;
 use redis::AsyncCommands;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::AppState;
@@ -56,9 +56,7 @@ fn get_client_id(req: &Request) -> String {
 
     let is_trusted_proxy = socket_ip
         .map(|ip| match ip {
-            std::net::IpAddr::V4(v4) => {
-                v4.is_private() || v4.is_loopback()
-            }
+            std::net::IpAddr::V4(v4) => v4.is_private() || v4.is_loopback(),
             std::net::IpAddr::V6(v6) => v6.is_loopback(),
         })
         .unwrap_or(false);
@@ -119,11 +117,7 @@ pub async fn rate_limit_middleware(
     let current_count = count.unwrap_or(0);
 
     if current_count >= config.max_requests {
-        tracing::warn!(
-            "Rate limit exceeded for {} on {}",
-            client_id,
-            path
-        );
+        tracing::warn!("Rate limit exceeded for {} on {}", client_id, path);
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
 

@@ -50,10 +50,12 @@ impl PreKeyBundle {
             signal_device_id: bundle.signal_device_id,
             signed_prekey_id: bundle.signed_prekey_id as i32,
             signed_prekey: general_purpose::STANDARD.encode(bundle.signed_prekey.clone()),
-            signed_prekey_signature: general_purpose::STANDARD.encode(&bundle.signed_prekey_signature),
+            signed_prekey_signature: general_purpose::STANDARD
+                .encode(&bundle.signed_prekey_signature),
             kyber_prekey_id: bundle.kyber_prekey_id as i32,
             kyber_prekey: general_purpose::STANDARD.encode(&bundle.kyber_prekey),
-            kyber_prekey_signature: general_purpose::STANDARD.encode(&bundle.kyber_prekey_signature),
+            kyber_prekey_signature: general_purpose::STANDARD
+                .encode(&bundle.kyber_prekey_signature),
             one_time_prekey: bundle.one_time_prekey.as_ref().map(|opk| OneTimePreKey {
                 id: opk.id as i32,
                 public_key: general_purpose::STANDARD.encode(&opk.public_key),
@@ -69,9 +71,11 @@ impl PreKeyBundle {
             None => None,
         };
         let signed_prekey_bytes = general_purpose::STANDARD.decode(&self.signed_prekey)?;
-        let signed_prekey_signature_bytes = general_purpose::STANDARD.decode(&self.signed_prekey_signature)?;
+        let signed_prekey_signature_bytes =
+            general_purpose::STANDARD.decode(&self.signed_prekey_signature)?;
         let kyber_prekey_bytes = general_purpose::STANDARD.decode(&self.kyber_prekey)?;
-        let kyber_prekey_signature_bytes = general_purpose::STANDARD.decode(&self.kyber_prekey_signature)?;
+        let kyber_prekey_signature_bytes =
+            general_purpose::STANDARD.decode(&self.kyber_prekey_signature)?;
 
         let mut identity_key = [0u8; 32];
         identity_key.copy_from_slice(&identity_key_bytes);
@@ -163,6 +167,21 @@ pub struct IdentityClient {
 }
 
 impl IdentityClient {
+    /// Validate the public username contract before making a network request.
+    pub fn validate_username(username: &str) -> Result<()> {
+        if (3..=20).contains(&username.len())
+            && username
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "Username must be 3-20 lowercase characters, digits or underscore"
+            ))
+        }
+    }
+
     /// Corpo de erro pode vir vazio (ex.: 429 do rate limiter) - não assumir JSON
     async fn error_from_response(response: reqwest::Response) -> anyhow::Error {
         let status = response.status();
@@ -206,6 +225,7 @@ impl IdentityClient {
         username: &str,
         peer_id: &str,
     ) -> Result<RegisterResponse> {
+        Self::validate_username(username)?;
         // Get prekey bundle
         let mut identity_mut = identity.clone();
         let prekey_bundle = identity_mut
@@ -217,7 +237,8 @@ impl IdentityClient {
         // Create signature (SEC-14: cobre username + peer_id + public_key +
         // timestamp para impedir replay com outro peer_id/bundle)
         let timestamp = Utc::now().timestamp();
-        let public_key_b64 = general_purpose::STANDARD.encode(identity.keypair().public_key_bytes());
+        let public_key_b64 =
+            general_purpose::STANDARD.encode(identity.keypair().public_key_bytes());
         let message = format!(
             "register:{}:{}:{}:{}",
             username, peer_id, public_key_b64, timestamp
@@ -258,7 +279,27 @@ impl IdentityClient {
     /// - `USERNAME_NOT_FOUND` - Username not registered
     /// - `RATE_LIMIT_EXCEEDED` - Too many requests (100/hour limit)
     pub async fn lookup_username(&self, username: &str) -> Result<LookupResponse> {
-        let url = format!("{}/api/v1/lookup?username={}", self.base_url, username);
+        let url = format!(
+            "{}/api/v1/lookup?username={}",
+            self.base_url,
+            query_encode(username)
+        );
+        let response = self.client.get(&url).send().await?;
+
+        if response.status().is_success() {
+            Ok(response.json().await?)
+        } else {
+            Err(Self::error_from_response(response).await)
+        }
+    }
+
+    /// Lookup a peer's current prekey bundle by libp2p peer ID.
+    pub async fn lookup_peer_id(&self, peer_id: &str) -> Result<LookupResponse> {
+        let url = format!(
+            "{}/api/v1/lookup?peer_id={}",
+            self.base_url,
+            query_encode(peer_id)
+        );
         let response = self.client.get(&url).send().await?;
 
         if response.status().is_success() {
@@ -332,6 +373,17 @@ impl IdentityClient {
     }
 }
 
+fn query_encode(value: &str) -> String {
+    value.bytes().fold(String::new(), |mut encoded, byte| {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{:02X}", byte));
+        }
+        encoded
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,6 +419,14 @@ mod tests {
     fn test_client_creation() {
         let client = IdentityClient::new("http://localhost:8080").unwrap();
         assert_eq!(client.base_url, "http://localhost:8080");
+    }
+
+    #[test]
+    fn test_username_validation() {
+        assert!(IdentityClient::validate_username("alice_1").is_ok());
+        assert!(IdentityClient::validate_username("ab").is_err());
+        assert!(IdentityClient::validate_username("Alice").is_err());
+        assert!(IdentityClient::validate_username("a b").is_err());
     }
 
     #[tokio::test]

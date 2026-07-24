@@ -3,8 +3,8 @@
 //! Provides utilities for detecting the type of NAT a peer is behind,
 //! which helps determine the best connection strategy.
 
-use libp2p::Multiaddr;
 use libp2p::multiaddr::Protocol;
+use libp2p::Multiaddr;
 
 /// Types of NAT
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

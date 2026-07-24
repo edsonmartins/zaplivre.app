@@ -44,8 +44,14 @@ fn main() {
         let bundle = pool.get_bundle().expect("get bundle");
         println!("   ✅ Prekey bundle created!");
         println!("   Signed prekey ID: {}", bundle.signed_prekey_id);
-        println!("   One-time prekey: {}",
-            if bundle.one_time_prekey.is_some() { "Yes" } else { "No" });
+        println!(
+            "   One-time prekey: {}",
+            if bundle.one_time_prekey.is_some() {
+                "Yes"
+            } else {
+                "No"
+            }
+        );
         println!("   Remaining prekeys: {}", pool.prekey_count());
     }
     println!();

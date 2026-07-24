@@ -41,10 +41,7 @@ impl RelayManager {
 
     /// Check if reservation is active
     pub fn has_reservation(&self) -> bool {
-        matches!(
-            self.reservation_status,
-            ReservationStatus::Reserved { .. }
-        )
+        matches!(self.reservation_status, ReservationStatus::Reserved { .. })
     }
 
     /// Mark reservation as pending
@@ -78,8 +75,7 @@ impl RelayManager {
     ///
     /// Format: /ip4/relay-ip/tcp/relay-port/p2p/relay-peer-id/p2p-circuit/p2p/target-peer-id
     pub fn circuit_addr(&self, target_peer_id: &PeerId) -> Option<Multiaddr> {
-        if let (Some(relay_addr), Some(relay_peer)) =
-            (&self.relay_addr, &self.bootstrap_relay_peer)
+        if let (Some(relay_addr), Some(relay_peer)) = (&self.relay_addr, &self.bootstrap_relay_peer)
         {
             // Build relay circuit address
             let circuit = relay_addr

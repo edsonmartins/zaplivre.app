@@ -8,11 +8,11 @@
 //! - GossipSub (will be used for group messaging)
 //! - VoIP Signaling (WebRTC signaling over P2P)
 
-use libp2p::{
-    autonat,
-    dcutr, gossipsub, identify, kad, mdns, ping, relay, request_response, PeerId, StreamProtocol,
-};
 use libp2p::swarm::NetworkBehaviour;
+use libp2p::{
+    autonat, dcutr, gossipsub, identify, kad, mdns, ping, relay, request_response, PeerId,
+    StreamProtocol,
+};
 use std::time::Duration;
 
 use super::messaging::ZapLivreCodec;
@@ -62,9 +62,10 @@ impl ZapLivreBehaviour {
         let kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
 
         // mDNS for local discovery (using tokio runtime)
-        let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id).map_err(|e| {
-            ZapLivreError::Network(format!("Failed to create mDNS behaviour: {}", e))
-        })?;
+        let mdns =
+            mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id).map_err(|e| {
+                ZapLivreError::Network(format!("Failed to create mDNS behaviour: {}", e))
+            })?;
 
         // Identify protocol
         let identify = identify::Behaviour::new(identify::Config::new(
@@ -89,13 +90,17 @@ impl ZapLivreBehaviour {
                 gossipsub::MessageId::from(hasher.finish().to_string())
             })
             .build()
-            .map_err(|e| ZapLivreError::Network(format!("Failed to create GossipSub config: {}", e)))?;
+            .map_err(|e| {
+                ZapLivreError::Network(format!("Failed to create GossipSub config: {}", e))
+            })?;
 
         let gossipsub = gossipsub::Behaviour::new(
             gossipsub::MessageAuthenticity::Signed(keypair.clone()),
             gossipsub_config,
         )
-        .map_err(|e| ZapLivreError::Network(format!("Failed to create GossipSub behaviour: {}", e)))?;
+        .map_err(|e| {
+            ZapLivreError::Network(format!("Failed to create GossipSub behaviour: {}", e))
+        })?;
 
         // Request/Response for direct messaging
         let protocols = std::iter::once((

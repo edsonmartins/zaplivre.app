@@ -47,7 +47,7 @@ services:
     # Segredo e IP externo via env (o conf não interpola variáveis) - SEC-12/13
     command: >-
       -c /etc/coturn/turnserver.conf
-      --static-auth-secret=${TURN_STATIC_SECRET:-zaplivre_turn_dev_secret}
+      --static-auth-secret=${TURN_STATIC_SECRET:?TURN_STATIC_SECRET is required}
       --external-ip=${TURN_EXTERNAL_IP:-127.0.0.1}
     ports:
       - "3478:3478/udp"
@@ -76,7 +76,9 @@ services:
     container_name: zaplivre-turn-credentials
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-zaplivre_turn_dev_secret}
+      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:?TURN_STATIC_SECRET is required}
+      - TURN_CREDENTIAL_TTL_SECONDS=${TURN_CREDENTIAL_TTL_SECONDS:-3600}
+      - TURN_MAX_CONCURRENT=${TURN_MAX_CONCURRENT:-64}
       - SERVER_PORT=8082
     ports:
       - "8082:8082"
@@ -141,6 +143,8 @@ services:
       - ENABLE_TTL_CLEANUP=${ENABLE_TTL_CLEANUP:-true}
       # PSH-02: acordar destinatários offline via push
       - PUSH_SERVER_URL=http://push-server:8081
+      - PUSH_SERVICE_SECRET=${PUSH_SERVICE_SECRET:?PUSH_SERVICE_SECRET is required}
+      - PUSH_MAX_CONCURRENT=${PUSH_MAX_CONCURRENT:-128}
     ports:
       - "8080:8080"
     healthcheck:
@@ -176,6 +180,8 @@ services:
       - APNS_PRODUCTION=${APNS_PRODUCTION:-false}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
       - PORT=8081
+      - PUSH_SERVICE_SECRET=${PUSH_SERVICE_SECRET:?PUSH_SERVICE_SECRET is required}
+      - PUSH_MAX_CONCURRENT=${PUSH_MAX_CONCURRENT:-128}
     ports:
       - "8081:8081"
     volumes:

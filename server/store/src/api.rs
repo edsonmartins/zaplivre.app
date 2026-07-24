@@ -7,8 +7,8 @@ use crate::auth;
 
 /// Autentica a requisição (SEC-09); retorna o peer autenticado ou uma
 /// resposta 401 pronta.
-fn authenticate(http_req: &HttpRequest) -> Result<String, HttpResponse> {
-    auth::verify_request(http_req).map_err(|e| {
+fn authenticate(http_req: &HttpRequest, body: &[u8]) -> Result<String, HttpResponse> {
+    auth::verify_request(http_req, body).map_err(|e| {
         tracing::warn!("🚫 Unauthorized store request: {}", e.0);
         HttpResponse::Unauthorized().json(json!({ "error": e.0 }))
     })
@@ -30,10 +30,14 @@ pub async fn store_message(
     db: web::Data<Database>,
     redis: web::Data<RedisClient>,
     push: web::Data<PushNotifier>,
-    req: web::Json<StoreMessageRequest>,
+    body: web::Bytes,
 ) -> impl Responder {
+    let req: StoreMessageRequest = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_) => return HttpResponse::BadRequest().json(json!({ "error": "invalid JSON" })),
+    };
     // SEC-09: só o próprio remetente pode armazenar em seu nome
-    let auth_peer = match authenticate(&http_req) {
+    let auth_peer = match authenticate(&http_req, &body) {
         Ok(peer) => peer,
         Err(resp) => return resp,
     };
@@ -92,7 +96,7 @@ pub async fn retrieve_messages(
     query: web::Query<RetrieveMessagesRequest>,
 ) -> impl Responder {
     // SEC-09: um peer só lê as PRÓPRIAS mensagens pendentes
-    let auth_peer = match authenticate(&http_req) {
+    let auth_peer = match authenticate(&http_req, &[]) {
         Ok(peer) => peer,
         Err(resp) => return resp,
     };
@@ -134,10 +138,14 @@ pub async fn retrieve_messages(
 pub async fn delete_messages(
     http_req: HttpRequest,
     db: web::Data<Database>,
-    req: web::Json<DeleteMessagesRequest>,
+    body: web::Bytes,
 ) -> impl Responder {
+    let req: DeleteMessagesRequest = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(_) => return HttpResponse::BadRequest().json(json!({ "error": "invalid JSON" })),
+    };
     // SEC-09: ack restrito a mensagens endereçadas ao peer autenticado
-    let auth_peer = match authenticate(&http_req) {
+    let auth_peer = match authenticate(&http_req, &body) {
         Ok(peer) => peer,
         Err(resp) => return resp,
     };

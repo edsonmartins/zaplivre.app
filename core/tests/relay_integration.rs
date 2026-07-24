@@ -4,6 +4,7 @@
 //! Direct Connection → Hole Punching → Relay
 
 use libp2p::{identity, Multiaddr, PeerId};
+use std::time::Duration;
 use zaplivre_core::network::{
     connection::{ConnectionManager, ConnectionState, ConnectionStrategy, ConnectionType},
     nat_detection::{ConnectionStrategy as NatStrategy, NatDetector, NatType},
@@ -11,7 +12,6 @@ use zaplivre_core::network::{
     retry::RetryPolicy,
     NetworkManager,
 };
-use std::time::Duration;
 
 /// Test NetworkManager creation with relay configuration
 #[tokio::test]
@@ -280,19 +280,23 @@ fn test_success_rate_calculation() {
     assert_eq!(strategy.success_rate(&ConnectionType::Direct), 0.0);
 
     // Record some attempts manually
-    strategy.attempts.push(zaplivre_core::network::connection::ConnectionAttempt {
-        started_at: std::time::Instant::now(),
-        duration: Duration::from_secs(1),
-        success: true,
-        connection_type: ConnectionType::Direct,
-    });
+    strategy
+        .attempts
+        .push(zaplivre_core::network::connection::ConnectionAttempt {
+            started_at: std::time::Instant::now(),
+            duration: Duration::from_secs(1),
+            success: true,
+            connection_type: ConnectionType::Direct,
+        });
 
-    strategy.attempts.push(zaplivre_core::network::connection::ConnectionAttempt {
-        started_at: std::time::Instant::now(),
-        duration: Duration::from_secs(1),
-        success: false,
-        connection_type: ConnectionType::Direct,
-    });
+    strategy
+        .attempts
+        .push(zaplivre_core::network::connection::ConnectionAttempt {
+            started_at: std::time::Instant::now(),
+            duration: Duration::from_secs(1),
+            success: false,
+            connection_type: ConnectionType::Direct,
+        });
 
     // 1 success out of 2 attempts = 50%
     assert_eq!(strategy.success_rate(&ConnectionType::Direct), 0.5);

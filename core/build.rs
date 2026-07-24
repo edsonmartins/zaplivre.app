@@ -20,8 +20,8 @@ fn main() {
     // 2. Generate UniFFI scaffolding
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let udl_path = std::path::PathBuf::from(manifest_dir).join("src/zaplivre.udl");
-    let udl_path = camino::Utf8PathBuf::from_path_buf(udl_path)
-        .expect("UDL path must be valid UTF-8");
+    let udl_path =
+        camino::Utf8PathBuf::from_path_buf(udl_path).expect("UDL path must be valid UTF-8");
     println!("cargo:rerun-if-changed={}", udl_path);
     uniffi::generate_scaffolding(udl_path).expect("Failed to generate UniFFI scaffolding");
 }

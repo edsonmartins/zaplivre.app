@@ -89,4 +89,3 @@ jobs:
         run: |
           cd ios
           swiftlint lint --strict
-        continue-on-error: true

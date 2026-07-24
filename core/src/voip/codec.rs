@@ -30,7 +30,7 @@ impl Default for OpusConfig {
             sample_rate: 48000,
             channels: Channels::Mono,
             application: Application::Voip,
-            bitrate: 24000, // 24 kbps - good quality for voice
+            bitrate: 24000,        // 24 kbps - good quality for voice
             frame_duration_ms: 20, // 20ms frames (960 samples at 48kHz)
         }
     }
@@ -58,12 +58,10 @@ pub struct OpusEncoder {
 impl OpusEncoder {
     /// Create a new Opus encoder
     pub fn new(config: OpusConfig) -> Result<Self> {
-        let mut encoder = Encoder::new(
-            config.sample_rate,
-            config.channels,
-            config.application,
-        )
-        .map_err(|e| VoipError::CodecError(format!("Failed to create Opus encoder: {:?}", e)))?;
+        let mut encoder = Encoder::new(config.sample_rate, config.channels, config.application)
+            .map_err(|e| {
+                VoipError::CodecError(format!("Failed to create Opus encoder: {:?}", e))
+            })?;
 
         // Set bitrate
         encoder
@@ -152,8 +150,9 @@ pub struct OpusDecoder {
 impl OpusDecoder {
     /// Create a new Opus decoder
     pub fn new(config: OpusConfig) -> Result<Self> {
-        let decoder = Decoder::new(config.sample_rate, config.channels)
-            .map_err(|e| VoipError::CodecError(format!("Failed to create Opus decoder: {:?}", e)))?;
+        let decoder = Decoder::new(config.sample_rate, config.channels).map_err(|e| {
+            VoipError::CodecError(format!("Failed to create Opus decoder: {:?}", e))
+        })?;
 
         tracing::info!(
             "✅ Opus decoder created: {}Hz, {:?}",
@@ -176,7 +175,11 @@ impl OpusDecoder {
 
         output.truncate(decoded_samples);
 
-        tracing::trace!("🎵 Decoded {} bytes to {} samples", packet.len(), decoded_samples);
+        tracing::trace!(
+            "🎵 Decoded {} bytes to {} samples",
+            packet.len(),
+            decoded_samples
+        );
 
         Ok(output)
     }
@@ -289,7 +292,11 @@ mod tests {
 
         // Decode
         let decoded = codec.decoder.decode(&packet).unwrap();
-        assert_eq!(decoded.len(), num_samples, "Should decode same number of samples");
+        assert_eq!(
+            decoded.len(),
+            num_samples,
+            "Should decode same number of samples"
+        );
 
         // Verify decoded signal is similar (not exact due to lossy compression)
         // Just check that we got reasonable values back

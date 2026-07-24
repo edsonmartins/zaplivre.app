@@ -3,7 +3,11 @@
 //! POST /api/v1/send
 //! Body: { peer_id, title, body, data? }
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,8 +36,12 @@ pub struct SendResponse {
 /// push notifications via FCM or APNs depending on the platform.
 pub async fn handle(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<SendRequest>,
 ) -> Result<Json<SendResponse>, (StatusCode, String)> {
+    crate::auth::verify_service_request(&headers, &state.service_secret)
+        .map_err(|(status, message)| (status, message.to_string()))?;
+
     tracing::info!(
         "📤 Send notification request - peer_id: {}, title: {}",
         req.peer_id,
@@ -59,7 +67,7 @@ pub async fn handle(
         tracing::error!("❌ Database error: {}", e);
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to fetch tokens: {}", e),
+            "Failed to fetch tokens".to_string(),
         )
     })?;
 
@@ -84,11 +92,7 @@ pub async fn handle(
         let platform = &token_row.1;
         let device_id = &token_row.2;
 
-        tracing::debug!(
-            "  Sending to device {} ({})",
-            device_id,
-            platform
-        );
+        tracing::debug!("  Sending to device {} ({})", device_id, platform);
 
         match platform.as_str() {
             "fcm" => {
@@ -98,10 +102,7 @@ pub async fn handle(
                     failed_count += 1;
                     continue;
                 };
-                match fcm_client
-                    .send(token, &req.title, &req.body, &data)
-                    .await
-                {
+                match fcm_client.send(token, &req.title, &req.body, &data).await {
                     Ok(_) => {
                         tracing::info!("  ✅ FCM notification sent to {}", device_id);
                         sent_count += 1;
@@ -166,7 +167,10 @@ pub async fn handle(
                                     || error_str.contains("Unregistered")
                                     || error_str.contains("InvalidProviderToken")
                                 {
-                                    tracing::warn!("  🔄 Marking token as inactive for {}", device_id);
+                                    tracing::warn!(
+                                        "  🔄 Marking token as inactive for {}",
+                                        device_id
+                                    );
                                     let _ = sqlx::query(
                                         "UPDATE push_tokens SET is_active = false WHERE peer_id = $1 AND device_id = $2"
                                     )
@@ -179,7 +183,10 @@ pub async fn handle(
                         }
                     }
                     None => {
-                        tracing::warn!("  ⚠️  APNs client not configured - cannot send to {}", device_id);
+                        tracing::warn!(
+                            "  ⚠️  APNs client not configured - cannot send to {}",
+                            device_id
+                        );
                         failed_count += 1;
                     }
                 }

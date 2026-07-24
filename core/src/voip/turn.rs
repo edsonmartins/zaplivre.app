@@ -3,8 +3,11 @@
 //! Fetches time-limited TURN credentials from the credentials server.
 
 use super::{manager::TurnCredentials, Result, VoipError};
+use crate::identity::Keypair;
+use base64::{engine::general_purpose, Engine as _};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// TURN credentials request
 #[derive(Debug, Serialize)]
@@ -27,14 +30,16 @@ struct CredentialResponse {
 pub struct TurnCredentialsClient {
     server_url: String,
     http_client: Client,
+    keypair: Keypair,
 }
 
 impl TurnCredentialsClient {
     /// Create a new TURN credentials client
-    pub fn new(server_url: String) -> Self {
+    pub fn new(server_url: String, keypair: Keypair) -> Self {
         Self {
             server_url,
             http_client: Client::new(),
+            keypair,
         }
     }
 
@@ -57,14 +62,27 @@ impl TurnCredentialsClient {
             username: peer_id.to_string(),
             ttl_seconds,
         };
+        let body = serde_json::to_vec(&request).map_err(|e| {
+            VoipError::NetworkError(format!("Failed to serialize TURN request: {}", e))
+        })?;
+        let timestamp = chrono::Utc::now().timestamp();
+        let body_hash = hex::encode(Sha256::digest(&body));
+        let canonical = format!("POST\n/api/turn/credentials\n{}\n{}", timestamp, body_hash);
+        let signature = general_purpose::STANDARD.encode(self.keypair.sign(canonical.as_bytes()));
 
         let response = self
             .http_client
             .post(&url)
-            .json(&request)
+            .header("x-zaplivre-peer", peer_id)
+            .header("x-zaplivre-ts", timestamp)
+            .header("x-zaplivre-sig", signature)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body)
             .send()
             .await
-            .map_err(|e| VoipError::NetworkError(format!("Failed to fetch TURN credentials: {}", e)))?;
+            .map_err(|e| {
+                VoipError::NetworkError(format!("Failed to fetch TURN credentials: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(VoipError::NetworkError(format!(
@@ -103,15 +121,18 @@ mod tests {
 
     #[test]
     fn test_credentials_client_creation() {
-        let client = TurnCredentialsClient::new("http://localhost:8082".to_string());
+        let client =
+            TurnCredentialsClient::new("http://localhost:8082".to_string(), Keypair::generate());
         assert_eq!(client.server_url, "http://localhost:8082");
     }
 
     #[tokio::test]
     #[ignore] // Requires TURN credentials server running
     async fn test_fetch_credentials() {
-        let client = TurnCredentialsClient::new("http://localhost:8082".to_string());
-        let result = client.fetch_default("test_peer").await;
+        let keypair = Keypair::generate();
+        let peer_id = keypair.peer_id();
+        let client = TurnCredentialsClient::new("http://localhost:8082".to_string(), keypair);
+        let result = client.fetch_default(&peer_id).await;
 
         // This will fail unless the server is running
         // But the test validates the code compiles correctly

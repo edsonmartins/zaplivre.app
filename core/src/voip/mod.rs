@@ -50,11 +50,13 @@ pub use call::{Call, CallDirection, CallEndReason, CallState, CallStats};
 pub use codec::{OpusCodec, OpusConfig, OpusDecoder, OpusEncoder};
 pub use integration::VoIPIntegration;
 pub use manager::{CallEvent, CallManager, TurnCredentials};
+pub use rtp_video::{
+    RtpDepacketizer, RtpHeader, RtpPacket, RtpPacketizer, RTP_MAX_PAYLOAD, RTP_MTU,
+};
 #[cfg(feature = "voip")]
 pub use signaling::{SignalingCodec, SignalingMessage};
 pub use signaling_server::SignalingServerClient;
 pub use turn::TurnCredentialsClient;
-pub use rtp_video::{RtpDepacketizer, RtpHeader, RtpPacket, RtpPacketizer, RTP_MAX_PAYLOAD, RTP_MTU};
 pub use video::{
     CameraInfo, CameraPosition, PixelFormat, VideoCapture, VideoCodec, VideoConfig, VideoFrame,
     VideoResolution,

@@ -82,7 +82,10 @@ pub struct ApnsClient {
     bundle_id: String,
     endpoint: String,
     encoding_key: EncodingKey,
-    http_client: Client<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>, Full<Bytes>>,
+    http_client: Client<
+        hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>,
+        Full<Bytes>,
+    >,
     jwt_token: Arc<Mutex<Option<JwtToken>>>,
 }
 
@@ -272,7 +275,10 @@ impl ApnsClient {
 
         // Check response
         if status.is_success() {
-            tracing::debug!("  ✅ APNs notification sent successfully - apns_id: {}", apns_id);
+            tracing::debug!(
+                "  ✅ APNs notification sent successfully - apns_id: {}",
+                apns_id
+            );
             Ok(())
         } else {
             // Parse error response
@@ -286,11 +292,7 @@ impl ApnsClient {
                         )
                     }
                     Err(_) => {
-                        format!(
-                            "APNs HTTP {} (apns_id: {})",
-                            status.as_u16(),
-                            apns_id
-                        )
+                        format!("APNs HTTP {} (apns_id: {})", status.as_u16(), apns_id)
                     }
                 }
             } else {

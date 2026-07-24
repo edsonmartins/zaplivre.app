@@ -211,11 +211,10 @@ impl DhtStorage {
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock().unwrap();
 
-            let peer_count: i64 = conn.query_row(
-                "SELECT COUNT(DISTINCT peer_id) FROM dht_peers",
-                [],
-                |row| row.get(0),
-            )?;
+            let peer_count: i64 =
+                conn.query_row("SELECT COUNT(DISTINCT peer_id) FROM dht_peers", [], |row| {
+                    row.get(0)
+                })?;
 
             let address_count: i64 =
                 conn.query_row("SELECT COUNT(*) FROM dht_peers", [], |row| row.get(0))?;

@@ -180,7 +180,9 @@ impl RtpPacket {
     /// Parse RTP packet from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < RTP_HEADER_SIZE {
-            return Err(VoipError::SignalingError("RTP packet too short".to_string()));
+            return Err(VoipError::SignalingError(
+                "RTP packet too short".to_string(),
+            ));
         }
 
         let header = RtpHeader::from_bytes(&bytes[0..RTP_HEADER_SIZE])?;
@@ -221,9 +223,9 @@ impl RtpPacketizer {
     /// Get RTP payload type for codec
     fn codec_payload_type(codec: VideoCodec) -> u8 {
         match codec {
-            VideoCodec::H264 => 96,  // Dynamic payload type for H.264
-            VideoCodec::VP8 => 97,   // Dynamic payload type for VP8
-            VideoCodec::VP9 => 98,   // Dynamic payload type for VP9
+            VideoCodec::H264 => 96, // Dynamic payload type for H.264
+            VideoCodec::VP8 => 97,  // Dynamic payload type for VP8
+            VideoCodec::VP9 => 98,  // Dynamic payload type for VP9
         }
     }
 

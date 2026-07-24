@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 
 use libsignal_protocol_syft::{
-    GenericSignedPreKey, IdentityKeyPair, KeyPair, PreKeyId, PreKeyRecord, SignedPreKeyId,
-    SignedPreKeyRecord, KyberPreKeyId, KyberPreKeyRecord, Timestamp, kem,
+    kem, GenericSignedPreKey, IdentityKeyPair, KeyPair, KyberPreKeyId, KyberPreKeyRecord, PreKeyId,
+    PreKeyRecord, SignedPreKeyId, SignedPreKeyRecord, Timestamp,
 };
 use rand::{rngs::StdRng, SeedableRng};
 
@@ -226,8 +226,9 @@ impl PreKeyPool {
         signal_registration_id: u32,
         pool_size: usize,
     ) -> Self {
-        let identity_keypair_signal = IdentityKeyPair::try_from(signal_identity_keypair_record.as_slice())
-            .expect("Failed to deserialize Signal identity keypair");
+        let identity_keypair_signal =
+            IdentityKeyPair::try_from(signal_identity_keypair_record.as_slice())
+                .expect("Failed to deserialize Signal identity keypair");
         let mut rng = StdRng::from_os_rng();
 
         let signed_key_pair = KeyPair::generate(&mut rng);
@@ -291,8 +292,12 @@ impl PreKeyPool {
 
     /// Get a prekey bundle for key exchange
     pub fn get_bundle(&self) -> Result<PreKeyBundle> {
-        let identity_keypair_signal = IdentityKeyPair::try_from(self.signal_identity_keypair_record.as_slice())
-            .map_err(|e| ZapLivreError::Identity(format!("Signal identity keypair deserialize failed: {}", e)))?;
+        let identity_keypair_signal = IdentityKeyPair::try_from(
+            self.signal_identity_keypair_record.as_slice(),
+        )
+        .map_err(|e| {
+            ZapLivreError::Identity(format!("Signal identity keypair deserialize failed: {}", e))
+        })?;
         let signal_identity_key = identity_keypair_signal.identity_key().serialize().to_vec();
 
         let signed_prekey_public = self
@@ -301,10 +306,9 @@ impl PreKeyPool {
             .map_err(|e| ZapLivreError::Identity(format!("Signed prekey public error: {}", e)))?
             .serialize()
             .to_vec();
-        let signed_prekey_signature = self
-            .signed_prekey
-            .signature()
-            .map_err(|e| ZapLivreError::Identity(format!("Signed prekey signature error: {}", e)))?;
+        let signed_prekey_signature = self.signed_prekey.signature().map_err(|e| {
+            ZapLivreError::Identity(format!("Signed prekey signature error: {}", e))
+        })?;
 
         let kyber_prekey_public = self
             .kyber_prekey
@@ -396,8 +400,9 @@ impl PreKeyPool {
 
     /// Rotate the signed prekey and Kyber prekey
     pub fn rotate_signed_prekey(&mut self) {
-        let identity_keypair_signal = IdentityKeyPair::try_from(self.signal_identity_keypair_record.as_slice())
-            .expect("Failed to deserialize Signal identity keypair");
+        let identity_keypair_signal =
+            IdentityKeyPair::try_from(self.signal_identity_keypair_record.as_slice())
+                .expect("Failed to deserialize Signal identity keypair");
         let mut rng = StdRng::from_os_rng();
 
         let signed_key_pair = KeyPair::generate(&mut rng);
@@ -459,7 +464,11 @@ mod tests {
     fn test_prekey_bundle_serialization() {
         let identity = Identity::generate(5);
         let mut identity_mut = identity.clone();
-        let bundle = identity_mut.prekey_pool_mut().unwrap().get_bundle().unwrap();
+        let bundle = identity_mut
+            .prekey_pool_mut()
+            .unwrap()
+            .get_bundle()
+            .unwrap();
 
         let json = serde_json::to_string(&bundle).unwrap();
         let deserialized: PreKeyBundle = serde_json::from_str(&json).unwrap();

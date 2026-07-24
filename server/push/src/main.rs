@@ -10,18 +10,18 @@
 
 mod api;
 mod apns;
+mod auth;
 mod fcm;
 
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{delete, get, post},
     Router,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tower_http::{
-    cors::CorsLayer,
-    trace::TraceLayer,
-};
+use tower::limit::ConcurrencyLimitLayer;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Application state shared across all handlers
@@ -30,6 +30,7 @@ pub struct AppState {
     pub db_pool: sqlx::PgPool,
     pub fcm_client: Option<Arc<fcm::FcmClient>>,
     pub apns_client: Option<Arc<apns::ApnsClient>>,
+    pub service_secret: Arc<str>,
 }
 
 #[tokio::main]
@@ -49,12 +50,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("🚀 ZapLivre Push Notification Server starting...");
 
     // Get configuration from environment
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "8081".to_string())
         .parse::<u16>()
         .expect("PORT must be a valid number");
+    let service_secret =
+        std::env::var("PUSH_SERVICE_SECRET").expect("PUSH_SERVICE_SECRET must be set");
+    if service_secret.len() < 32 {
+        return Err("PUSH_SERVICE_SECRET must contain at least 32 characters".into());
+    }
+    let max_concurrent = std::env::var("PUSH_MAX_CONCURRENT")
+        .unwrap_or_else(|_| "128".to_string())
+        .parse::<usize>()?;
+    if !(1..=4096).contains(&max_concurrent) {
+        return Err("PUSH_MAX_CONCURRENT must be between 1 and 4096".into());
+    }
 
     // Connect to database
     tracing::info!("📦 Connecting to database...");
@@ -113,7 +124,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             tracing::info!("ℹ️  APNs credentials not configured - iOS push notifications disabled");
-            tracing::info!("   Set APNS_KEY_PATH, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID to enable");
+            tracing::info!(
+                "   Set APNS_KEY_PATH, APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID to enable"
+            );
             None
         }
     };
@@ -123,6 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         db_pool,
         fcm_client,
         apns_client,
+        service_secret: Arc::from(service_secret),
     };
 
     // Setup CORS
@@ -135,6 +149,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/register", post(api::register::handle))
         .route("/api/v1/send", post(api::send::handle))
         .route("/api/v1/unregister", delete(api::unregister::handle))
+        .layer(DefaultBodyLimit::max(64 * 1024))
+        .layer(ConcurrencyLimitLayer::new(max_concurrent))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);

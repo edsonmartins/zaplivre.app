@@ -7,7 +7,7 @@ use super::types::{Group, GroupEvent, GroupMessage, GroupRole};
 use crate::crypto::group::{EncryptedMessage, GroupSessionManager};
 use crate::identity::PublicKey;
 use crate::storage::{Database, MessageStatus, NewMessage};
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 use libp2p::gossipsub::{self, IdentTopic, TopicHash};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -116,10 +116,19 @@ impl GroupManager {
             .group_sessions
             .create_group(group_id.clone())
             .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
-        storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
+        storage::save_sender_key_seed(
+            &self.db,
+            &self.storage_key,
+            &group_id,
+            &self.local_peer_id,
+            &my_seed,
+        )?;
 
         // Store in memory
-        self.groups.write().await.insert(group_id.clone(), group.clone());
+        self.groups
+            .write()
+            .await
+            .insert(group_id.clone(), group.clone());
 
         // Get topic hash
         let topic = IdentTopic::new(&group.topic);
@@ -155,10 +164,19 @@ impl GroupManager {
             .group_sessions
             .create_group(group_id.clone())
             .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
-        storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
+        storage::save_sender_key_seed(
+            &self.db,
+            &self.storage_key,
+            &group_id,
+            &self.local_peer_id,
+            &my_seed,
+        )?;
 
         // Store in memory
-        self.groups.write().await.insert(group_id.clone(), group.clone());
+        self.groups
+            .write()
+            .await
+            .insert(group_id.clone(), group.clone());
 
         // Get topic hash
         let topic = IdentTopic::new(&group.topic);
@@ -204,12 +222,16 @@ impl GroupManager {
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(ZapLivreError::Permission("Only admins can add members".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Only admins can add members".to_string(),
+            ));
         }
 
         // Check if already a member
         if group.is_member(peer_id) {
-            return Err(ZapLivreError::AlreadyExists("User is already a member".to_string()));
+            return Err(ZapLivreError::AlreadyExists(
+                "User is already a member".to_string(),
+            ));
         }
 
         // Add to group
@@ -236,12 +258,16 @@ impl GroupManager {
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(ZapLivreError::Permission("Only admins can remove members".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Only admins can remove members".to_string(),
+            ));
         }
 
         // Can't remove creator
         if peer_id == group.creator_peer_id {
-            return Err(ZapLivreError::Permission("Can't remove group creator".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Can't remove group creator".to_string(),
+            ));
         }
 
         // Remove from group
@@ -317,9 +343,18 @@ impl GroupManager {
             .group_sessions
             .create_group(group_id.clone())
             .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
-        storage::save_sender_key_seed(&self.db, &self.storage_key, &group_id, &self.local_peer_id, &my_seed)?;
+        storage::save_sender_key_seed(
+            &self.db,
+            &self.storage_key,
+            &group_id,
+            &self.local_peer_id,
+            &my_seed,
+        )?;
 
-        self.groups.write().await.insert(group_id.clone(), group.clone());
+        self.groups
+            .write()
+            .await
+            .insert(group_id.clone(), group.clone());
 
         let topic = IdentTopic::new(&group.topic);
         self.subscribed_topics
@@ -462,7 +497,9 @@ impl GroupManager {
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(ZapLivreError::Permission("Only admins can promote members".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Only admins can promote members".to_string(),
+            ));
         }
 
         // Check if member exists
@@ -488,12 +525,16 @@ impl GroupManager {
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(ZapLivreError::Permission("Only admins can demote members".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Only admins can demote members".to_string(),
+            ));
         }
 
         // Can't demote creator
         if peer_id == group.creator_peer_id {
-            return Err(ZapLivreError::Permission("Can't demote group creator".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Can't demote group creator".to_string(),
+            ));
         }
 
         // Remove from admins
@@ -520,7 +561,9 @@ impl GroupManager {
 
         // Check if caller is admin
         if !group.is_admin(&self.local_peer_id) {
-            return Err(ZapLivreError::Permission("Only admins can update group".to_string()));
+            return Err(ZapLivreError::Permission(
+                "Only admins can update group".to_string(),
+            ));
         }
 
         // Update fields
@@ -577,7 +620,9 @@ impl GroupManager {
 
         if let Some(group) = group {
             if !group.is_member(&group_msg.sender_peer_id) {
-                return Err(ZapLivreError::Permission("Sender is not a group member".to_string()));
+                return Err(ZapLivreError::Permission(
+                    "Sender is not a group member".to_string(),
+                ));
             }
 
             if !group_msg.signature.is_empty() {
@@ -613,9 +658,7 @@ impl GroupManager {
             self.store_group_message(group, &group_msg, encrypted_content, plaintext)?;
 
             // Emit event
-            self.emit_event(GroupEvent::MessageReceived {
-                message: group_msg,
-            });
+            self.emit_event(GroupEvent::MessageReceived { message: group_msg });
         }
 
         Ok(())
@@ -623,9 +666,7 @@ impl GroupManager {
 
     /// Encrypt a group message payload using sender keys
     pub fn encrypt_group_message(&self, group_id: &str, plaintext: &[u8]) -> Result<Vec<u8>> {
-        let (_, encrypted) = self
-            .group_sessions
-            .encrypt_to_group(group_id, plaintext)?;
+        let (_, encrypted) = self.group_sessions.encrypt_to_group(group_id, plaintext)?;
 
         // Persistir o próximo counter de envio (sobrevive a restart sem
         // reutilizar counters - reutilização seria dropada como replay)
@@ -647,13 +688,14 @@ impl GroupManager {
         sender_peer_id: &str,
         encrypted_payload: &[u8],
     ) -> Result<Vec<u8>> {
-        let encrypted: EncryptedMessage = serde_json::from_slice(encrypted_payload).map_err(|e| {
-            ZapLivreError::Protocol(format!("Invalid group payload encoding: {}", e))
-        })?;
+        let encrypted: EncryptedMessage =
+            serde_json::from_slice(encrypted_payload).map_err(|e| {
+                ZapLivreError::Protocol(format!("Invalid group payload encoding: {}", e))
+            })?;
 
-        let plaintext = self
-            .group_sessions
-            .decrypt_from_group(group_id, sender_peer_id, &encrypted)?;
+        let plaintext =
+            self.group_sessions
+                .decrypt_from_group(group_id, sender_peer_id, &encrypted)?;
 
         // Persistir o próximo counter esperado deste remetente (guarda de replay)
         let _ = storage::update_sender_key_counter(
@@ -718,7 +760,8 @@ impl GroupManager {
         };
 
         self.db.insert_message(&new_msg)?;
-        self.db.update_conversation_last_message(&conversation_id, &group_msg.message_id)?;
+        self.db
+            .update_conversation_last_message(&conversation_id, &group_msg.message_id)?;
 
         Ok(())
     }
@@ -749,7 +792,13 @@ impl GroupManager {
 
         self.group_sessions
             .add_member_to_group(group_id, sender_peer_id.to_string(), seed)?;
-        storage::save_sender_key_seed(&self.db, &self.storage_key, group_id, sender_peer_id, &seed)?;
+        storage::save_sender_key_seed(
+            &self.db,
+            &self.storage_key,
+            group_id,
+            sender_peer_id,
+            &seed,
+        )?;
 
         Ok(())
     }
@@ -773,13 +822,25 @@ impl GroupManager {
             let seed = self
                 .group_sessions
                 .create_group(group.id.clone())
-                .map_err(|e| ZapLivreError::Crypto(format!("Failed to create sender key: {}", e)))?;
-            storage::save_sender_key_seed(&self.db, &self.storage_key, &group.id, &self.local_peer_id, &seed)?;
+                .map_err(|e| {
+                    ZapLivreError::Crypto(format!("Failed to create sender key: {}", e))
+                })?;
+            storage::save_sender_key_seed(
+                &self.db,
+                &self.storage_key,
+                &group.id,
+                &self.local_peer_id,
+                &seed,
+            )?;
             (seed, 0)
         };
 
-        self.group_sessions
-            .init_group_with_seed(group.id.clone(), my_seed, my_counter, member_seeds)?;
+        self.group_sessions.init_group_with_seed(
+            group.id.clone(),
+            my_seed,
+            my_counter,
+            member_seeds,
+        )?;
 
         Ok(())
     }
@@ -796,10 +857,12 @@ mod tests {
         crate::storage::schema::init_schema(&db).unwrap();
 
         // Insert contact first (foreign key requirement)
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-1", vec![0u8; 32]],
-        ).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-1", vec![0u8; 32]],
+            )
+            .unwrap();
 
         let manager = GroupManager::new("peer-1".to_string(), db, [7u8; 32]).unwrap();
         manager.init().await.unwrap();
@@ -821,14 +884,18 @@ mod tests {
         crate::storage::schema::init_schema(&db).unwrap();
 
         // Insert contacts first (foreign key requirement)
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-1", vec![0u8; 32]],
-        ).unwrap();
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-2", vec![1u8; 32]],
-        ).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-1", vec![0u8; 32]],
+            )
+            .unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-2", vec![1u8; 32]],
+            )
+            .unwrap();
 
         let manager = GroupManager::new("peer-1".to_string(), db, [7u8; 32]).unwrap();
         manager.init().await.unwrap();
@@ -858,14 +925,18 @@ mod tests {
         crate::storage::schema::init_schema(&db).unwrap();
 
         // Insert contacts first (foreign key requirement)
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-1", vec![0u8; 32]],
-        ).unwrap();
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-2", vec![1u8; 32]],
-        ).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-1", vec![0u8; 32]],
+            )
+            .unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-2", vec![1u8; 32]],
+            )
+            .unwrap();
 
         let manager = GroupManager::new("peer-1".to_string(), db, [7u8; 32]).unwrap();
         manager.init().await.unwrap();

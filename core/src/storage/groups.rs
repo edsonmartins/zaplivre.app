@@ -106,11 +106,7 @@ impl Database {
             INSERT INTO conversations (id, conversation_type, group_id, display_name)
             VALUES (?1, 'group', ?2, ?3)
             "#,
-            params![
-                format!("group:{}", group.id),
-                group.id,
-                group.group_name,
-            ],
+            params![format!("group:{}", group.id), group.id, group.group_name,],
         )?;
 
         Ok(())
@@ -252,7 +248,12 @@ impl Database {
     }
 
     /// Update member role
-    pub fn update_member_role(&self, group_id: &str, peer_id: &str, role: MemberRole) -> Result<()> {
+    pub fn update_member_role(
+        &self,
+        group_id: &str,
+        peer_id: &str,
+        role: MemberRole,
+    ) -> Result<()> {
         let conn = self.conn();
         conn.execute(
             "UPDATE group_members SET role = ?1 WHERE group_id = ?2 AND peer_id = ?3",

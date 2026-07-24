@@ -112,11 +112,7 @@ mod tests {
 
     #[test]
     fn test_custom_policy() {
-        let policy = RetryPolicy::new(
-            3,
-            Duration::from_millis(500),
-            Duration::from_secs(5),
-        );
+        let policy = RetryPolicy::new(3, Duration::from_millis(500), Duration::from_secs(5));
 
         assert_eq!(policy.next_delay(0), Some(Duration::from_millis(500)));
         assert_eq!(policy.next_delay(1), Some(Duration::from_millis(1000)));

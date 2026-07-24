@@ -6,11 +6,11 @@
 //! **Note**: This is the Rust interface. Platform-specific implementations
 //! are provided via FFI from the host application.
 
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use hkdf::Hkdf;
 use rand::{rngs::StdRng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::path::{Path, PathBuf};
 
 use crate::identity::{Keypair, PreKeyPool};
 use crate::utils::error::{Result, ZapLivreError};
@@ -48,8 +48,7 @@ impl Identity {
     /// ```
     pub fn generate(prekey_count: usize) -> Self {
         let keypair = Keypair::generate();
-        let (signal_identity_keypair_record, signal_registration_id) =
-            generate_signal_identity();
+        let (signal_identity_keypair_record, signal_registration_id) = generate_signal_identity();
         let peer_id = keypair.peer_id();
         let prekey_pool = Some(PreKeyPool::new(
             keypair.clone(),
@@ -70,8 +69,7 @@ impl Identity {
     /// Create identity from existing keypair
     pub fn from_keypair(keypair: Keypair) -> Self {
         let peer_id = keypair.peer_id();
-        let (signal_identity_keypair_record, signal_registration_id) =
-            generate_signal_identity();
+        let (signal_identity_keypair_record, signal_registration_id) = generate_signal_identity();
 
         Self {
             keypair,
@@ -123,8 +121,7 @@ impl Identity {
         let pool = PreKeyPool::from_snapshot_bytes(self.keypair.clone(), snapshot)?;
         // A identidade Signal acompanha o pool restaurado - o signed prekey
         // do snapshot foi assinado por ELA
-        self.signal_identity_keypair_record =
-            pool.signal_identity_keypair_record_bytes().to_vec();
+        self.signal_identity_keypair_record = pool.signal_identity_keypair_record_bytes().to_vec();
         self.signal_registration_id = pool.signal_registration_id_value();
         self.prekey_pool = Some(pool);
         Ok(())
@@ -261,8 +258,9 @@ impl IdentityStorage for FileIdentityStorage {
         let json = std::fs::read_to_string(&path)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to read identity: {}", e)))?;
 
-        let data: IdentityData = serde_json::from_str(&json)
-            .map_err(|e| ZapLivreError::Storage(format!("Failed to deserialize identity: {}", e)))?;
+        let data: IdentityData = serde_json::from_str(&json).map_err(|e| {
+            ZapLivreError::Storage(format!("Failed to deserialize identity: {}", e))
+        })?;
 
         let keypair = Keypair::from_bytes(&data.keypair_bytes)?;
         let mut identity = Identity::from_keypair(keypair);

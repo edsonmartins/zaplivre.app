@@ -48,6 +48,11 @@ android {
             ?: System.getenv("SIGNALING_SERVER_URL")
             ?: "wss://signaling.associahub.com.br/ws"
         buildConfigField("String", "SIGNALING_SERVER_URL", "\"$signalingServerUrl\"")
+
+        val identityServerUrl = (project.findProperty("IDENTITY_SERVER_URL") as String?)
+            ?: System.getenv("IDENTITY_SERVER_URL")
+            ?: "https://identity.associahub.com.br"
+        buildConfigField("String", "IDENTITY_SERVER_URL", "\"$identityServerUrl\"")
     }
 
     buildTypes {

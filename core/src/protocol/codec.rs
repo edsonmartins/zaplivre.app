@@ -5,7 +5,7 @@
 use prost::Message as ProstMessage;
 
 use super::pb::Message;
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// Encode a message to bytes (Protocol Buffer format)
 pub fn encode(message: &Message) -> Result<Vec<u8>> {

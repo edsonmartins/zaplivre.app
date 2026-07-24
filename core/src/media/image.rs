@@ -26,12 +26,8 @@ pub enum ImageProcessingError {
 impl From<image::ImageError> for ImageProcessingError {
     fn from(err: image::ImageError) -> Self {
         match err {
-            image::ImageError::Decoding(_) => {
-                ImageProcessingError::DecodeError(err.to_string())
-            }
-            image::ImageError::Encoding(_) => {
-                ImageProcessingError::EncodeError(err.to_string())
-            }
+            image::ImageError::Decoding(_) => ImageProcessingError::DecodeError(err.to_string()),
+            image::ImageError::Encoding(_) => ImageProcessingError::EncodeError(err.to_string()),
             image::ImageError::Unsupported(_) => ImageProcessingError::UnsupportedFormat,
             _ => ImageProcessingError::IoError(err.to_string()),
         }

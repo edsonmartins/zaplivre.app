@@ -9,18 +9,16 @@
 //! Run with: `cargo run --example basic_p2p`
 
 use libp2p::identity::Keypair;
-use zaplivre_core::network::NetworkManager;
 use std::error::Error;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, Level};
 use tracing_subscriber;
+use zaplivre_core::network::NetworkManager;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     // Setup logging
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        .init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
     info!("🚀 Starting ZapLivre P2P Connectivity Example");
 
@@ -71,9 +69,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("📊 Network infrastructure ready:");
     info!("   Peer 1 ID: {}", peer1_id);
     info!("   Peer 2 ID: {}", peer2_id);
-    info!("   Initial connections: {} (Peer 1), {} (Peer 2)",
-          peer1.connected_peers(),
-          peer2.connected_peers());
+    info!(
+        "   Initial connections: {} (Peer 1), {} (Peer 2)",
+        peer1.connected_peers(),
+        peer2.connected_peers()
+    );
 
     warn!("⚠️  Note: To actually run the event loop and exchange messages,");
     warn!("   you would call peer1.run() and peer2.run() in separate tasks.");

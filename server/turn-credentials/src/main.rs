@@ -4,15 +4,18 @@
 //! Uses HMAC-SHA1 as per RFC 5389.
 
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
 use std::net::SocketAddr;
+use tower::limit::ConcurrencyLimitLayer;
 use tower_http::cors::CorsLayer;
 
 mod auth;
 mod config;
 mod handlers;
+mod request_auth;
 
 use config::Config;
 
@@ -30,6 +33,12 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = Config::from_env()?;
     config.validate()?;
+    let max_concurrent = std::env::var("TURN_MAX_CONCURRENT")
+        .unwrap_or_else(|_| "64".to_string())
+        .parse::<usize>()?;
+    if !(1..=4096).contains(&max_concurrent) {
+        anyhow::bail!("TURN_MAX_CONCURRENT must be between 1 and 4096");
+    }
 
     tracing::info!("   TURN URIs: {:?}", config.turn_uris);
     tracing::info!("   Server port: {}", config.server_port);
@@ -41,7 +50,12 @@ async fn main() -> anyhow::Result<()> {
     // Build router
     let app = Router::new()
         .route("/health", get(handlers::health_check))
-        .route("/api/turn/credentials", post(handlers::generate_credentials))
+        .route(
+            "/api/turn/credentials",
+            post(handlers::generate_credentials),
+        )
+        .layer(DefaultBodyLimit::max(4 * 1024))
+        .layer(ConcurrencyLimitLayer::new(max_concurrent))
         .layer(cors)
         .with_state(config.clone());
 

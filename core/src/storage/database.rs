@@ -59,10 +59,9 @@ impl Database {
             })?;
 
         // Enable foreign keys
-        conn.execute_batch("PRAGMA foreign_keys=ON;")
-            .map_err(|e| {
-                StorageError::DatabaseError(format!("Failed to enable foreign keys: {}", e))
-            })?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;").map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to enable foreign keys: {}", e))
+        })?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -74,10 +73,9 @@ impl Database {
         let conn = Connection::open_in_memory()
             .map_err(|e| StorageError::DatabaseError(format!("Failed to open database: {}", e)))?;
 
-        conn.execute_batch("PRAGMA foreign_keys=ON;")
-            .map_err(|e| {
-                StorageError::DatabaseError(format!("Failed to enable foreign keys: {}", e))
-            })?;
+        conn.execute_batch("PRAGMA foreign_keys=ON;").map_err(|e| {
+            StorageError::DatabaseError(format!("Failed to enable foreign keys: {}", e))
+        })?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -145,7 +143,9 @@ impl Database {
     pub fn close(self) -> Result<()> {
         let conn = Arc::try_unwrap(self.conn)
             .map_err(|_| {
-                StorageError::DatabaseError("Cannot close: connection still has references".to_string())
+                StorageError::DatabaseError(
+                    "Cannot close: connection still has references".to_string(),
+                )
             })?
             .into_inner()
             .map_err(|e| {
@@ -157,7 +157,9 @@ impl Database {
 
     /// Get access to the connection (for internal storage module use)
     pub(crate) fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().expect("Failed to lock database connection")
+        self.conn
+            .lock()
+            .expect("Failed to lock database connection")
     }
 
     /// Execute a query with the connection (for testing/internal use)

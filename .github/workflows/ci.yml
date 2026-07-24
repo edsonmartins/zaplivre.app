@@ -97,10 +97,9 @@ jobs:
         run: cargo test -p zaplivre-core --test identity_integration --features integration-tests -- --test-threads=1
 
   voip-integration:
-    name: VoIP integration (non-blocking)
+    name: VoIP integration
     runs-on: ubuntu-latest
-    # Testes P2P com timing real - não-bloqueante até provar estabilidade no runner
-    continue-on-error: true
+    # Falhas de VoIP devem bloquear a validação do produto.
     steps:
       - uses: actions/checkout@v4
 

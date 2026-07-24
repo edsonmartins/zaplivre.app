@@ -34,7 +34,13 @@ impl Database {
                 (message_id, peer_id, message_type, proto_bytes, attempts, next_attempt_at)
             VALUES (?1, ?2, ?3, ?4, 0, ?5)
             "#,
-            rusqlite::params![message_id, peer_id, message_type, proto_bytes, next_attempt_at],
+            rusqlite::params![
+                message_id,
+                peer_id,
+                message_type,
+                proto_bytes,
+                next_attempt_at
+            ],
         )?;
 
         Ok(())

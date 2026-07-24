@@ -3,11 +3,11 @@
 //! Tests end-to-end message exchange between two peers.
 
 use libp2p::{identity::Keypair, Multiaddr};
-use zaplivre_core::network::NetworkManager;
-use zaplivre_core::protocol::{pb::message::Payload, Message, MessageType, TextMessage};
 use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
+use zaplivre_core::network::NetworkManager;
+use zaplivre_core::protocol::{pb::message::Payload, Message, MessageType, TextMessage};
 
 #[tokio::test]
 async fn test_p2p_message_exchange() {
@@ -41,9 +41,7 @@ async fn test_p2p_message_exchange() {
 
     // Add peer2 to peer1's DHT and dial
     peer1.add_peer_to_dht(peer2_id.clone(), addr2.clone());
-    peer1
-        .dial(peer2_id.clone(), addr2)
-        .expect("Failed to dial");
+    peer1.dial(peer2_id.clone(), addr2).expect("Failed to dial");
 
     println!("📞 Peer 1 dialing Peer 2...");
 

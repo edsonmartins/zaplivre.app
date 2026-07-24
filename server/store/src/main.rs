@@ -8,9 +8,9 @@ use std::env;
 
 mod api;
 mod auth;
-mod push_notifier;
 mod database;
 mod models;
+mod push_notifier;
 mod redis_client;
 mod ttl_cleanup;
 
@@ -66,7 +66,19 @@ async fn main() -> std::io::Result<()> {
     }
 
     // Push integration (PSH-02): notificar destinatário offline
-    let push_notifier = push_notifier::PushNotifier::new(env::var("PUSH_SERVER_URL").ok());
+    let push_server_url = env::var("PUSH_SERVER_URL").ok();
+    let push_service_secret = if push_server_url.is_some() {
+        let secret = env::var("PUSH_SERVICE_SECRET")
+            .expect("PUSH_SERVICE_SECRET must be set when PUSH_SERVER_URL is configured");
+        assert!(
+            secret.len() >= 32,
+            "PUSH_SERVICE_SECRET must contain at least 32 characters"
+        );
+        Some(secret)
+    } else {
+        None
+    };
+    let push_notifier = push_notifier::PushNotifier::new(push_server_url, push_service_secret);
 
     // Create shared state
     let db_data = web::Data::new(database);
@@ -87,6 +99,9 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::default();
 
         App::new()
+            // Bound JSON bodies accepted by the store (encrypted envelopes are
+            // small; oversized payloads must be rejected before allocation).
+            .app_data(web::PayloadConfig::new(64 * 1024))
             // State
             .app_data(db_data.clone())
             .app_data(push_data.clone())

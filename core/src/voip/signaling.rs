@@ -11,16 +11,10 @@ use std::fmt;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SignalingMessage {
     /// Initiate a call with SDP offer
-    CallOffer {
-        call_id: String,
-        sdp: String,
-    },
+    CallOffer { call_id: String, sdp: String },
 
     /// Answer a call with SDP answer
-    CallAnswer {
-        call_id: String,
-        sdp: String,
-    },
+    CallAnswer { call_id: String, sdp: String },
 
     /// Send ICE candidate for connection establishment
     IceCandidate {
@@ -37,14 +31,10 @@ pub enum SignalingMessage {
     },
 
     /// Notify call hangup
-    CallHangup {
-        call_id: String,
-    },
+    CallHangup { call_id: String },
 
     /// Notify call accepted (before sending answer)
-    CallAccept {
-        call_id: String,
-    },
+    CallAccept { call_id: String },
 }
 
 impl SignalingMessage {
@@ -89,11 +79,7 @@ impl fmt::Display for SignalingMessage {
                 write!(f, "IceCandidate({})", call_id)
             }
             Self::CallReject { call_id, reason } => {
-                write!(
-                    f,
-                    "CallReject({}, reason: {:?})",
-                    call_id, reason
-                )
+                write!(f, "CallReject({}, reason: {:?})", call_id, reason)
             }
             Self::CallHangup { call_id } => {
                 write!(f, "CallHangup({})", call_id)

@@ -2,19 +2,19 @@
 //!
 //! Orchestrates WebRTC calls, signaling, and audio I/O.
 
+#[cfg(feature = "voip")]
+use super::codec::{OpusConfig, OpusEncoder};
 use super::{
     call::{Call, CallDirection, CallEndReason, CallState},
     video::VideoCodec,
     webrtc::{build_turn_config, WebRTCPeer},
     Result, VoipError,
 };
-#[cfg(feature = "voip")]
-use super::codec::{OpusConfig, OpusEncoder};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
 #[cfg(feature = "voip")]
 use tokio::sync::Mutex;
+use tokio::sync::{broadcast, RwLock};
 use webrtc::ice_transport::ice_server::RTCIceServer;
 #[cfg(feature = "voip")]
 use webrtc::track::track_local::TrackLocalWriter;
@@ -57,15 +57,10 @@ pub enum CallEvent {
     },
 
     /// Video enabled for call
-    VideoEnabled {
-        call_id: String,
-        codec: VideoCodec,
-    },
+    VideoEnabled { call_id: String, codec: VideoCodec },
 
     /// Video disabled for call
-    VideoDisabled {
-        call_id: String,
-    },
+    VideoDisabled { call_id: String },
 
     /// Remote video frame received
     VideoFrameReceived {
@@ -76,21 +71,13 @@ pub enum CallEvent {
     },
 
     /// Mute state toggled
-    MuteToggled {
-        call_id: String,
-        is_muted: bool,
-    },
+    MuteToggled { call_id: String, is_muted: bool },
 
     /// Speakerphone state toggled
-    SpeakerphoneToggled {
-        call_id: String,
-        enabled: bool,
-    },
+    SpeakerphoneToggled { call_id: String, enabled: bool },
 
     /// Camera switch requested (platform should handle)
-    CameraSwitchRequested {
-        call_id: String,
-    },
+    CameraSwitchRequested { call_id: String },
 
     /// Signaling: Need to send offer to remote peer
     SignalingOffer {
@@ -501,7 +488,11 @@ impl CallManager {
                 tracing::warn!("🧊 Failed to apply buffered ICE candidate: {}", e);
             }
         }
-        tracing::info!("🧊 Applied {} buffered ICE candidates for call {}", count, call_id);
+        tracing::info!(
+            "🧊 Applied {} buffered ICE candidates for call {}",
+            count,
+            call_id
+        );
     }
 
     /// Reject an incoming call
@@ -597,7 +588,11 @@ impl CallManager {
             codec,
         });
 
-        tracing::info!("📹 Video enabled for call: {} (codec: {:?})", call_id, codec);
+        tracing::info!(
+            "📹 Video enabled for call: {} (codec: {:?})",
+            call_id,
+            codec
+        );
 
         Ok(())
     }

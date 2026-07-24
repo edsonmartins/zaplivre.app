@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::identity::{Keypair, PublicKey};
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// Group metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,14 +210,10 @@ pub enum GroupMessageType {
     },
 
     /// System message (member joined/left, name changed, etc.)
-    System {
-        system_type: SystemMessageType,
-    },
+    System { system_type: SystemMessageType },
 
     /// Admin action (add/remove member, promote/demote)
-    AdminAction {
-        action: AdminAction,
-    },
+    AdminAction { action: AdminAction },
 }
 
 /// System message type

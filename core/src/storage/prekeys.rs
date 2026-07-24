@@ -3,7 +3,7 @@
 //! bundles que os contatos já tinham buscado.
 
 use super::Database;
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 impl Database {
     pub fn save_prekey_pool(&self, encrypted_snapshot: &[u8]) -> Result<()> {

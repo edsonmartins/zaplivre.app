@@ -22,8 +22,7 @@ mod integration_tests {
 
     /// URL do identity-server (8083 por padrão; 8080 é o message-store)
     fn identity_server_url() -> String {
-        std::env::var("IDENTITY_SERVER_URL")
-            .unwrap_or_else(|_| "http://localhost:8083".to_string())
+        std::env::var("IDENTITY_SERVER_URL").unwrap_or_else(|_| "http://localhost:8083".to_string())
     }
 
     /// Setup: Create in-memory database with schema
@@ -248,7 +247,10 @@ mod integration_tests {
         // Search for "alice"
         let results = db.search_contacts("alice").unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].display_name, Some("Alice Wonderland".to_string()));
+        assert_eq!(
+            results[0].display_name,
+            Some("Alice Wonderland".to_string())
+        );
 
         // Search for "Builder"
         let results = db.search_contacts("Builder").unwrap();

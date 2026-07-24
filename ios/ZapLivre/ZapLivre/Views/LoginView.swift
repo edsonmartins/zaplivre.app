@@ -16,6 +16,9 @@ struct LoginView: View {
     @State private var errorMessage = ""
     @State private var showImportSheet = false
     @State private var importText = ""
+    @State private var showUsernameSheet = false
+    @State private var username = ""
+    @State private var usernameError: String?
 
     var body: some View {
         NavigationView {
@@ -130,6 +133,39 @@ struct LoginView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showUsernameSheet) {
+                NavigationView {
+                    VStack(spacing: 16) {
+                        Text("Escolha seu username")
+                            .font(.headline)
+                        Text("Use 3 a 20 caracteres: letras minúsculas, números e underscore.")
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                        TextField("seu_username", text: $username)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .textFieldStyle(.roundedBorder)
+                        if let usernameError {
+                            Text(usernameError)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                        Button("Registrar") { registerUsername() }
+                            .buttonStyle(ZapPrimaryButtonStyle(enabled: !username.isEmpty))
+                            .disabled(username.isEmpty)
+                        Button("Continuar sem username") {
+                            showUsernameSheet = false
+                            NotificationCenter.default.post(name: .zapLivreCoreStarted, object: nil)
+                        }
+                        .buttonStyle(ZapSecondaryButtonStyle())
+                        Spacer()
+                    }
+                    .padding(24)
+                    .navigationTitle("Identidade")
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+                .interactiveDismissDisabled()
+            }
         }
     }
 
@@ -146,8 +182,8 @@ struct LoginView: View {
                 if let realPeerId = ZapLivreCore.shared.localPeerId, !realPeerId.isEmpty {
                     await MainActor.run {
                         appState.login(peerId: realPeerId)
+                        showUsernameSheet = true
                         isGeneratingId = false
-                        NotificationCenter.default.post(name: .zapLivreCoreStarted, object: nil)
                     }
                 } else {
                     await MainActor.run {
@@ -183,8 +219,8 @@ struct LoginView: View {
                 if let id = ZapLivreCore.shared.localPeerId {
                     await MainActor.run {
                         appState.login(peerId: id)
+                        showUsernameSheet = true
                         isGeneratingId = false
-                        NotificationCenter.default.post(name: .zapLivreCoreStarted, object: nil)
                     }
                 }
             } catch {
@@ -192,6 +228,30 @@ struct LoginView: View {
                     isGeneratingId = false
                     showError = true
                     errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func registerUsername() {
+        let value = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard value.range(of: "^[a-z0-9_]{3,20}$", options: .regularExpression) != nil else {
+            usernameError = "Username inválido"
+            return
+        }
+        isGeneratingId = true
+        Task {
+            do {
+                _ = try await ZapLivreCore.shared.registerUsername(value)
+                await MainActor.run {
+                    isGeneratingId = false
+                    showUsernameSheet = false
+                    NotificationCenter.default.post(name: .zapLivreCoreStarted, object: nil)
+                }
+            } catch {
+                await MainActor.run {
+                    isGeneratingId = false
+                    usernameError = error.localizedDescription
                 }
             }
         }

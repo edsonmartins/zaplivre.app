@@ -1,7 +1,7 @@
 //! Error types for ZapLivre
 
-use thiserror::Error;
 use crate::storage::StorageError;
+use thiserror::Error;
 
 /// Result type alias
 pub type Result<T> = std::result::Result<T, ZapLivreError>;

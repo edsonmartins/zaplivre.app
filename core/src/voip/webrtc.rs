@@ -64,8 +64,10 @@ impl WebRTCPeer {
         let mut interceptor_registry = Registry::new();
 
         // Register default interceptors (RTCP, NACK, etc.)
-        interceptor_registry = register_default_interceptors(interceptor_registry, &mut media_engine)
-            .map_err(|e| VoipError::WebRtcError(format!("Failed to register interceptors: {}", e)))?;
+        interceptor_registry =
+            register_default_interceptors(interceptor_registry, &mut media_engine).map_err(
+                |e| VoipError::WebRtcError(format!("Failed to register interceptors: {}", e)),
+            )?;
 
         let api = APIBuilder::new()
             .with_media_engine(media_engine)
@@ -80,16 +82,16 @@ impl WebRTCPeer {
         };
 
         // Create the peer connection
-        let peer_connection = Arc::new(
-            api.new_peer_connection(config)
-                .await
-                .map_err(|e| VoipError::WebRtcError(format!("Failed to create peer connection: {}", e)))?,
-        );
+        let peer_connection = Arc::new(api.new_peer_connection(config).await.map_err(|e| {
+            VoipError::WebRtcError(format!("Failed to create peer connection: {}", e))
+        })?);
 
-        let remote_video_callback: Arc<RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>> =
-            Arc::new(RwLock::new(None));
-        let remote_audio_callback: Arc<RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>> =
-            Arc::new(RwLock::new(None));
+        let remote_video_callback: Arc<
+            RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>,
+        > = Arc::new(RwLock::new(None));
+        let remote_audio_callback: Arc<
+            RwLock<Option<Arc<dyn Fn(Vec<u8>, u32, u32) + Send + Sync>>>,
+        > = Arc::new(RwLock::new(None));
 
         let video_cb = Arc::clone(&remote_video_callback);
         let audio_cb = Arc::clone(&remote_audio_callback);
@@ -103,7 +105,8 @@ impl WebRTCPeer {
                 match track.kind() {
                     webrtc::rtp_transceiver::rtp_codec::RTPCodecType::Video => {
                         tracing::info!("📹 Remote video track received");
-                        let depacketizer = Arc::new(Mutex::new(RtpDepacketizer::new(VideoCodec::H264)));
+                        let depacketizer =
+                            Arc::new(Mutex::new(RtpDepacketizer::new(VideoCodec::H264)));
                         let mut last_width = 640u32;
                         let mut last_height = 480u32;
 
@@ -128,7 +131,9 @@ impl WebRTCPeer {
                             if let Ok(Some(frame)) = depacketizer.depacketize(&packet) {
                                 let callback = { video_cb.read().await.clone() };
                                 if let Some(callback) = callback {
-                                    if let Some((width, height)) = parse_h264_dimensions_from_annexb(&frame) {
+                                    if let Some((width, height)) =
+                                        parse_h264_dimensions_from_annexb(&frame)
+                                    {
                                         last_width = width;
                                         last_height = height;
                                     }
@@ -296,7 +301,10 @@ impl WebRTCPeer {
             *packetizer = Some(RtpPacketizer::new(state.ssrc, codec));
         }
 
-        tracing::info!("✅ Video track added to peer connection - codec: {:?}", codec);
+        tracing::info!(
+            "✅ Video track added to peer connection - codec: {:?}",
+            codec
+        );
         Ok(())
     }
 
@@ -336,10 +344,9 @@ impl WebRTCPeer {
                     payload: packet.payload.into(),
                 };
 
-                video_track
-                    .write_rtp(&packet)
-                    .await
-                    .map_err(|e| VoipError::WebRtcError(format!("Failed to write video frame: {}", e)))?;
+                video_track.write_rtp(&packet).await.map_err(|e| {
+                    VoipError::WebRtcError(format!("Failed to write video frame: {}", e))
+                })?;
             }
 
             Ok(())
@@ -384,7 +391,9 @@ impl WebRTCPeer {
         self.peer_connection
             .set_local_description(offer.clone())
             .await
-            .map_err(|e| VoipError::WebRtcError(format!("Failed to set local description: {}", e)))?;
+            .map_err(|e| {
+                VoipError::WebRtcError(format!("Failed to set local description: {}", e))
+            })?;
 
         Ok(offer.sdp)
     }
@@ -401,7 +410,9 @@ impl WebRTCPeer {
         self.peer_connection
             .set_local_description(answer.clone())
             .await
-            .map_err(|e| VoipError::WebRtcError(format!("Failed to set local description: {}", e)))?;
+            .map_err(|e| {
+                VoipError::WebRtcError(format!("Failed to set local description: {}", e))
+            })?;
 
         Ok(answer.sdp)
     }
@@ -424,7 +435,9 @@ impl WebRTCPeer {
         self.peer_connection
             .set_remote_description(remote_desc)
             .await
-            .map_err(|e| VoipError::WebRtcError(format!("Failed to set remote description: {}", e)))?;
+            .map_err(|e| {
+                VoipError::WebRtcError(format!("Failed to set remote description: {}", e))
+            })?;
 
         Ok(())
     }
@@ -592,7 +605,8 @@ fn parse_h264_sps(nalu: &[u8]) -> Option<(u32, u32)> {
     }
 
     let width = (pic_width_in_mbs_minus1 + 1) * 16;
-    let height = (pic_height_in_map_units_minus1 + 1) * 16 * if frame_mbs_only_flag { 1 } else { 2 };
+    let height =
+        (pic_height_in_map_units_minus1 + 1) * 16 * if frame_mbs_only_flag { 1 } else { 2 };
 
     let (crop_unit_x, crop_unit_y) = if separate_colour_plane_flag {
         (1, if frame_mbs_only_flag { 1 } else { 2 })
@@ -619,7 +633,11 @@ fn skip_scaling_list(reader: &mut BitReader, size: usize) -> Option<()> {
             let delta_scale = reader.read_se()? as i32;
             next_scale = (last_scale + delta_scale + 256) % 256;
         }
-        last_scale = if next_scale == 0 { last_scale } else { next_scale };
+        last_scale = if next_scale == 0 {
+            last_scale
+        } else {
+            next_scale
+        };
     }
     Some(())
 }
@@ -685,7 +703,8 @@ pub fn build_turn_config(
             urls: turn_uris,
             username,
             credential,
-            credential_type: webrtc::ice_transport::ice_credential_type::RTCIceCredentialType::Password,
+            credential_type:
+                webrtc::ice_transport::ice_credential_type::RTCIceCredentialType::Password,
         },
     ]
 }

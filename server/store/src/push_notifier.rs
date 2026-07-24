@@ -9,19 +9,18 @@
 pub struct PushNotifier {
     client: reqwest::Client,
     push_server_url: Option<String>,
+    service_secret: Option<String>,
 }
 
 impl PushNotifier {
-    pub fn new(push_server_url: Option<String>) -> Self {
+    pub fn new(push_server_url: Option<String>, service_secret: Option<String>) -> Self {
         if push_server_url.is_none() {
-            tracing::info!(
-                "ℹ️ PUSH_SERVER_URL not set - offline messages will not trigger push"
-            );
+            tracing::info!("ℹ️ PUSH_SERVER_URL not set - offline messages will not trigger push");
         }
         Self {
             client: reqwest::Client::new(),
-            push_server_url: push_server_url
-                .map(|url| url.trim_end_matches('/').to_string()),
+            push_server_url: push_server_url.map(|url| url.trim_end_matches('/').to_string()),
+            service_secret,
         }
     }
 
@@ -31,6 +30,10 @@ impl PushNotifier {
             return;
         };
         let client = self.client.clone();
+        let Some(service_secret) = self.service_secret.clone() else {
+            tracing::error!("PUSH_SERVICE_SECRET missing - push notification suppressed");
+            return;
+        };
         let recipient = recipient_peer_id.to_string();
         let sender = sender_peer_id.to_string();
 
@@ -47,6 +50,7 @@ impl PushNotifier {
 
             match client
                 .post(format!("{}/api/v1/send", base_url))
+                .bearer_auth(service_secret)
                 .json(&payload)
                 .timeout(std::time::Duration::from_secs(10))
                 .send()

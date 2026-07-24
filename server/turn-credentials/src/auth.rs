@@ -41,8 +41,8 @@ mod tests {
     fn test_credential_generation() {
         let (username, password) = generate_turn_credentials(
             "user123",
-            86400,  // 24 hours
-            "test_secret"
+            86400, // 24 hours
+            "test_secret",
         );
 
         // Username should contain timestamp and user_id
@@ -56,17 +56,9 @@ mod tests {
 
     #[test]
     fn test_different_users_different_passwords() {
-        let (_, password1) = generate_turn_credentials(
-            "user1",
-            3600,
-            "secret"
-        );
+        let (_, password1) = generate_turn_credentials("user1", 3600, "secret");
 
-        let (_, password2) = generate_turn_credentials(
-            "user2",
-            3600,
-            "secret"
-        );
+        let (_, password2) = generate_turn_credentials("user2", 3600, "secret");
 
         // Different users should have different passwords
         assert_ne!(password1, password2);
@@ -74,11 +66,7 @@ mod tests {
 
     #[test]
     fn test_timestamp_in_username() {
-        let (username, _) = generate_turn_credentials(
-            "testuser",
-            7200,
-            "secret"
-        );
+        let (username, _) = generate_turn_credentials("testuser", 7200, "secret");
 
         // Extract timestamp from username
         let parts: Vec<&str> = username.split(':').collect();

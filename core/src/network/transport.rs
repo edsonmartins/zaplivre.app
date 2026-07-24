@@ -9,7 +9,7 @@ use libp2p::{
 };
 use std::time::Duration;
 
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 /// Build a libp2p transport with:
 /// - TCP + QUIC (dual-stack)
@@ -21,24 +21,26 @@ pub fn build_transport(
 ) -> Result<(Boxed<(PeerId, StreamMuxerBox)>, relay::client::Behaviour)> {
     let (relay_transport, relay_behaviour) = relay::client::new(local_peer_id);
 
-    let relay_transport = relay_transport
-        .upgrade(upgrade::Version::V1Lazy)
-        .authenticate(noise::Config::new(keypair).map_err(|e| {
-            ZapLivreError::Network(format!("Failed to create Noise config: {}", e))
-        })?)
-        .multiplex(yamux::Config::default())
-        .timeout(Duration::from_secs(20))
-        .boxed();
+    let relay_transport =
+        relay_transport
+            .upgrade(upgrade::Version::V1Lazy)
+            .authenticate(noise::Config::new(keypair).map_err(|e| {
+                ZapLivreError::Network(format!("Failed to create Noise config: {}", e))
+            })?)
+            .multiplex(yamux::Config::default())
+            .timeout(Duration::from_secs(20))
+            .boxed();
 
     // TCP transport with Noise + Yamux (using tokio runtime)
-    let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
-        .upgrade(upgrade::Version::V1Lazy)
-        .authenticate(noise::Config::new(keypair).map_err(|e| {
-            ZapLivreError::Network(format!("Failed to create Noise config: {}", e))
-        })?)
-        .multiplex(yamux::Config::default())
-        .timeout(Duration::from_secs(20))
-        .boxed();
+    let tcp_transport =
+        tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+            .upgrade(upgrade::Version::V1Lazy)
+            .authenticate(noise::Config::new(keypair).map_err(|e| {
+                ZapLivreError::Network(format!("Failed to create Noise config: {}", e))
+            })?)
+            .multiplex(yamux::Config::default())
+            .timeout(Duration::from_secs(20))
+            .boxed();
 
     // QUIC transport (built-in encryption + multiplexing, using tokio runtime)
     let quic_transport = quic::tokio::Transport::new(quic::Config::new(keypair))
@@ -74,8 +76,8 @@ mod tests {
     #[test]
     fn test_build_transport() {
         let keypair = identity::Keypair::generate_ed25519();
-    let transport = build_transport(&keypair, PeerId::from(keypair.public()));
-    assert!(transport.is_ok());
+        let transport = build_transport(&keypair, PeerId::from(keypair.public()));
+        assert!(transport.is_ok());
     }
 
     #[test]

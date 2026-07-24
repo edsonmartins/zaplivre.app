@@ -3,7 +3,12 @@
 //! DELETE /api/v1/unregister
 //! Body: { peer_id, device_id }
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    body::Bytes,
+    extract::State,
+    http::{HeaderMap, Method, StatusCode},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -26,8 +31,21 @@ pub struct UnregisterResponse {
 /// The token is not deleted to maintain audit trail.
 pub async fn handle(
     State(state): State<AppState>,
-    Json(req): Json<UnregisterRequest>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<UnregisterResponse>, (StatusCode, String)> {
+    let auth_peer =
+        crate::auth::verify_peer_request(&headers, &Method::DELETE, "/api/v1/unregister", &body)
+            .map_err(|(status, message)| (status, message.to_string()))?;
+    let req: UnregisterRequest = serde_json::from_slice(&body)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid request body".to_string()))?;
+    if req.peer_id != auth_peer {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "peer_id does not match identity".to_string(),
+        ));
+    }
+
     tracing::info!(
         "🗑️  Unregister request - peer_id: {}, device_id: {}",
         req.peer_id,
@@ -74,7 +92,7 @@ pub async fn handle(
             tracing::error!("❌ Database error: {}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to unregister token: {}", e),
+                "Failed to unregister token".to_string(),
             ))
         }
     }

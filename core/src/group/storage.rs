@@ -4,7 +4,7 @@
 
 use super::types::{Group, GroupRole};
 use crate::storage::Database;
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 use std::collections::HashSet;
 
 /// Save a group to database
@@ -45,12 +45,7 @@ pub fn save_group(db: &Database, group: &Group) -> Result<()> {
             INSERT INTO group_members (group_id, peer_id, role, joined_at)
             VALUES (?1, ?2, ?3, ?4)
             "#,
-            rusqlite::params![
-                &group.id,
-                peer_id,
-                role.as_str(),
-                group.created_at,
-            ],
+            rusqlite::params![&group.id, peer_id, role.as_str(), group.created_at,],
         )?;
     }
 
@@ -170,12 +165,7 @@ pub fn add_member(db: &Database, group_id: &str, peer_id: &str, role: GroupRole)
         INSERT OR REPLACE INTO group_members (group_id, peer_id, role, joined_at)
         VALUES (?1, ?2, ?3, ?4)
         "#,
-        rusqlite::params![
-            group_id,
-            peer_id,
-            role.as_str(),
-            joined_at,
-        ],
+        rusqlite::params![group_id, peer_id, role.as_str(), joined_at,],
     )?;
 
     Ok(())
@@ -198,7 +188,12 @@ pub fn remove_member(db: &Database, group_id: &str, peer_id: &str) -> Result<()>
 }
 
 /// Update member role
-pub fn update_member_role(db: &Database, group_id: &str, peer_id: &str, role: GroupRole) -> Result<()> {
+pub fn update_member_role(
+    db: &Database,
+    group_id: &str,
+    peer_id: &str,
+    role: GroupRole,
+) -> Result<()> {
     db.conn().execute(
         r#"
         UPDATE group_members
@@ -417,10 +412,12 @@ mod tests {
         crate::storage::schema::init_schema(&db).unwrap();
 
         // Insert contact first (foreign key requirement)
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-1", vec![0u8; 32]],
-        ).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-1", vec![0u8; 32]],
+            )
+            .unwrap();
 
         let group = Group::new(
             "group-1".to_string(),
@@ -444,14 +441,18 @@ mod tests {
         crate::storage::schema::init_schema(&db).unwrap();
 
         // Insert contacts first (foreign key requirement)
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-1", vec![0u8; 32]],
-        ).unwrap();
-        db.conn().execute(
-            "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
-            rusqlite::params!["peer-2", vec![1u8; 32]],
-        ).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-1", vec![0u8; 32]],
+            )
+            .unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO contacts (peer_id, public_key) VALUES (?1, ?2)",
+                rusqlite::params!["peer-2", vec![1u8; 32]],
+            )
+            .unwrap();
 
         let group = Group::new(
             "group-1".to_string(),

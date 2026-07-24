@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 pub const REACTION_ENVELOPE_PREFIX: &str = "MP_REACTION_V1:";
 

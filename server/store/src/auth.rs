@@ -11,11 +11,19 @@
 
 use actix_web::HttpRequest;
 use base64::{engine::general_purpose, Engine as _};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+const WINDOW_SECONDS: i64 = 300;
+const RATE_WINDOW_SECONDS: i64 = 60;
+const MAX_REQUESTS_PER_PEER: usize = 120;
+static USED_SIGNATURES: OnceLock<Mutex<HashMap<String, i64>>> = OnceLock::new();
+static PEER_REQUESTS: OnceLock<Mutex<HashMap<String, Vec<i64>>>> = OnceLock::new();
 
 pub struct AuthError(pub &'static str);
 
 /// Verifica a assinatura da requisição e retorna o peer ID autenticado.
-pub fn verify_request(req: &HttpRequest) -> Result<String, AuthError> {
+pub fn verify_request(req: &HttpRequest, body: &[u8]) -> Result<String, AuthError> {
     let peer = header(req, "x-zaplivre-peer").ok_or(AuthError("missing x-zaplivre-peer"))?;
     let ts: i64 = header(req, "x-zaplivre-ts")
         .and_then(|v| v.parse().ok())
@@ -23,7 +31,7 @@ pub fn verify_request(req: &HttpRequest) -> Result<String, AuthError> {
     let sig_b64 = header(req, "x-zaplivre-sig").ok_or(AuthError("missing x-zaplivre-sig"))?;
 
     let now = chrono::Utc::now().timestamp();
-    if (now - ts).abs() > 300 {
+    if (now - ts).abs() > WINDOW_SECONDS {
         return Err(AuthError("timestamp outside allowed window"));
     }
 
@@ -38,12 +46,47 @@ pub fn verify_request(req: &HttpRequest) -> Result<String, AuthError> {
         .map_err(|_| AuthError("invalid signature length"))?;
     let signature = ed25519_dalek::Signature::from_bytes(&sig_array);
 
-    let message = format!("{}:/api/store:{}", req.method().as_str(), ts);
+    let body_hash = {
+        use sha2::{Digest, Sha256};
+        hex::encode(Sha256::digest(body))
+    };
+    let message = format!(
+        "{}\n{}\n{}\n{}",
+        req.method().as_str(),
+        "/api/store",
+        ts,
+        body_hash
+    );
 
     use ed25519_dalek::Verifier;
     verifying_key
         .verify(message.as_bytes(), &signature)
         .map_err(|_| AuthError("invalid signature"))?;
+
+    // Prevent replay and bound per-peer request volume. This is intentionally
+    // process-local; production deployments should enforce the same policy at
+    // a shared gateway/Redis layer across replicas.
+    let used = USED_SIGNATURES.get_or_init(|| Mutex::new(HashMap::new()));
+    let signature_key = sig_b64.clone();
+    let mut used_guard = used
+        .lock()
+        .map_err(|_| AuthError("auth state unavailable"))?;
+    used_guard.retain(|_, seen_at| now - *seen_at <= WINDOW_SECONDS);
+    if used_guard.insert(signature_key, now).is_some() {
+        return Err(AuthError("replayed signature"));
+    }
+    drop(used_guard);
+
+    let requests = PEER_REQUESTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut requests_guard = requests
+        .lock()
+        .map_err(|_| AuthError("auth state unavailable"))?;
+    let history = requests_guard.entry(peer.clone()).or_default();
+    history.retain(|seen_at| now - *seen_at < RATE_WINDOW_SECONDS);
+    if history.len() >= MAX_REQUESTS_PER_PEER {
+        return Err(AuthError("rate limit exceeded"));
+    }
+    history.push(now);
 
     Ok(peer)
 }

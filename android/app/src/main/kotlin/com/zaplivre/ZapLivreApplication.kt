@@ -59,5 +59,13 @@ class ZapLivreApplication : Application() {
                 Log.w(TAG, "Failed to set SIGNALING_SERVER_URL env", e)
             }
         }
+        val identityUrl = BuildConfig.IDENTITY_SERVER_URL
+        if (identityUrl.isNotBlank()) {
+            try {
+                Os.setenv("ZAPLIVRE_IDENTITY_SERVER_URL", identityUrl, true)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set identity server URL env", e)
+            }
+        }
     }
 }

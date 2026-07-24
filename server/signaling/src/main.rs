@@ -11,6 +11,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     extract::{
@@ -24,12 +25,13 @@ use axum::{
 use base64::{engine::general_purpose, Engine as _};
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{info, warn};
 
 #[derive(Clone, Default)]
 struct AppState {
-    peers: Arc<RwLock<HashMap<String, mpsc::UnboundedSender<Message>>>>,
+    peers: Arc<RwLock<HashMap<String, mpsc::Sender<Message>>>>,
+    registrations: Arc<Mutex<HashMap<String, i64>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -79,19 +81,19 @@ async fn health() -> impl IntoResponse {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 /// Limite de payload de sinalização (SDP/ICE são pequenos)
 const MAX_MESSAGE_BYTES: usize = 64 * 1024;
+const OUTBOUND_QUEUE_CAPACITY: usize = 64;
+const RATE_WINDOW_SECONDS: i64 = 60;
+const MAX_MESSAGES_PER_WINDOW: usize = 120;
 
 async fn handle_socket(socket: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
-    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Message>();
+    let (out_tx, mut out_rx) = mpsc::channel::<Message>(OUTBOUND_QUEUE_CAPACITY);
 
     let send_task = tokio::spawn(async move {
         while let Some(msg) = out_rx.recv().await {
@@ -102,11 +104,26 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     });
 
     let mut registered_peer: Option<String> = None;
+    let mut request_window_start = chrono::Utc::now().timestamp();
+    let mut request_count = 0usize;
 
     while let Some(Ok(msg)) = receiver.next().await {
+        let now = chrono::Utc::now().timestamp();
+        if now - request_window_start >= RATE_WINDOW_SECONDS {
+            request_window_start = now;
+            request_count = 0;
+        }
+        request_count += 1;
+        if request_count > MAX_MESSAGES_PER_WINDOW {
+            warn!("signaling rate limit exceeded");
+            break;
+        }
         if let Message::Text(text) = msg {
             if text.len() > MAX_MESSAGE_BYTES {
-                warn!("⚠️ Oversized signaling message dropped ({} bytes)", text.len());
+                warn!(
+                    "⚠️ Oversized signaling message dropped ({} bytes)",
+                    text.len()
+                );
                 continue;
             }
             let parsed = serde_json::from_str::<WireMessage>(&text);
@@ -115,6 +132,14 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                     // SEC-11: prova de posse do peer ID
                     match verify_registration(&peer_id, ts, &sig) {
                         Ok(()) => {
+                            let mut registrations = state.registrations.lock().await;
+                            registrations.retain(|_, seen| now - *seen <= 300);
+                            let replay_key = format!("{}:{}:{}", peer_id, ts, sig);
+                            if registrations.insert(replay_key, now).is_some() {
+                                warn!("replayed signaling registration rejected");
+                                continue;
+                            }
+                            drop(registrations);
                             info!("🔌 Peer registered: {}", peer_id);
                             state
                                 .peers
@@ -154,7 +179,15 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                     };
                     if let Ok(text) = serde_json::to_string(&msg) {
                         if let Some(target) = state.peers.read().await.get(&to_peer_id) {
-                            let _ = target.send(Message::Text(text));
+                            if tokio::time::timeout(
+                                Duration::from_secs(2),
+                                target.send(Message::Text(text)),
+                            )
+                            .await
+                            .is_err()
+                            {
+                                warn!("signaling target queue timeout: {}", to_peer_id);
+                            }
                         } else {
                             warn!("⚠️ Target peer not connected: {}", to_peer_id);
                         }

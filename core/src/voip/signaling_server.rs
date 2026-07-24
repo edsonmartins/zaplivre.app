@@ -45,9 +45,9 @@ impl SignalingServerClient {
         inbound_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
     ) -> Result<Self> {
         let ws_url = normalize_ws_url(&url);
-        let (ws_stream, _) = connect_async(ws_url)
-            .await
-            .map_err(|e| VoipError::NetworkError(format!("Failed to connect signaling server: {}", e)))?;
+        let (ws_stream, _) = connect_async(ws_url).await.map_err(|e| {
+            VoipError::NetworkError(format!("Failed to connect signaling server: {}", e))
+        })?;
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -122,9 +122,9 @@ impl SignalingServerClient {
             payload: signal,
         };
 
-        self.outbound_tx
-            .send(msg)
-            .map_err(|e| VoipError::NetworkError(format!("Failed to send signaling message: {}", e)))?;
+        self.outbound_tx.send(msg).map_err(|e| {
+            VoipError::NetworkError(format!("Failed to send signaling message: {}", e))
+        })?;
 
         Ok(())
     }

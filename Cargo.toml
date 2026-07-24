@@ -85,7 +85,7 @@ hex = "0.4"
 
 # HTTP/Web (para servidores)
 axum = "0.7"
-tower = "0.4"
+tower = { version = "0.4", features = ["limit"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 actix-web = "4"
 actix-cors = "0.7"

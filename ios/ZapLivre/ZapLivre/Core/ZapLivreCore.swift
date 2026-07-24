@@ -50,6 +50,11 @@ class ZapLivreCore: ObservableObject {
                 setenv("SIGNALING_SERVER_URL", signalingUrl, 1)
             }
         }
+        if let identityUrl = Bundle.main.object(forInfoDictionaryKey: "IDENTITY_SERVER_URL") as? String {
+            if !identityUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                setenv("ZAPLIVRE_IDENTITY_SERVER_URL", identityUrl, 1)
+            }
+        }
 
         setIdentityEnvFromKeychain()
 
@@ -106,6 +111,23 @@ class ZapLivreCore: ObservableObject {
     /// Export prekey bundle (JSON) for sharing with peers
     func exportPrekeyBundle() async throws -> String {
         return try await client?.getPrekeyBundleJson() ?? ""
+    }
+
+    func signAuthRequest(method: String, path: String, timestamp: Int64, body: Data) async throws -> String {
+        guard let client else {
+            throw ZapLivreCoreError.storageError("Client not initialized")
+        }
+        return try await client.signAuthRequest(
+            method: method,
+            path: path,
+            timestamp: timestamp,
+            body: [UInt8](body)
+        )
+    }
+
+    func registerUsername(_ username: String) async throws -> String {
+        guard let client else { throw ZapLivreCoreError.notInitialized }
+        return try await client.registerUsername(username: username)
     }
 
     /// Store a peer's prekey bundle (JSON) for E2E encryption
@@ -193,7 +215,7 @@ class ZapLivreCore: ObservableObject {
     /// Send text message to peer
     func sendMessage(to peerId: String, content: String) async throws -> String {
         let messageId = try await client?.sendTextMessage(toPeerId: peerId, content: content) ?? ""
-        print("📨 Sent message to \(peerId): \(content)")
+        print("📨 Message sent to \(peerId)")
         return messageId
     }
 

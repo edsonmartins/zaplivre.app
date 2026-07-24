@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 pub const MEDIA_ENVELOPE_PREFIX: &str = "MP_MEDIA_V1:";
 
@@ -21,8 +21,9 @@ pub struct MediaEnvelope {
 
 impl MediaEnvelope {
     pub fn encode(&self) -> Result<String> {
-        let json = serde_json::to_string(self)
-            .map_err(|e| ZapLivreError::Protocol(format!("Failed to encode media envelope: {}", e)))?;
+        let json = serde_json::to_string(self).map_err(|e| {
+            ZapLivreError::Protocol(format!("Failed to encode media envelope: {}", e))
+        })?;
         Ok(format!("{}{}", MEDIA_ENVELOPE_PREFIX, json))
     }
 

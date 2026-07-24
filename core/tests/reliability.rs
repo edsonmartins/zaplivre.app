@@ -6,8 +6,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use zaplivre_core::{api::ClientBuilder, storage::MessageStatus};
 use tokio::time::sleep;
+use zaplivre_core::{api::ClientBuilder, storage::MessageStatus};
 
 fn spawn_driver(client: Arc<zaplivre_core::api::Client>) {
     tokio::task::spawn_local(async move {

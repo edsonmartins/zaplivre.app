@@ -67,7 +67,8 @@ impl request_response::Codec for ZapLivreCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let data = codec::encode(&req).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let data =
+            codec::encode(&req).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         // Write length prefix (4 bytes)
         let len = data.len() as u32;
@@ -87,7 +88,8 @@ impl request_response::Codec for ZapLivreCodec {
     where
         T: AsyncWrite + Unpin + Send,
     {
-        let data = codec::encode(&res).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let data =
+            codec::encode(&res).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         // Write length prefix (4 bytes)
         let len = data.len() as u32;

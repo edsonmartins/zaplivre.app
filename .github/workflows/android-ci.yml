@@ -78,7 +78,6 @@ jobs:
 
       - name: Lint
         run: cd android && ./gradlew lint
-        continue-on-error: true
 
       - name: Run unit tests
         # Endurecido: há testes reais de ViewModel em app/src/test (18 casos)
@@ -101,4 +100,3 @@ jobs:
 
       - name: Run ktlint
         run: cd android && ./gradlew ktlintCheck
-        continue-on-error: true

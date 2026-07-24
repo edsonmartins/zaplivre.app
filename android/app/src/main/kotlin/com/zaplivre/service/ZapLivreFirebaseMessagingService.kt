@@ -24,7 +24,7 @@ class ZapLivreFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "New FCM token received: ${token.take(20)}...")
+        Log.d(TAG, "New FCM token received")
 
         AndroidPushTokenStore.saveToken(applicationContext, token)
 
@@ -42,7 +42,7 @@ class ZapLivreFirebaseMessagingService : FirebaseMessagingService() {
         // sender_peer_id abre a conversa certa (peer_id é o destinatário - nós)
         val peerId = message.data["sender_peer_id"] ?: message.data["peer_id"]
 
-        Log.d(TAG, "Notification - Title: $title, Body: $body, PeerId: $peerId")
+        Log.d(TAG, "Push notification received")
 
         // Show notification
         NotificationHelper.showMessageNotification(

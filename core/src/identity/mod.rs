@@ -25,5 +25,5 @@ pub mod prekeys;
 pub mod storage;
 
 pub use keypair::{Keypair, PublicKey, SignalKeypair};
-pub use prekeys::{PreKey, PreKeyBundle, PreKeyPool, OneTimePreKey};
-pub use storage::{Identity, IdentityStorage, FileIdentityStorage, MemoryIdentityStorage};
+pub use prekeys::{OneTimePreKey, PreKey, PreKeyBundle, PreKeyPool};
+pub use storage::{FileIdentityStorage, Identity, IdentityStorage, MemoryIdentityStorage};

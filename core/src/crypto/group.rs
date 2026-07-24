@@ -33,7 +33,7 @@ use hkdf::Hkdf;
 use rand::RngCore;
 use sha2::Sha256;
 
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 use serde::{Deserialize, Serialize};
 
 /// AES-GCM encrypted payload for sender-key messages.
@@ -302,12 +302,9 @@ impl GroupSession {
 
     /// Decrypt a message from a group member
     pub fn decrypt(&mut self, sender_id: &str, encrypted: &EncryptedMessage) -> Result<Vec<u8>> {
-        let sender_key = self
-            .member_sender_keys
-            .get_mut(sender_id)
-            .ok_or_else(|| {
-                ZapLivreError::Crypto(format!("Sender key not found for: {}", sender_id))
-            })?;
+        let sender_key = self.member_sender_keys.get_mut(sender_id).ok_or_else(|| {
+            ZapLivreError::Crypto(format!("Sender key not found for: {}", sender_id))
+        })?;
 
         sender_key.decrypt(encrypted)
     }
@@ -631,8 +628,7 @@ mod tests {
         let alice_seed = alice_session.my_sender_key_seed();
 
         // Bob joins group with Alice's sender key
-        let mut bob_session =
-            GroupSession::new("group_1".to_string(), "bob".to_string()).unwrap();
+        let mut bob_session = GroupSession::new("group_1".to_string(), "bob".to_string()).unwrap();
         let bob_seed = bob_session.my_sender_key_seed();
         bob_session.add_member("alice".to_string(), alice_seed);
 
@@ -672,9 +668,7 @@ mod tests {
 
         // Alice sends message
         let message = b"Hello from Alice!";
-        let (sender_id, encrypted) = alice_manager
-            .encrypt_to_group("group_1", message)
-            .unwrap();
+        let (sender_id, encrypted) = alice_manager.encrypt_to_group("group_1", message).unwrap();
 
         // Bob decrypts
         let decrypted = bob_manager

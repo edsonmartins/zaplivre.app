@@ -28,9 +28,9 @@ impl ConnectionManager {
 
     /// Get or create strategy for a peer
     pub fn get_or_create_strategy(&mut self, peer_id: PeerId) -> &mut ConnectionStrategy {
-        self.strategies.entry(peer_id).or_insert_with(|| {
-            ConnectionStrategy::new(peer_id, self.retry_policy.clone())
-        })
+        self.strategies
+            .entry(peer_id)
+            .or_insert_with(|| ConnectionStrategy::new(peer_id, self.retry_policy.clone()))
     }
 
     /// Get strategy for a peer

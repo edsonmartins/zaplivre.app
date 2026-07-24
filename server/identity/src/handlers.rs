@@ -50,7 +50,8 @@ pub async fn register_handler(
 /// Lookup username query parameters
 #[derive(Debug, Deserialize)]
 pub struct LookupQuery {
-    pub username: String,
+    pub username: Option<String>,
+    pub peer_id: Option<String>,
 }
 
 /// Lookup a username
@@ -58,7 +59,11 @@ pub async fn lookup_handler(
     State(state): State<Arc<AppState>>,
     Query(query): Query<LookupQuery>,
 ) -> Result<Json<LookupResponse>> {
-    let response = db::lookup_username(&state.db, &query.username).await?;
+    let response = match (query.username.as_deref(), query.peer_id.as_deref()) {
+        (Some(username), None) => db::lookup_username(&state.db, username).await?,
+        (None, Some(peer_id)) => db::lookup_peer_id(&state.db, peer_id).await?,
+        _ => return Err(AppError::UsernameNotFound("missing lookup key".to_string())),
+    };
     Ok(Json(response))
 }
 

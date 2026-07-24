@@ -209,6 +209,21 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
         Base64.encodeToString(data, Base64.NO_WRAP)
     }
 
+    /** Signs an HTTP request with the local identity without exposing its private key. */
+    suspend fun signAuthRequest(
+        method: String,
+        path: String,
+        timestamp: Long,
+        body: ByteArray
+    ): String = withContext(Dispatchers.IO) {
+        val activeClient = client ?: error("Client not initialized")
+        activeClient.signAuthRequest(method, path, timestamp, body.toUByteArray().asList())
+    }
+
+    suspend fun registerUsername(username: String): String = withContext(Dispatchers.IO) {
+        getClient().registerUsername(username)
+    }
+
     /**
      * Import identity keypair from Base64 string.
      * Must be called before initialize(); requires app restart if already initialized.
@@ -1002,4 +1017,3 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
         }
     }
 }
-

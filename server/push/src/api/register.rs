@@ -3,7 +3,12 @@
 //! POST /api/v1/register
 //! Body: { peer_id, platform, device_id, token, device_name?, app_version? }
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    body::Bytes,
+    extract::State,
+    http::{HeaderMap, Method, StatusCode},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -30,8 +35,21 @@ pub struct RegisterResponse {
 /// If the token already exists, it updates it and marks as active.
 pub async fn handle(
     State(state): State<AppState>,
-    Json(req): Json<RegisterRequest>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<RegisterResponse>, (StatusCode, String)> {
+    let auth_peer =
+        crate::auth::verify_peer_request(&headers, &Method::POST, "/api/v1/register", &body)
+            .map_err(|(status, message)| (status, message.to_string()))?;
+    let req: RegisterRequest = serde_json::from_slice(&body)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid request body".to_string()))?;
+    if req.peer_id != auth_peer {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "peer_id does not match identity".to_string(),
+        ));
+    }
+
     let platform = req.platform.trim().to_lowercase();
 
     tracing::info!(
@@ -98,7 +116,7 @@ pub async fn handle(
             tracing::error!("❌ Database error: {}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to register token: {}", e),
+                "Failed to register token".to_string(),
             ))
         }
     }

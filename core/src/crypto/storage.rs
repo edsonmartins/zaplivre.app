@@ -9,7 +9,7 @@ use aes_gcm::{
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::error::{ZapLivreError, Result};
+use crate::utils::error::{Result, ZapLivreError};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct StorageEnvelope {

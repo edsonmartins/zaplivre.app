@@ -3,20 +3,20 @@ use futures::stream::StreamExt;
 use libp2p::{
     core::upgrade,
     identity::Keypair,
-    noise, tcp, yamux,
+    noise,
     swarm::{Config as SwarmConfig, Swarm, SwarmEvent},
-    Multiaddr, PeerId, Transport,
+    tcp, yamux, Multiaddr, PeerId, Transport,
 };
 use std::time::Duration;
 use tracing::{info, warn};
 
-mod config;
 mod behaviour;
-mod storage;
+mod config;
 mod health;
+mod storage;
 
-use config::Config;
 use behaviour::BootstrapBehaviour;
+use config::Config;
 use storage::DhtStorage;
 
 #[tokio::main]
@@ -54,8 +54,7 @@ async fn main() -> Result<()> {
         transport,
         behaviour,
         local_peer_id,
-        SwarmConfig::with_tokio_executor()
-            .with_idle_connection_timeout(Duration::from_secs(60)),
+        SwarmConfig::with_tokio_executor().with_idle_connection_timeout(Duration::from_secs(60)),
     );
 
     // 6. Initialize persistent storage
@@ -74,8 +73,7 @@ async fn main() -> Result<()> {
     storage.cleanup_stale(7 * 24 * 60 * 60).await?;
 
     // 7. Listen on configured port
-    let listen_addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", config.p2p_port)
-        .parse()?;
+    let listen_addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", config.p2p_port).parse()?;
     swarm.listen_on(listen_addr.clone())?;
     info!("   Listening on: {}", listen_addr);
 
@@ -97,16 +95,26 @@ async fn main() -> Result<()> {
                 handle_behaviour_event(event, &mut swarm, &storage, &peer_count).await;
             }
 
-            SwarmEvent::IncomingConnection { local_addr, send_back_addr, connection_id } => {
-                info!("📥 Incoming connection from {} to {} (id: {:?})", send_back_addr, local_addr, connection_id);
+            SwarmEvent::IncomingConnection {
+                local_addr,
+                send_back_addr,
+                connection_id,
+            } => {
+                info!(
+                    "📥 Incoming connection from {} to {} (id: {:?})",
+                    send_back_addr, local_addr, connection_id
+                );
             }
 
-            SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+            SwarmEvent::ConnectionEstablished {
+                peer_id, endpoint, ..
+            } => {
                 info!("✅ Connection established with {}", peer_id);
 
                 // Add to DHT
                 let addr = endpoint.get_remote_address();
-                swarm.behaviour_mut()
+                swarm
+                    .behaviour_mut()
                     .kademlia
                     .add_address(&peer_id, addr.clone());
 
@@ -136,9 +144,16 @@ async fn main() -> Result<()> {
                 }
             }
 
-            SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error, connection_id } => {
-                warn!("❌ Incoming connection error from {} to {} (id: {:?}): {}",
-                    send_back_addr, local_addr, connection_id, error);
+            SwarmEvent::IncomingConnectionError {
+                local_addr,
+                send_back_addr,
+                error,
+                connection_id,
+            } => {
+                warn!(
+                    "❌ Incoming connection error from {} to {} (id: {:?}): {}",
+                    send_back_addr, local_addr, connection_id, error
+                );
             }
 
             _ => {}
@@ -154,44 +169,43 @@ async fn handle_behaviour_event(
 ) {
     match event {
         // Kademlia events
-        behaviour::BootstrapBehaviourEvent::Kademlia(kad_event) => {
-            match kad_event {
-                libp2p::kad::Event::RoutingUpdated { peer, .. } => {
-                    info!("🔄 DHT routing updated for {}", peer);
+        behaviour::BootstrapBehaviourEvent::Kademlia(kad_event) => match kad_event {
+            libp2p::kad::Event::RoutingUpdated { peer, .. } => {
+                info!("🔄 DHT routing updated for {}", peer);
+            }
+            libp2p::kad::Event::InboundRequest { request } => {
+                info!("📨 Inbound DHT request: {:?}", request);
+            }
+            libp2p::kad::Event::OutboundQueryProgressed { result, .. } => match result {
+                libp2p::kad::QueryResult::GetProviders(Ok(_ok)) => {
+                    info!("📦 GetProviders successful");
                 }
-                libp2p::kad::Event::InboundRequest { request } => {
-                    info!("📨 Inbound DHT request: {:?}", request);
+                libp2p::kad::QueryResult::GetProviders(Err(err)) => {
+                    warn!("📦 GetProviders failed: {:?}", err);
                 }
-                libp2p::kad::Event::OutboundQueryProgressed { result, .. } => {
-                    match result {
-                        libp2p::kad::QueryResult::GetProviders(Ok(_ok)) => {
-                            info!("📦 GetProviders successful");
-                        }
-                        libp2p::kad::QueryResult::GetProviders(Err(err)) => {
-                            warn!("📦 GetProviders failed: {:?}", err);
-                        }
-                        libp2p::kad::QueryResult::GetRecord(Ok(_ok)) => {
-                            info!("📝 GetRecord successful");
-                        }
-                        libp2p::kad::QueryResult::GetRecord(Err(err)) => {
-                            warn!("📝 GetRecord failed: {:?}", err);
-                        }
-                        _ => {}
-                    }
+                libp2p::kad::QueryResult::GetRecord(Ok(_ok)) => {
+                    info!("📝 GetRecord successful");
+                }
+                libp2p::kad::QueryResult::GetRecord(Err(err)) => {
+                    warn!("📝 GetRecord failed: {:?}", err);
                 }
                 _ => {}
-            }
-        }
+            },
+            _ => {}
+        },
 
         // Identify events
         behaviour::BootstrapBehaviourEvent::Identify(identify_event) => {
             if let libp2p::identify::Event::Received { peer_id, info } = identify_event {
-                info!("🆔 Identified peer {}: agent={}, protocols={:?}",
-                    peer_id, info.agent_version, info.protocols);
+                info!(
+                    "🆔 Identified peer {}: agent={}, protocols={:?}",
+                    peer_id, info.agent_version, info.protocols
+                );
 
                 // Add addresses to DHT and storage
                 for addr in info.listen_addrs {
-                    swarm.behaviour_mut()
+                    swarm
+                        .behaviour_mut()
                         .kademlia
                         .add_address(&peer_id, addr.clone());
 
@@ -204,49 +218,61 @@ async fn handle_behaviour_event(
         }
 
         // Ping events
-        behaviour::BootstrapBehaviourEvent::Ping(ping_event) => {
-            match ping_event.result {
-                Ok(rtt) => {
-                    tracing::debug!("🏓 Ping to {} successful: {:?}", ping_event.peer, rtt);
-                }
-                Err(e) => {
-                    warn!("🏓 Ping to {} failed: {}", ping_event.peer, e);
-                }
+        behaviour::BootstrapBehaviourEvent::Ping(ping_event) => match ping_event.result {
+            Ok(rtt) => {
+                tracing::debug!("🏓 Ping to {} successful: {:?}", ping_event.peer, rtt);
             }
-        }
+            Err(e) => {
+                warn!("🏓 Ping to {} failed: {}", ping_event.peer, e);
+            }
+        },
 
         // Relay events
-        behaviour::BootstrapBehaviourEvent::Relay(relay_event) => {
-            match relay_event {
-                libp2p::relay::Event::ReservationReqAccepted { src_peer_id, renewed } => {
-                    if renewed {
-                        info!("🔗 Relay reservation renewed for {}", src_peer_id);
-                    } else {
-                        info!("🔗 Relay reservation accepted for {}", src_peer_id);
-                    }
+        behaviour::BootstrapBehaviourEvent::Relay(relay_event) => match relay_event {
+            libp2p::relay::Event::ReservationReqAccepted {
+                src_peer_id,
+                renewed,
+            } => {
+                if renewed {
+                    info!("🔗 Relay reservation renewed for {}", src_peer_id);
+                } else {
+                    info!("🔗 Relay reservation accepted for {}", src_peer_id);
                 }
-                libp2p::relay::Event::ReservationReqDenied { src_peer_id } => {
-                    warn!("⛔ Relay reservation denied for {}", src_peer_id);
-                }
-                libp2p::relay::Event::ReservationTimedOut { src_peer_id } => {
-                    info!("⏱️ Relay reservation timed out for {}", src_peer_id);
-                }
-                libp2p::relay::Event::CircuitReqDenied { src_peer_id, dst_peer_id } => {
-                    warn!("⛔ Circuit denied: {} → {}", src_peer_id, dst_peer_id);
-                }
-                libp2p::relay::Event::CircuitReqAccepted { src_peer_id, dst_peer_id } => {
-                    info!("🌉 Circuit created: {} ↔ {}", src_peer_id, dst_peer_id);
-                }
-                libp2p::relay::Event::CircuitClosed { src_peer_id, dst_peer_id, error } => {
-                    if let Some(err) = error {
-                        warn!("🔌 Circuit closed: {} ↔ {} (error: {})", src_peer_id, dst_peer_id, err);
-                    } else {
-                        info!("🔌 Circuit closed: {} ↔ {}", src_peer_id, dst_peer_id);
-                    }
-                }
-                _ => {}
             }
-        }
+            libp2p::relay::Event::ReservationReqDenied { src_peer_id } => {
+                warn!("⛔ Relay reservation denied for {}", src_peer_id);
+            }
+            libp2p::relay::Event::ReservationTimedOut { src_peer_id } => {
+                info!("⏱️ Relay reservation timed out for {}", src_peer_id);
+            }
+            libp2p::relay::Event::CircuitReqDenied {
+                src_peer_id,
+                dst_peer_id,
+            } => {
+                warn!("⛔ Circuit denied: {} → {}", src_peer_id, dst_peer_id);
+            }
+            libp2p::relay::Event::CircuitReqAccepted {
+                src_peer_id,
+                dst_peer_id,
+            } => {
+                info!("🌉 Circuit created: {} ↔ {}", src_peer_id, dst_peer_id);
+            }
+            libp2p::relay::Event::CircuitClosed {
+                src_peer_id,
+                dst_peer_id,
+                error,
+            } => {
+                if let Some(err) = error {
+                    warn!(
+                        "🔌 Circuit closed: {} ↔ {} (error: {})",
+                        src_peer_id, dst_peer_id, err
+                    );
+                } else {
+                    info!("🔌 Circuit closed: {} ↔ {}", src_peer_id, dst_peer_id);
+                }
+            }
+            _ => {}
+        },
 
         // DCUtR events
         behaviour::BootstrapBehaviourEvent::Dcutr(dcutr_event) => {
@@ -295,14 +321,17 @@ fn load_or_generate_keypair(config: &config::Config) -> Result<Keypair> {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600));
     }
-    info!("🔐 Generated new random node key, persisted to {:?}", key_path);
+    info!(
+        "🔐 Generated new random node key, persisted to {:?}",
+        key_path
+    );
     Ok(Keypair::from(keypair))
 }
 
 /// Generate deterministic keypair from seed string (INSEGURO com seed pública)
 fn generate_keypair_from_seed(seed: &str) -> Result<Keypair> {
     use libp2p::identity::ed25519;
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
 
     // Hash seed to get 32 bytes
     let mut hasher = Sha256::new();

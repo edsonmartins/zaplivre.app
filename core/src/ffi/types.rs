@@ -33,7 +33,9 @@ impl From<crate::utils::error::ZapLivreError> for ZapLivreFfiError {
             crate::utils::error::ZapLivreError::Identity(s) => {
                 ZapLivreFfiError::Identity { details: s }
             }
-            crate::utils::error::ZapLivreError::Crypto(s) => ZapLivreFfiError::Crypto { details: s },
+            crate::utils::error::ZapLivreError::Crypto(s) => {
+                ZapLivreFfiError::Crypto { details: s }
+            }
             crate::utils::error::ZapLivreError::Network(s) => {
                 ZapLivreFfiError::Network { details: s }
             }
@@ -43,15 +45,15 @@ impl From<crate::utils::error::ZapLivreError> for ZapLivreFfiError {
             crate::utils::error::ZapLivreError::Protocol(s) => {
                 ZapLivreFfiError::Protocol { details: s }
             }
-            crate::utils::error::ZapLivreError::NotFound(s) => {
-                ZapLivreFfiError::Other { details: format!("Not found: {}", s) }
-            }
-            crate::utils::error::ZapLivreError::Permission(s) => {
-                ZapLivreFfiError::Other { details: format!("Permission denied: {}", s) }
-            }
-            crate::utils::error::ZapLivreError::AlreadyExists(s) => {
-                ZapLivreFfiError::Other { details: format!("Already exists: {}", s) }
-            }
+            crate::utils::error::ZapLivreError::NotFound(s) => ZapLivreFfiError::Other {
+                details: format!("Not found: {}", s),
+            },
+            crate::utils::error::ZapLivreError::Permission(s) => ZapLivreFfiError::Other {
+                details: format!("Permission denied: {}", s),
+            },
+            crate::utils::error::ZapLivreError::AlreadyExists(s) => ZapLivreFfiError::Other {
+                details: format!("Already exists: {}", s),
+            },
             crate::utils::error::ZapLivreError::Io(e) => ZapLivreFfiError::Io {
                 details: e.to_string(),
             },
@@ -153,7 +155,10 @@ impl From<Conversation> for FfiConversation {
 // ========== VoIP Types ==========
 
 #[cfg(feature = "voip")]
-use crate::voip::{Call, CallDirection as InternalCallDirection, CallEndReason as InternalCallEndReason, CallState as InternalCallState, CallStats};
+use crate::voip::{
+    Call, CallDirection as InternalCallDirection, CallEndReason as InternalCallEndReason,
+    CallState as InternalCallState, CallStats,
+};
 
 /// FFI-safe call state enum
 #[cfg(feature = "voip")]

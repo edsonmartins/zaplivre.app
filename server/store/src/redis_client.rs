@@ -51,7 +51,11 @@ impl RedisClient {
 
     /// Set peer presence (online)
     #[allow(dead_code)]
-    pub async fn set_peer_online(&self, peer_id: &str, ttl_seconds: u64) -> Result<(), redis::RedisError> {
+    pub async fn set_peer_online(
+        &self,
+        peer_id: &str,
+        ttl_seconds: u64,
+    ) -> Result<(), redis::RedisError> {
         let mut conn = self.get_connection().await?;
 
         let key = format!("presence:{}", peer_id);

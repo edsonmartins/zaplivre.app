@@ -5,17 +5,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-zaplivre}
-      POSTGRES_USER: ${POSTGRES_USER:-zaplivre}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zaplivre_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB obrigatório}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER obrigatório}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./server/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zaplivre}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,13 +32,11 @@ services:
   # Redis - Presence & Queue
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-zaplivre_redis_dev}
-    ports:
-      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD obrigatório}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --raw incr ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -90,7 +86,9 @@ services:
     image: zaplivre-turn-credentials:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:-zaplivre_turn_dev_secret}
+      - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:?TURN_STATIC_SECRET obrigatorio}
+      - TURN_CREDENTIAL_TTL_SECONDS=${TURN_CREDENTIAL_TTL_SECONDS:-3600}
+      - TURN_MAX_CONCURRENT=${TURN_MAX_CONCURRENT:-64}
       - SERVER_PORT=8082
     ports:
       - "8082:8082"
@@ -198,12 +196,14 @@ services:
     image: zaplivre-store:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER obrigatório}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB obrigatório}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatório}@redis:6379
       - SERVER_PORT=8080
       - ENABLE_TTL_CLEANUP=${ENABLE_TTL_CLEANUP:-true}
       # PSH-02: acordar destinatários offline via push
       - PUSH_SERVER_URL=http://push-server:8081
+      - PUSH_SERVICE_SECRET=${PUSH_SERVICE_SECRET:?PUSH_SERVICE_SECRET obrigatorio}
+      - PUSH_MAX_CONCURRENT=${PUSH_MAX_CONCURRENT:-128}
     ports:
       - "8080:8080"
     healthcheck:
@@ -241,8 +241,10 @@ services:
       - APNS_TEAM_ID=${APNS_TEAM_ID:-}
       - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-app.zaplivre.ios}
       - APNS_PRODUCTION=${APNS_PRODUCTION:-true}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER obrigatório}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB obrigatório}
       - PORT=8081
+      - PUSH_SERVICE_SECRET=${PUSH_SERVICE_SECRET:?PUSH_SERVICE_SECRET obrigatorio}
+      - PUSH_MAX_CONCURRENT=${PUSH_MAX_CONCURRENT:-128}
     ports:
       - "8081:8081"
     volumes:
@@ -268,8 +270,8 @@ services:
     image: zaplivre-identity:latest
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-zaplivre}:${POSTGRES_PASSWORD:-zaplivre_dev_password}@postgres:5432/${POSTGRES_DB:-zaplivre}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-zaplivre_redis_dev}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?POSTGRES_USER obrigatório}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB obrigatório}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD obrigatório}@redis:6379
       - BIND_ADDR=0.0.0.0:8083
     ports:
       - "8083:8083"

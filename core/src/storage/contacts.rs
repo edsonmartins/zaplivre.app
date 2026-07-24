@@ -175,8 +175,10 @@ impl Database {
         sql.push_str(" WHERE peer_id = ?");
         params.push(Box::new(peer_id.to_string()));
 
-        let params_refs: Vec<&dyn rusqlite::ToSql> =
-            params.iter().map(|p| &**p as &dyn rusqlite::ToSql).collect();
+        let params_refs: Vec<&dyn rusqlite::ToSql> = params
+            .iter()
+            .map(|p| &**p as &dyn rusqlite::ToSql)
+            .collect();
 
         let affected = self
             .conn()
@@ -242,7 +244,9 @@ impl Database {
             })
             .map_err(|e| StorageError::DatabaseError(format!("Failed to query contacts: {}", e)))?
             .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|e| StorageError::DatabaseError(format!("Failed to collect contacts: {}", e)))?;
+            .map_err(|e| {
+                StorageError::DatabaseError(format!("Failed to collect contacts: {}", e))
+            })?;
 
         Ok(contacts)
     }
@@ -292,7 +296,9 @@ impl Database {
             })
             .map_err(|e| StorageError::DatabaseError(format!("Failed to query contacts: {}", e)))?
             .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(|e| StorageError::DatabaseError(format!("Failed to collect contacts: {}", e)))?;
+            .map_err(|e| {
+                StorageError::DatabaseError(format!("Failed to collect contacts: {}", e))
+            })?;
 
         Ok(contacts)
     }

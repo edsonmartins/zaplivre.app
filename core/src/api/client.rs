@@ -9,22 +9,28 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 
-use base64::{engine::general_purpose, Engine as _};
 use super::events::{ClientEvent, EventCallback};
+#[cfg(any(feature = "voip", feature = "video"))]
+use crate::voip::{CallManager, VoIPIntegration};
 use crate::{
     crypto::{decrypt_for_storage, encrypt_for_storage, SignalSessionManager},
     identity::Identity,
     media::MediaEnvelope,
     network::NetworkManager,
-    protocol::{pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest, Message, MessageType, TextMessage},
+    protocol::{
+        pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest,
+        Message, MessageType, TextMessage,
+    },
     reactions::ReactionEnvelope,
-    storage::{contacts::{NewContact, UpdateContact}, Database, MediaType, MessageStatus, NewMessage, StorageError},
-    utils::error::{ZapLivreError, Result},
+    storage::{
+        contacts::{NewContact, UpdateContact},
+        Database, MediaType, MessageStatus, NewMessage, StorageError,
+    },
+    utils::error::{Result, ZapLivreError},
 };
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-#[cfg(any(feature = "voip", feature = "video"))]
-use crate::voip::{CallManager, VoIPIntegration};
 
 const MAX_INLINE_MEDIA_BYTES: usize = 512 * 1024;
 
@@ -58,6 +64,8 @@ pub struct Client {
     storage_key: [u8; 32],
     /// Optional message store URL for offline delivery
     message_store_url: Option<String>,
+    /// Optional identity server used for automatic remote prekey discovery
+    identity_server_url: Option<String>,
     /// HTTP client for message store
     message_store_http: reqwest::Client,
     /// Message handler (for processing offline messages)
@@ -76,10 +84,9 @@ impl Client {
         session_manager: SignalSessionManager,
         storage_key: [u8; 32],
         message_store_url: Option<String>,
-        #[cfg(any(feature = "voip", feature = "video"))]
-        call_manager: Arc<CallManager>,
-        #[cfg(any(feature = "voip", feature = "video"))]
-        voip_integration: Arc<VoIPIntegration>,
+        identity_server_url: Option<String>,
+        #[cfg(any(feature = "voip", feature = "video"))] call_manager: Arc<CallManager>,
+        #[cfg(any(feature = "voip", feature = "video"))] voip_integration: Arc<VoIPIntegration>,
         group_manager: Arc<crate::group::GroupManager>,
         message_handler: Arc<crate::network::MessageHandler>,
     ) -> Self {
@@ -93,6 +100,7 @@ impl Client {
             session_manager,
             storage_key,
             message_store_url,
+            identity_server_url,
             message_store_http: reqwest::Client::new(),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
@@ -113,6 +121,42 @@ impl Client {
         Arc::clone(&self.identity)
     }
 
+    /// Register this identity and its current prekey bundle on the Identity Server.
+    pub async fn register_username(&self, username: &str) -> Result<String> {
+        let base_url = self.identity_server_url.as_deref().ok_or_else(|| {
+            ZapLivreError::Network("Identity Server URL is not configured".to_string())
+        })?;
+        let identity = self.identity.read().await.clone();
+        let client = crate::identity_client::IdentityClient::new(base_url)
+            .map_err(|e| ZapLivreError::Network(format!("Invalid identity server URL: {}", e)))?;
+        let response = client
+            .register_username(&identity, username, &self.peer_id.to_string())
+            .await
+            .map_err(|e| ZapLivreError::Network(format!("Failed to register username: {}", e)))?;
+        Ok(response.username)
+    }
+
+    /// Sign a canonical HTTP request for backend authentication.
+    pub async fn sign_auth_request(
+        &self,
+        method: &str,
+        path: &str,
+        timestamp: i64,
+        body: &[u8],
+    ) -> Result<String> {
+        let method = method.trim().to_ascii_uppercase();
+        if method.is_empty() || !path.starts_with('/') || path.contains('\n') {
+            return Err(ZapLivreError::Protocol(
+                "Invalid HTTP authentication request".to_string(),
+            ));
+        }
+
+        let body_hash = hex::encode(Sha256::digest(body));
+        let canonical = format!("{}\n{}\n{}\n{}", method, path, timestamp, body_hash);
+        let identity = self.identity.read().await;
+        Ok(general_purpose::STANDARD.encode(identity.keypair().sign(canonical.as_bytes())))
+    }
+
     /// Export current prekey bundle as JSON (for sharing)
     pub async fn get_prekey_bundle_json(&self) -> Result<String> {
         let mut identity = self.identity.write().await;
@@ -121,8 +165,9 @@ impl Client {
             .prekey_pool_mut()
             .ok_or_else(|| ZapLivreError::Identity("Prekey pool not initialized".to_string()))?;
         let bundle = pool.get_bundle()?;
-        serde_json::to_string(&bundle)
-            .map_err(|e| ZapLivreError::Identity(format!("Failed to serialize prekey bundle: {}", e)))
+        serde_json::to_string(&bundle).map_err(|e| {
+            ZapLivreError::Identity(format!("Failed to serialize prekey bundle: {}", e))
+        })
     }
 
     /// Store a contact's prekey bundle (JSON) for E2E encryption
@@ -148,7 +193,10 @@ impl Client {
                 self.database.insert_contact(&contact)?;
                 Ok(())
             }
-            Err(e) => Err(ZapLivreError::Storage(format!("Failed to update contact: {}", e))),
+            Err(e) => Err(ZapLivreError::Storage(format!(
+                "Failed to update contact: {}",
+                e
+            ))),
         }
     }
 
@@ -183,7 +231,12 @@ impl Client {
         self.data_dir.join("media")
     }
 
-    fn write_media_file(&self, media_hash: &str, file_name: Option<&str>, data: &[u8]) -> Result<String> {
+    fn write_media_file(
+        &self,
+        media_hash: &str,
+        file_name: Option<&str>,
+        data: &[u8],
+    ) -> Result<String> {
         let media_dir = self.media_dir();
         std::fs::create_dir_all(&media_dir)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to create media dir: {}", e)))?;
@@ -203,11 +256,13 @@ impl Client {
 
     fn write_thumbnail_file(&self, media_hash: &str, data: &[u8]) -> Result<String> {
         let thumb_dir = self.media_dir().join("thumbnails");
-        std::fs::create_dir_all(&thumb_dir)
-            .map_err(|e| ZapLivreError::Storage(format!("Failed to create thumbnail dir: {}", e)))?;
+        std::fs::create_dir_all(&thumb_dir).map_err(|e| {
+            ZapLivreError::Storage(format!("Failed to create thumbnail dir: {}", e))
+        })?;
         let path = thumb_dir.join(format!("{}.jpg", media_hash));
-        std::fs::write(&path, data)
-            .map_err(|e| ZapLivreError::Storage(format!("Failed to write thumbnail file: {}", e)))?;
+        std::fs::write(&path, data).map_err(|e| {
+            ZapLivreError::Storage(format!("Failed to write thumbnail file: {}", e))
+        })?;
         Ok(path.to_string_lossy().to_string())
     }
 
@@ -288,7 +343,8 @@ impl Client {
         network.add_peer_to_dht(peer_id, addr.clone());
         network.dial(peer_id, addr)?;
 
-        self.emit_event(ClientEvent::PeerConnected { peer_id }).await;
+        self.emit_event(ClientEvent::PeerConnected { peer_id })
+            .await;
         Ok(())
     }
 
@@ -318,8 +374,9 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. })
-            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. }) | Ok(DeliveryOutcome { queued: true, .. }) => {
+                MessageStatus::Pending
+            }
             _ => MessageStatus::Failed,
         };
         let new_msg = NewMessage {
@@ -410,8 +467,38 @@ impl Client {
         content: &str,
         reply_to_id: String,
     ) -> Result<(MessageType, Payload)> {
-        Self::prepare_payload_with(&self.database, &self.session_manager, to, content, reply_to_id)
+        self.ensure_remote_prekey(to).await?;
+        Self::prepare_payload_with(
+            &self.database,
+            &self.session_manager,
+            to,
+            content,
+            reply_to_id,
+        )
+        .await
+    }
+
+    async fn ensure_remote_prekey(&self, to: &PeerId) -> Result<()> {
+        let Some(base_url) = self.identity_server_url.as_deref() else {
+            return Ok(());
+        };
+        let contact = self.database.get_contact_by_peer_id(&to.to_string()).ok();
+        if contact.and_then(|value| value.prekey_bundle_json).is_some() {
+            return Ok(());
+        }
+
+        let identity_client = crate::identity_client::IdentityClient::new(base_url)
+            .map_err(|e| ZapLivreError::Network(format!("Invalid identity server URL: {}", e)))?;
+        let response = identity_client
+            .lookup_peer_id(&to.to_string())
             .await
+            .map_err(|e| {
+                ZapLivreError::Network(format!("Failed to discover remote prekeys: {}", e))
+            })?;
+        let bundle_json = serde_json::to_string(&response.prekey_bundle).map_err(|e| {
+            ZapLivreError::Identity(format!("Failed to serialize remote prekeys: {}", e))
+        })?;
+        self.set_contact_prekey_bundle(to.to_string(), bundle_json)
     }
 
     pub(crate) async fn prepare_payload_with(
@@ -421,11 +508,11 @@ impl Client {
         content: &str,
         reply_to_id: String,
     ) -> Result<(MessageType, Payload)> {
-        match Self::encrypt_for_peer_with(database, session_manager, to, content.as_bytes()).await
-        {
-            Ok(Some(encrypted_payload)) => {
-                Ok((MessageType::Encrypted, Payload::Encrypted(encrypted_payload)))
-            }
+        match Self::encrypt_for_peer_with(database, session_manager, to, content.as_bytes()).await {
+            Ok(Some(encrypted_payload)) => Ok((
+                MessageType::Encrypted,
+                Payload::Encrypted(encrypted_payload),
+            )),
             Ok(None) => {
                 if e2e_required() {
                     return Err(ZapLivreError::Crypto(format!(
@@ -530,7 +617,11 @@ impl Client {
         if connected {
             let mut network = self.network.write().await;
             network.send_message(to, proto_message.clone())?;
-            return Ok(DeliveryOutcome { sent: true, stored: false, queued: false });
+            return Ok(DeliveryOutcome {
+                sent: true,
+                stored: false,
+                queued: false,
+            });
         }
 
         if self.message_store_url.is_some()
@@ -539,7 +630,11 @@ impl Client {
                 .await
                 .is_ok()
         {
-            return Ok(DeliveryOutcome { sent: false, stored: true, queued: false });
+            return Ok(DeliveryOutcome {
+                sent: false,
+                stored: true,
+                queued: false,
+            });
         }
 
         // Peer offline e sem store (ou store falhou): persistir na fila local de
@@ -556,7 +651,11 @@ impl Client {
             &proto_bytes,
             next_attempt_at,
         ) {
-            Ok(()) => Ok(DeliveryOutcome { sent: false, stored: false, queued: true }),
+            Ok(()) => Ok(DeliveryOutcome {
+                sent: false,
+                stored: false,
+                queued: true,
+            }),
             Err(e) => Err(ZapLivreError::Network(format!(
                 "Peer offline and failed to queue message for retry: {}",
                 e
@@ -599,10 +698,14 @@ impl Client {
         };
 
         let url = format!("{}/api/store", base_url);
+        let body =
+            serde_json::to_vec(&request).map_err(|e| ZapLivreError::Network(e.to_string()))?;
         let (peer, ts, sig) = Self::store_auth_headers_with(
             &identity,
             &proto_message.sender_peer_id,
             "POST",
+            "/api/store",
+            &body,
         )
         .await;
         let resp = message_store_http
@@ -610,7 +713,7 @@ impl Client {
             .header("x-zaplivre-peer", peer)
             .header("x-zaplivre-ts", ts)
             .header("x-zaplivre-sig", sig)
-            .json(&request)
+            .body(body)
             .send()
             .await
             .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
@@ -632,14 +735,20 @@ impl Client {
     }
 
     /// Headers de autenticação do message store (SEC-09):
-    /// assinatura Ed25519 sobre "{METHOD}:/api/store:{timestamp}"
+    /// Assinatura Ed25519 vinculada a método, caminho, timestamp e corpo.
     async fn store_auth_headers_with(
         identity: &Arc<RwLock<Identity>>,
         peer_id: &str,
         method: &str,
+        path: &str,
+        body: &[u8],
     ) -> (String, String, String) {
         let ts = chrono::Utc::now().timestamp();
-        let message = format!("{}:/api/store:{}", method, ts);
+        let body_hash = {
+            use sha2::{Digest, Sha256};
+            hex::encode(Sha256::digest(body))
+        };
+        let message = format!("{}\n{}\n{}\n{}", method, path, ts, body_hash);
         let signature = {
             let identity = identity.read().await;
             identity.keypair().sign(message.as_bytes())
@@ -656,7 +765,9 @@ impl Client {
         proto_message: &Message,
         message_type: &str,
     ) -> Result<()> {
-        let Some(base_url) = self.message_store_base_url() else { return Ok(()) };
+        let Some(base_url) = self.message_store_base_url() else {
+            return Ok(());
+        };
         let payload = crate::protocol::codec::encode(proto_message)?;
         let request = StoreMessageRequest {
             recipient_peer_id: proto_message.recipient_peer_id.clone(),
@@ -667,16 +778,19 @@ impl Client {
         };
 
         let url = format!("{}/api/store", base_url);
+        let body =
+            serde_json::to_vec(&request).map_err(|e| ZapLivreError::Network(e.to_string()))?;
         let local_peer = self.local_peer_id().to_string();
         let (peer, ts, sig) =
-            Self::store_auth_headers_with(&self.identity, &local_peer, "POST").await;
+            Self::store_auth_headers_with(&self.identity, &local_peer, "POST", "/api/store", &body)
+                .await;
         let resp = self
             .message_store_http
             .post(url)
             .header("x-zaplivre-peer", peer)
             .header("x-zaplivre-ts", ts)
             .header("x-zaplivre-sig", sig)
-            .json(&request)
+            .body(body)
             .send()
             .await
             .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
@@ -692,7 +806,9 @@ impl Client {
     }
 
     async fn fetch_offline_messages(&self) -> Result<()> {
-        let Some(base_url) = self.message_store_base_url() else { return Ok(()) };
+        let Some(base_url) = self.message_store_base_url() else {
+            return Ok(());
+        };
         let url = format!(
             "{}/api/store?peer_id={}&limit=100",
             base_url,
@@ -701,7 +817,8 @@ impl Client {
 
         let local_peer = self.local_peer_id().to_string();
         let (peer, ts, sig) =
-            Self::store_auth_headers_with(&self.identity, &local_peer, "GET").await;
+            Self::store_auth_headers_with(&self.identity, &local_peer, "GET", "/api/store", &[])
+                .await;
         let resp = self
             .message_store_http
             .get(url)
@@ -768,17 +885,25 @@ impl Client {
         }
 
         let delete_url = format!("{}/api/store", base_url);
-        let (peer, ts, sig) =
-            Self::store_auth_headers_with(&self.identity, &local_peer, "DELETE").await;
+        let delete_body = serde_json::to_vec(&DeleteMessagesRequest {
+            message_ids: processed_ids.clone(),
+        })
+        .unwrap_or_default();
+        let (peer, ts, sig) = Self::store_auth_headers_with(
+            &self.identity,
+            &local_peer,
+            "DELETE",
+            "/api/store",
+            &delete_body,
+        )
+        .await;
         let _ = self
             .message_store_http
             .delete(delete_url)
             .header("x-zaplivre-peer", peer)
             .header("x-zaplivre-ts", ts)
             .header("x-zaplivre-sig", sig)
-            .json(&DeleteMessagesRequest {
-                message_ids: processed_ids,
-            })
+            .body(delete_body)
             .send()
             .await;
 
@@ -862,8 +987,9 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. })
-            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. }) | Ok(DeliveryOutcome { queued: true, .. }) => {
+                MessageStatus::Pending
+            }
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -995,8 +1121,9 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. })
-            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. }) | Ok(DeliveryOutcome { queued: true, .. }) => {
+                MessageStatus::Pending
+            }
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -1124,8 +1251,9 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. })
-            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. }) | Ok(DeliveryOutcome { queued: true, .. }) => {
+                MessageStatus::Pending
+            }
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -1268,8 +1396,9 @@ impl Client {
         let conversation_id = self.database.get_or_create_conversation(&to.to_string())?;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. })
-            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. }) | Ok(DeliveryOutcome { queued: true, .. }) => {
+                MessageStatus::Pending
+            }
             _ => MessageStatus::Failed,
         };
         let new_msg = crate::storage::NewMessage {
@@ -1450,7 +1579,8 @@ impl Client {
         offset: Option<usize>,
     ) -> Result<Vec<crate::storage::Message>> {
         let conversation_id = format!("1:1:{}", peer_id);
-        let mut messages = self.database
+        let mut messages = self
+            .database
             .get_conversation_messages(&conversation_id, limit, offset)
             .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
@@ -1479,11 +1609,7 @@ impl Client {
     }
 
     /// Forward message to another peer/group
-    pub async fn forward_message(
-        &self,
-        message_id: &str,
-        to_peer_id: PeerId,
-    ) -> Result<String> {
+    pub async fn forward_message(&self, message_id: &str, to_peer_id: PeerId) -> Result<String> {
         // Get original message
         let original_msg = self
             .database
@@ -1492,7 +1618,9 @@ impl Client {
 
         // Create new message with forwarded content
         let new_message_id = uuid::Uuid::new_v4().to_string();
-        let conversation_id = self.database.get_or_create_conversation(&to_peer_id.to_string())?;
+        let conversation_id = self
+            .database
+            .get_or_create_conversation(&to_peer_id.to_string())?;
 
         let forwarded_content = format!(
             "Forwarded: {}",
@@ -1529,8 +1657,9 @@ impl Client {
             .await;
         let status = match outcome {
             Ok(DeliveryOutcome { sent: true, .. }) => MessageStatus::Sent,
-            Ok(DeliveryOutcome { stored: true, .. })
-            | Ok(DeliveryOutcome { queued: true, .. }) => MessageStatus::Pending,
+            Ok(DeliveryOutcome { stored: true, .. }) | Ok(DeliveryOutcome { queued: true, .. }) => {
+                MessageStatus::Pending
+            }
             _ => MessageStatus::Failed,
         };
 
@@ -1616,12 +1745,7 @@ impl Client {
             .map_err(|_| ZapLivreError::Network("Invalid peer ID".to_string()))
     }
 
-    async fn broadcast_reaction(
-        &self,
-        message_id: &str,
-        emoji: &str,
-        action: &str,
-    ) -> Result<()> {
+    async fn broadcast_reaction(&self, message_id: &str, emoji: &str, action: &str) -> Result<()> {
         let to_peer_id = self.reaction_target_peer_id(message_id)?;
 
         let envelope = ReactionEnvelope {
@@ -1711,7 +1835,8 @@ impl Client {
     /// Get current listening addresses
     pub async fn listening_addresses(&self) -> Vec<String> {
         let network = self.network.read().await;
-        network.listening_addresses()
+        network
+            .listening_addresses()
             .into_iter()
             .map(|addr| addr.to_string())
             .collect()
@@ -1867,7 +1992,9 @@ impl Client {
         &self,
         callback: Box<dyn crate::FfiVideoFrameCallback>,
     ) {
-        self.voip_integration.register_video_frame_callback(callback).await;
+        self.voip_integration
+            .register_video_frame_callback(callback)
+            .await;
     }
 
     #[cfg(feature = "voip")]
@@ -1879,7 +2006,9 @@ impl Client {
         &self,
         callback: Box<dyn crate::FfiAudioFrameCallback>,
     ) {
-        self.voip_integration.register_audio_frame_callback(callback).await;
+        self.voip_integration
+            .register_audio_frame_callback(callback)
+            .await;
     }
 
     #[cfg(any(feature = "voip", feature = "video"))]
@@ -1927,7 +2056,10 @@ impl Client {
             }
         }
 
-        Ok(FfiGroup::from_group(&group, &self.local_peer_id().to_string()))
+        Ok(FfiGroup::from_group(
+            &group,
+            &self.local_peer_id().to_string(),
+        ))
     }
 
     /// Envia um envelope de controle de grupo para um peer (E2E quando há sessão)
@@ -2003,7 +2135,8 @@ impl Client {
 
     /// Join an existing group
     pub async fn join_group(&self, group_id: String, group_name: String) -> Result<()> {
-        let topic = self.group_manager
+        let topic = self
+            .group_manager
             .join_group(group_id, group_name)
             .await
             .map_err(|e| ZapLivreError::Other(format!("Failed to join group: {}", e)))?;
@@ -2366,7 +2499,11 @@ impl Client {
             return;
         };
 
-        let crate::network::swarm::InboundRequest { peer, request, channel } = item;
+        let crate::network::swarm::InboundRequest {
+            peer,
+            request,
+            channel,
+        } = item;
 
         // MediaRequest dispara respostas em chunks
         let message_type =
@@ -2413,11 +2550,11 @@ impl Client {
     }
 }
 
-/// Política SEC-01: quando true, mensagens sem sessão E2E estabelecida NÃO
-/// caem em plaintext - o envio falha. Default false para o alfa (a troca de
-/// prekeys ainda não é automática nos apps).
+/// Política SEC-01: mensagens sem sessão E2E estabelecida nunca caem em
+/// plaintext por padrão, inclusive em builds debug usados na homologação.
+/// O fallback só pode ser habilitado explicitamente para desenvolvimento local.
 fn e2e_required() -> bool {
-    std::env::var("ZAPLIVRE_REQUIRE_E2E")
+    !std::env::var("ZAPLIVRE_ALLOW_PLAINTEXT")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
 }
@@ -2504,6 +2641,31 @@ mod tests {
 
                 let conversations = client.list_conversations().unwrap();
                 assert_eq!(conversations.len(), 0);
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_auth_request_signature_is_bound_to_body() {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let temp_dir = TempDir::new().unwrap();
+                let client = ClientBuilder::new()
+                    .data_dir(temp_dir.path().to_path_buf())
+                    .build()
+                    .await
+                    .unwrap();
+
+                let first = client
+                    .sign_auth_request("POST", "/api/v1/register", 123, b"first")
+                    .await
+                    .unwrap();
+                let second = client
+                    .sign_auth_request("POST", "/api/v1/register", 123, b"second")
+                    .await
+                    .unwrap();
+                assert_ne!(first, second);
             })
             .await;
     }

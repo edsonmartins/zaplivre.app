@@ -152,7 +152,8 @@ impl Call {
     pub fn duration(&self) -> Option<Duration> {
         self.connected_at.map(|connected| {
             let end_time = self.ended_at.unwrap_or_else(Utc::now);
-            end_time.signed_duration_since(connected)
+            end_time
+                .signed_duration_since(connected)
                 .to_std()
                 .unwrap_or_default()
         })
@@ -236,7 +237,12 @@ mod tests {
 
         call.end(CallEndReason::Hangup);
         assert!(call.is_ended());
-        assert_eq!(call.state, CallState::Ended { reason: CallEndReason::Hangup });
+        assert_eq!(
+            call.state,
+            CallState::Ended {
+                reason: CallEndReason::Hangup
+            }
+        );
     }
 
     #[test]

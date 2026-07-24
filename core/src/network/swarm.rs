@@ -2,35 +2,35 @@
 //!
 //! Manages the libp2p Swarm for P2P networking.
 
+use chrono::Utc;
+use futures::stream::StreamExt;
 use libp2p::{
     identity::Keypair,
-    kad::{self, Quorum, QueryId, Record, RecordKey},
+    kad::{self, QueryId, Quorum, Record, RecordKey},
     swarm::{Config as SwarmConfig, Swarm, SwarmEvent},
     Multiaddr, PeerId,
 };
-use futures::stream::StreamExt;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::select;
-use tokio::sync::oneshot;
 #[cfg(any(feature = "voip", feature = "video"))]
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use uuid::Uuid;
-use chrono::Utc;
 
 use super::{
     behaviour::ZapLivreBehaviour,
     connection::{ConnectionManager, ConnectionType},
     message_handler::MessageHandler,
-    relay::RelayManager,
     nat_detection::NatDetector,
+    relay::RelayManager,
     retry::RetryPolicy,
     transport::build_transport,
 };
+use crate::group::GroupManager;
 use crate::{
     protocol::{pb::message::Payload, Message, MessageType},
-    utils::error::{ZapLivreError, Result},
+    utils::error::{Result, ZapLivreError},
 };
-use crate::group::GroupManager;
 
 /// P2P Network Manager
 /// CORE-04: request inbound aguardando processamento fora do lock
@@ -48,7 +48,8 @@ pub struct NetworkManager {
     message_handler: Option<std::sync::Arc<MessageHandler>>,
     pending_kad_get: HashMap<QueryId, oneshot::Sender<Option<Multiaddr>>>,
     /// Mensagens outbound em voo (request_id -> mensagem) para re-enfileirar em OutboundFailure
-    pending_outbound: HashMap<libp2p::request_response::OutboundRequestId, crate::protocol::Message>,
+    pending_outbound:
+        HashMap<libp2p::request_response::OutboundRequestId, crate::protocol::Message>,
     /// CORE-04: requests inbound coletados no poll e processados FORA do
     /// write-lock do NetworkManager (decrypt Signal + SQLite + fs são lentos)
     pending_inbound: Vec<InboundRequest>,
@@ -148,7 +149,9 @@ impl NetworkManager {
 
     /// CORE-04: drena o trabalho inbound coletado pelo poll para ser
     /// processado fora do lock (ver Client::poll_network_once)
-    pub fn take_pending_inbound(&mut self) -> (Vec<InboundRequest>, Vec<libp2p::gossipsub::Message>) {
+    pub fn take_pending_inbound(
+        &mut self,
+    ) -> (Vec<InboundRequest>, Vec<libp2p::gossipsub::Message>) {
         (
             std::mem::take(&mut self.pending_inbound),
             std::mem::take(&mut self.pending_gossip),
@@ -197,10 +200,7 @@ impl NetworkManager {
     }
 
     /// Subscribe to a GossipSub topic
-    pub fn subscribe_gossipsub(
-        &mut self,
-        topic: &libp2p::gossipsub::IdentTopic,
-    ) -> Result<()> {
+    pub fn subscribe_gossipsub(&mut self, topic: &libp2p::gossipsub::IdentTopic) -> Result<()> {
         self.swarm
             .behaviour_mut()
             .gossipsub
@@ -210,10 +210,7 @@ impl NetworkManager {
     }
 
     /// Unsubscribe from a GossipSub topic
-    pub fn unsubscribe_gossipsub(
-        &mut self,
-        topic: &libp2p::gossipsub::IdentTopic,
-    ) -> Result<()> {
+    pub fn unsubscribe_gossipsub(&mut self, topic: &libp2p::gossipsub::IdentTopic) -> Result<()> {
         self.swarm
             .behaviour_mut()
             .gossipsub
@@ -239,7 +236,10 @@ impl NetworkManager {
     /// Dial a peer with automatic relay fallback
     pub fn dial(&mut self, peer_id: PeerId, addr: Multiaddr) -> Result<()> {
         if self.prefer_relay {
-            tracing::info!("🔁 NAT suggests relay-first, attempting relay to {}", peer_id);
+            tracing::info!(
+                "🔁 NAT suggests relay-first, attempting relay to {}",
+                peer_id
+            );
             if let Ok(()) = self.dial_via_relay(peer_id) {
                 return Ok(());
             }
@@ -267,7 +267,10 @@ impl NetworkManager {
                     tracing::info!("🔄 Falling back to relay for {}", peer_id);
                     self.dial_via_relay(peer_id)
                 } else {
-                    Err(ZapLivreError::Network(format!("Failed to dial {}: {}", peer_id, e)))
+                    Err(ZapLivreError::Network(format!(
+                        "Failed to dial {}: {}",
+                        peer_id, e
+                    )))
                 }
             }
         }
@@ -327,7 +330,10 @@ impl NetworkManager {
     }
 
     /// Resolve a peer address via DHT
-    pub fn resolve_peer_address(&mut self, peer_id: PeerId) -> oneshot::Receiver<Option<Multiaddr>> {
+    pub fn resolve_peer_address(
+        &mut self,
+        peer_id: PeerId,
+    ) -> oneshot::Receiver<Option<Multiaddr>> {
         tracing::info!("🔍 DHT lookup requested for peer {}", peer_id);
         let key = Self::addr_record_key(&peer_id);
         let query_id = self.swarm.behaviour_mut().kademlia.get_record(key);
@@ -367,10 +373,7 @@ impl NetworkManager {
     }
 
     /// Get connection state for a peer
-    pub fn connection_state(
-        &self,
-        peer_id: &PeerId,
-    ) -> super::connection::ConnectionState {
+    pub fn connection_state(&self, peer_id: &PeerId) -> super::connection::ConnectionState {
         self.connection_manager.get_state(peer_id)
     }
 
@@ -392,24 +395,32 @@ impl NetworkManager {
                     .with(libp2p::multiaddr::Protocol::P2p(relay_peer))
                     .with(libp2p::multiaddr::Protocol::P2pCircuit);
 
-                self.swarm
-                    .listen_on(listen_addr)
-                    .map_err(|e| ZapLivreError::Network(format!("Failed to listen via relay: {}", e)))?;
+                self.swarm.listen_on(listen_addr).map_err(|e| {
+                    ZapLivreError::Network(format!("Failed to listen via relay: {}", e))
+                })?;
 
                 // Mark reservation as pending until relay client confirms it.
                 self.relay_manager.mark_reservation_pending();
 
                 Ok(())
             } else {
-                Err(ZapLivreError::Network("No relay address configured".to_string()))
+                Err(ZapLivreError::Network(
+                    "No relay address configured".to_string(),
+                ))
             }
         } else {
-            Err(ZapLivreError::Network("No relay peer configured".to_string()))
+            Err(ZapLivreError::Network(
+                "No relay peer configured".to_string(),
+            ))
         }
     }
 
     /// Send a message to a peer
-    pub fn send_message(&mut self, peer_id: PeerId, message: crate::protocol::Message) -> Result<()> {
+    pub fn send_message(
+        &mut self,
+        peer_id: PeerId,
+        message: crate::protocol::Message,
+    ) -> Result<()> {
         let request_id = self
             .swarm
             .behaviour_mut()
@@ -461,9 +472,15 @@ impl NetworkManager {
             .send_request(&peer_id, signal.clone());
 
         // Rastrear para acionar o fallback WS se o request falhar
-        self.pending_voip_signals.insert(request_id, (peer_id, signal.clone()));
+        self.pending_voip_signals
+            .insert(request_id, (peer_id, signal.clone()));
 
-        tracing::info!("📞 Sent VoIP signal to {} (request_id: {:?}): {:?}", peer_id, request_id, signal);
+        tracing::info!(
+            "📞 Sent VoIP signal to {} (request_id: {:?}): {:?}",
+            peer_id,
+            request_id,
+            signal
+        );
         Ok(())
     }
 
@@ -471,14 +488,18 @@ impl NetworkManager {
     /// Send a VoIP signaling response to a peer
     pub fn send_voip_response(
         &mut self,
-        channel: libp2p::request_response::ResponseChannel<crate::voip::signaling::SignalingMessage>,
+        channel: libp2p::request_response::ResponseChannel<
+            crate::voip::signaling::SignalingMessage,
+        >,
         response: crate::voip::signaling::SignalingMessage,
     ) -> Result<()> {
         self.swarm
             .behaviour_mut()
             .voip_signaling
             .send_response(channel, response)
-            .map_err(|e| ZapLivreError::Network(format!("Failed to send VoIP response: {:?}", e)))?;
+            .map_err(|e| {
+                ZapLivreError::Network(format!("Failed to send VoIP response: {:?}", e))
+            })?;
 
         Ok(())
     }
@@ -506,7 +527,8 @@ impl NetworkManager {
                 Poll::Ready(None) => Poll::Ready(None),
                 Poll::Pending => Poll::Ready(None), // Return immediately if no events
             }
-        }).await;
+        })
+        .await;
 
         if let Some(event) = event {
             self.handle_event(event).await?;
@@ -542,19 +564,35 @@ impl NetworkManager {
                 self.connection_manager
                     .record_success(peer_id, connection_type);
             }
-            SwarmEvent::ConnectionClosed {
-                peer_id, cause, ..
-            } => {
+            SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                 tracing::info!("Disconnected from {}: {:?}", peer_id, cause);
             }
             SwarmEvent::Behaviour(event) => {
                 self.handle_behaviour_event(event).await?;
             }
-            SwarmEvent::IncomingConnection { local_addr, send_back_addr, .. } => {
-                tracing::info!("🔗 Incoming connection from {} to {}", send_back_addr, local_addr);
+            SwarmEvent::IncomingConnection {
+                local_addr,
+                send_back_addr,
+                ..
+            } => {
+                tracing::info!(
+                    "🔗 Incoming connection from {} to {}",
+                    send_back_addr,
+                    local_addr
+                );
             }
-            SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error, .. } => {
-                tracing::warn!("⚠️ Incoming connection error from {} to {}: {:?}", send_back_addr, local_addr, error);
+            SwarmEvent::IncomingConnectionError {
+                local_addr,
+                send_back_addr,
+                error,
+                ..
+            } => {
+                tracing::warn!(
+                    "⚠️ Incoming connection error from {} to {}: {:?}",
+                    send_back_addr,
+                    local_addr,
+                    error
+                );
             }
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 tracing::warn!("⚠️ Outgoing connection error to {:?}: {:?}", peer_id, error);
@@ -573,69 +611,68 @@ impl NetworkManager {
     /// Handle behaviour-specific events
     async fn handle_behaviour_event(&mut self, event: ZapLivreBehaviourEvent) -> Result<()> {
         match event {
-            ZapLivreBehaviourEvent::Kademlia(kad_event) => {
-                match kad_event {
-                    kad::Event::OutboundQueryProgressed { id, result, .. } => {
-                        if let Some(tx) = self.pending_kad_get.remove(&id) {
-                            let addr_opt = match result {
-                                kad::QueryResult::GetRecord(Ok(kad::GetRecordOk::FoundRecord(record))) => {
-                                    let value = record.record.value;
-                                    match std::str::from_utf8(&value) {
-                                        Ok(addr_str) => addr_str.parse::<Multiaddr>().ok(),
-                                        Err(_) => None,
-                                    }
+            ZapLivreBehaviourEvent::Kademlia(kad_event) => match kad_event {
+                kad::Event::OutboundQueryProgressed { id, result, .. } => {
+                    if let Some(tx) = self.pending_kad_get.remove(&id) {
+                        let addr_opt = match result {
+                            kad::QueryResult::GetRecord(Ok(kad::GetRecordOk::FoundRecord(
+                                record,
+                            ))) => {
+                                let value = record.record.value;
+                                match std::str::from_utf8(&value) {
+                                    Ok(addr_str) => addr_str.parse::<Multiaddr>().ok(),
+                                    Err(_) => None,
                                 }
-                                kad::QueryResult::GetRecord(Ok(kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. })) => None,
-                                kad::QueryResult::GetRecord(Err(_)) => None,
-                                _ => None,
-                            };
-                            let _ = tx.send(addr_opt);
-                        } else {
-                            tracing::debug!("Kademlia event: {:?}", result);
-                        }
-                    }
-                    _ => {
-                        tracing::debug!("Kademlia event: {:?}", kad_event);
-                    }
-                }
-            }
-            ZapLivreBehaviourEvent::Mdns(mdns_event) => {
-                match mdns_event {
-                    libp2p::mdns::Event::Discovered(peers) => {
-                        for (peer_id, addr) in peers {
-                            tracing::info!("mDNS discovered peer: {} at {}", peer_id, addr);
-                            self.add_peer_to_dht(peer_id, addr);
-                        }
-                    }
-                    libp2p::mdns::Event::Expired(peers) => {
-                        for (peer_id, _) in peers {
-                            tracing::info!("mDNS peer expired: {}", peer_id);
-                        }
-                    }
-                }
-            }
-            ZapLivreBehaviourEvent::Identify(identify_event) => {
-                match identify_event {
-                    libp2p::identify::Event::Received { info, .. } => {
-                        let observed_addr = info.observed_addr;
-                        tracing::info!("🧭 Observed external address: {}", observed_addr);
-                        if Self::is_routable_addr(&observed_addr) {
-                            self.swarm.add_external_address(observed_addr.clone());
-                            self.nat_detector.add_observed_address(observed_addr.clone());
-                            self.publish_own_address(observed_addr);
-
-                            if self.nat_detector.should_use_relay() && !self.prefer_relay {
-                                tracing::info!("🌐 NAT suggests relay-first strategy");
-                                self.prefer_relay = true;
-                                let _ = self.reserve_relay_slot();
                             }
-                        }
-                    }
-                    _ => {
-                        tracing::debug!("Identify event: {:?}", identify_event);
+                            kad::QueryResult::GetRecord(Ok(
+                                kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. },
+                            )) => None,
+                            kad::QueryResult::GetRecord(Err(_)) => None,
+                            _ => None,
+                        };
+                        let _ = tx.send(addr_opt);
+                    } else {
+                        tracing::debug!("Kademlia event: {:?}", result);
                     }
                 }
-            }
+                _ => {
+                    tracing::debug!("Kademlia event: {:?}", kad_event);
+                }
+            },
+            ZapLivreBehaviourEvent::Mdns(mdns_event) => match mdns_event {
+                libp2p::mdns::Event::Discovered(peers) => {
+                    for (peer_id, addr) in peers {
+                        tracing::info!("mDNS discovered peer: {} at {}", peer_id, addr);
+                        self.add_peer_to_dht(peer_id, addr);
+                    }
+                }
+                libp2p::mdns::Event::Expired(peers) => {
+                    for (peer_id, _) in peers {
+                        tracing::info!("mDNS peer expired: {}", peer_id);
+                    }
+                }
+            },
+            ZapLivreBehaviourEvent::Identify(identify_event) => match identify_event {
+                libp2p::identify::Event::Received { info, .. } => {
+                    let observed_addr = info.observed_addr;
+                    tracing::info!("🧭 Observed external address: {}", observed_addr);
+                    if Self::is_routable_addr(&observed_addr) {
+                        self.swarm.add_external_address(observed_addr.clone());
+                        self.nat_detector
+                            .add_observed_address(observed_addr.clone());
+                        self.publish_own_address(observed_addr);
+
+                        if self.nat_detector.should_use_relay() && !self.prefer_relay {
+                            tracing::info!("🌐 NAT suggests relay-first strategy");
+                            self.prefer_relay = true;
+                            let _ = self.reserve_relay_slot();
+                        }
+                    }
+                }
+                _ => {
+                    tracing::debug!("Identify event: {:?}", identify_event);
+                }
+            },
             ZapLivreBehaviourEvent::Ping(ping_event) => {
                 tracing::trace!("Ping event: {:?}", ping_event);
             }
@@ -694,7 +731,9 @@ impl NetworkManager {
                                 // Process ACK through handler
                                 if let Some(ref handler) = self.message_handler {
                                     // Extract ACK from response payload
-                                    if let Some(crate::protocol::pb::message::Payload::Ack(ack)) = response.payload {
+                                    if let Some(crate::protocol::pb::message::Payload::Ack(ack)) =
+                                        response.payload
+                                    {
                                         let handler = Arc::clone(handler);
                                         tokio::spawn(async move {
                                             if let Err(e) = handler.handle_outgoing_ack(ack).await {
@@ -705,7 +744,9 @@ impl NetworkManager {
                                         tracing::warn!("⚠️ Response is not an ACK message");
                                     }
                                 } else {
-                                    tracing::debug!("No message handler configured for ACK processing");
+                                    tracing::debug!(
+                                        "No message handler configured for ACK processing"
+                                    );
                                 }
                             }
                         }
@@ -842,7 +883,11 @@ impl NetworkManager {
                         );
                     }
                     libp2p::request_response::Event::ResponseSent { peer, request_id } => {
-                        tracing::debug!("📞 VoIP response sent to {} (request_id: {:?})", peer, request_id);
+                        tracing::debug!(
+                            "📞 VoIP response sent to {} (request_id: {:?})",
+                            peer,
+                            request_id
+                        );
                     }
                 }
             }
@@ -867,41 +912,37 @@ impl NetworkManager {
                     }
                 }
             }
-            ZapLivreBehaviourEvent::Dcutr(dcutr_event) => {
-                match dcutr_event.result {
-                    Ok(_) => {
-                        self.connection_manager
-                            .record_success(dcutr_event.remote_peer_id, ConnectionType::HolePunch);
-                        tracing::info!(
-                            "🎯 DCUtR upgrade succeeded for {}",
-                            dcutr_event.remote_peer_id
-                        );
-                    }
-                    Err(err) => {
-                        tracing::warn!(
-                            "🎯 DCUtR upgrade failed for {}: {}",
-                            dcutr_event.remote_peer_id,
-                            err
-                        );
-                    }
+            ZapLivreBehaviourEvent::Dcutr(dcutr_event) => match dcutr_event.result {
+                Ok(_) => {
+                    self.connection_manager
+                        .record_success(dcutr_event.remote_peer_id, ConnectionType::HolePunch);
+                    tracing::info!(
+                        "🎯 DCUtR upgrade succeeded for {}",
+                        dcutr_event.remote_peer_id
+                    );
                 }
-            }
-            ZapLivreBehaviourEvent::Relay(relay_event) => {
-                match relay_event {
-                    libp2p::relay::client::Event::ReservationReqAccepted {
-                        relay_peer_id, ..
-                    } => {
-                        tracing::info!("🔗 Relay reservation accepted by {}", relay_peer_id);
-                        self.relay_manager.mark_reservation_reserved(3600);
-                    }
-                    libp2p::relay::client::Event::OutboundCircuitEstablished { relay_peer_id, .. } => {
-                        tracing::info!("🌉 Relay circuit established via {}", relay_peer_id);
-                    }
-                    libp2p::relay::client::Event::InboundCircuitEstablished { src_peer_id, .. } => {
-                        tracing::info!("🌉 Inbound relayed connection from {}", src_peer_id);
-                    }
+                Err(err) => {
+                    tracing::warn!(
+                        "🎯 DCUtR upgrade failed for {}: {}",
+                        dcutr_event.remote_peer_id,
+                        err
+                    );
                 }
-            }
+            },
+            ZapLivreBehaviourEvent::Relay(relay_event) => match relay_event {
+                libp2p::relay::client::Event::ReservationReqAccepted { relay_peer_id, .. } => {
+                    tracing::info!("🔗 Relay reservation accepted by {}", relay_peer_id);
+                    self.relay_manager.mark_reservation_reserved(3600);
+                }
+                libp2p::relay::client::Event::OutboundCircuitEstablished {
+                    relay_peer_id, ..
+                } => {
+                    tracing::info!("🌉 Relay circuit established via {}", relay_peer_id);
+                }
+                libp2p::relay::client::Event::InboundCircuitEstablished { src_peer_id, .. } => {
+                    tracing::info!("🌉 Inbound relayed connection from {}", src_peer_id);
+                }
+            },
         }
 
         Ok(())

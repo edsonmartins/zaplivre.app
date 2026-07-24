@@ -39,6 +39,9 @@ fun OnboardingScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var importText by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf<String?>(null) }
+    var showUsernameDialog by remember { mutableStateOf(false) }
+    var username by remember { mutableStateOf("") }
+    var usernameError by remember { mutableStateOf<String?>(null) }
 
     // Observar estado de inicialização
     val isInitialized by ZapLivreClientWrapper.isInitialized.collectAsState()
@@ -48,12 +51,13 @@ fun OnboardingScreen(
     LaunchedEffect(isInitialized) {
         if (isInitialized) {
             localPeerId = clientPeerId
+            isInitializing = false
+            showUsernameDialog = true
             // Iniciar o foreground service (na primeira execução ele parou
             // aguardando o onboarding decidir criar/restaurar identidade)
             com.zaplivre.service.ZapLivreService.start(context)
             // Pequeno delay para usuário ver o peer ID
-            kotlinx.coroutines.delay(1500)
-            onOnboardingComplete()
+            kotlinx.coroutines.delay(500)
         }
     }
 
@@ -218,6 +222,56 @@ fun OnboardingScreen(
                 TextButton(onClick = { showImportDialog = false }) {
                     Text(text = stringResource(R.string.onboarding_import_cancel))
                 }
+            }
+        )
+    }
+
+    if (showUsernameDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Escolha seu username") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Use 3 a 20 caracteres: letras minúsculas, números e underscore.")
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it.lowercase(); usernameError = null },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("seu_username") }
+                    )
+                    usernameError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isInitializing,
+                    onClick = {
+                        val value = username.trim()
+                        if (!Regex("^[a-z0-9_]{3,20}$").matches(value)) {
+                            usernameError = "Username inválido"
+                            return@TextButton
+                        }
+                        isInitializing = true
+                        scope.launch {
+                            try {
+                                ZapLivreClientWrapper.registerUsername(value)
+                                showUsernameDialog = false
+                                onOnboardingComplete()
+                            } catch (error: Exception) {
+                                usernameError = error.message ?: "Não foi possível registrar o username"
+                            } finally {
+                                isInitializing = false
+                            }
+                        }
+                    }
+                ) { Text("Registrar") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showUsernameDialog = false
+                    onOnboardingComplete()
+                }) { Text("Continuar sem username") }
             }
         )
     }

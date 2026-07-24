@@ -1,7 +1,7 @@
 //! Database operations for Identity Server
 
-use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use crate::{error::Result, models::*};
+use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 
 /// Initialize database connection pool
 pub async fn init_pool(database_url: &str) -> Result<PgPool> {
@@ -19,7 +19,8 @@ pub fn validate_username(username: &str) -> Result<()> {
 
     if !regex.is_match(username) {
         return Err(crate::error::AppError::InvalidUsername(
-            "Username must be 3-20 characters, lowercase alphanumeric and underscore only".to_string()
+            "Username must be 3-20 characters, lowercase alphanumeric and underscore only"
+                .to_string(),
         ));
     }
 
@@ -86,7 +87,32 @@ pub async fn lookup_username(pool: &PgPool, username: &str) -> Result<LookupResp
         Some(row) => row
             .to_lookup_response()
             .map_err(|e| crate::error::AppError::Internal(e.into())),
-        None => Err(crate::error::AppError::UsernameNotFound(username.to_string())),
+        None => Err(crate::error::AppError::UsernameNotFound(
+            username.to_string(),
+        )),
+    }
+}
+
+/// Lookup a registered prekey bundle by peer identity.
+pub async fn lookup_peer_id(pool: &PgPool, peer_id: &str) -> Result<LookupResponse> {
+    let row = sqlx::query_as::<_, UsernameRow>(
+        r#"
+        SELECT username, peer_id, public_key, prekey_bundle, created_at, last_updated
+        FROM usernames
+        WHERE peer_id = $1
+        "#,
+    )
+    .bind(peer_id)
+    .fetch_optional(pool)
+    .await?;
+
+    match row {
+        Some(row) => row
+            .to_lookup_response()
+            .map_err(|e| crate::error::AppError::Internal(e.into())),
+        None => Err(crate::error::AppError::UsernameNotFound(
+            peer_id.to_string(),
+        )),
     }
 }
 
@@ -129,7 +155,9 @@ pub async fn update_prekeys(
                 updated_at: last_updated,
             })
         }
-        None => Err(crate::error::AppError::UsernameNotFound(peer_id.to_string())),
+        None => Err(crate::error::AppError::UsernameNotFound(
+            peer_id.to_string(),
+        )),
     }
 }
 
@@ -137,9 +165,7 @@ pub async fn update_prekeys(
 pub async fn check_health(pool: &PgPool) -> Result<f64> {
     let start = std::time::Instant::now();
 
-    sqlx::query("SELECT 1 as check")
-        .fetch_one(pool)
-        .await?;
+    sqlx::query("SELECT 1 as check").fetch_one(pool).await?;
 
     let latency = start.elapsed().as_secs_f64() * 1000.0; // Convert to ms
     Ok(latency)

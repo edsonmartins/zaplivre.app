@@ -39,10 +39,14 @@ impl Database {
         &self,
         req: &StoreMessageRequest,
     ) -> Result<(Uuid, String), sqlx::Error> {
-        let payload_bytes = general_purpose::STANDARD.decode(&req.encrypted_payload)
+        let payload_bytes = general_purpose::STANDARD
+            .decode(&req.encrypted_payload)
             .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
 
-        let message_type = req.message_type.clone().unwrap_or_else(|| "text".to_string());
+        let message_type = req
+            .message_type
+            .clone()
+            .unwrap_or_else(|| "text".to_string());
 
         let row = sqlx::query(
             r#"
@@ -211,9 +215,10 @@ impl Database {
 
     /// Get count of pending messages
     pub async fn count_pending_messages(&self) -> Result<i64, sqlx::Error> {
-        let row = sqlx::query("SELECT COUNT(*) as count FROM offline_messages WHERE status = 'pending'")
-            .fetch_one(&self.pool)
-            .await?;
+        let row =
+            sqlx::query("SELECT COUNT(*) as count FROM offline_messages WHERE status = 'pending'")
+                .fetch_one(&self.pool)
+                .await?;
 
         let count: i64 = row.get("count");
         Ok(count)
@@ -221,9 +226,7 @@ impl Database {
 
     /// Health check - verify database connection
     pub async fn health_check(&self) -> Result<String, sqlx::Error> {
-        sqlx::query("SELECT 1")
-            .fetch_one(&self.pool)
-            .await?;
+        sqlx::query("SELECT 1").fetch_one(&self.pool).await?;
 
         Ok("healthy".to_string())
     }
@@ -246,8 +249,9 @@ mod tests {
     #[tokio::test]
     #[ignore] // Requires database
     async fn test_database_connection() {
-        let db_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre".to_string());
+        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgresql://zaplivre:zaplivre_dev_password@localhost:5432/zaplivre".to_string()
+        });
 
         let db = Database::new(&db_url).await;
         assert!(db.is_ok());

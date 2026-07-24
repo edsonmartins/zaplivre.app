@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use anyhow::Result;
+use std::path::PathBuf;
 
 /// Configuration for the Bootstrap Node
 #[derive(Debug, Clone)]
@@ -53,8 +53,7 @@ impl Config {
                 .unwrap_or_else(|_| "/app/data".to_string())
                 .into(),
 
-            log_level: std::env::var("RUST_LOG")
-                .unwrap_or_else(|_| "info".to_string()),
+            log_level: std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
 
             relay_enabled: std::env::var("RELAY_ENABLED")
                 .unwrap_or_else(|_| "true".to_string())

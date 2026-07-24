@@ -3,7 +3,7 @@
 //! This module handles the generation and management of Ed25519 signing keypairs
 //! used for identity and authentication in the ZapLivre network.
 
-use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand_core06::OsRng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -87,9 +87,9 @@ impl Keypair {
         let kp_clone = libp2p_keypair.clone();
 
         // Try to convert to Ed25519 keypair
-        let ed25519_kp = kp_clone
-            .try_into_ed25519()
-            .map_err(|_| ZapLivreError::Identity("Only Ed25519 keypairs are supported".to_string()))?;
+        let ed25519_kp = kp_clone.try_into_ed25519().map_err(|_| {
+            ZapLivreError::Identity("Only Ed25519 keypairs are supported".to_string())
+        })?;
 
         // Get the keypair bytes (64 bytes: 32 secret + 32 public)
         let keypair_bytes = ed25519_kp.to_bytes();
@@ -261,7 +261,9 @@ impl PublicKey {
         // strip_prefix garante que o número de bytes pulados acompanhe o
         // tamanho do prefixo (evita o bug do rename: "mepassa_"=8 → "zaplivre_"=9).
         let encoded = peer_id.strip_prefix("zaplivre_").ok_or_else(|| {
-            ZapLivreError::Identity("Invalid peer ID format: must start with 'zaplivre_'".to_string())
+            ZapLivreError::Identity(
+                "Invalid peer ID format: must start with 'zaplivre_'".to_string(),
+            )
         })?;
         let bytes = bs58::decode(encoded)
             .into_vec()

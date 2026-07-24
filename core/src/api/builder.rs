@@ -2,21 +2,21 @@
 //!
 //! Builder pattern for creating ZapLivre clients.
 
-use libp2p::{identity::Keypair, PeerId};
 use base64::{engine::general_purpose, Engine as _};
+use libp2p::{identity::Keypair, PeerId};
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use super::client::Client;
+#[cfg(any(feature = "voip", feature = "video"))]
+use crate::voip::{CallManager, VoIPIntegration};
 use crate::{
     crypto::SignalSessionManager,
     identity::Identity,
     network::{MessageEvent, NetworkManager},
-    storage::{Database, migrate, needs_migration},
-    utils::error::{ZapLivreError, Result},
+    storage::{migrate, needs_migration, Database},
+    utils::error::{Result, ZapLivreError},
 };
-#[cfg(any(feature = "voip", feature = "video"))]
-use crate::voip::{CallManager, VoIPIntegration};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
@@ -26,6 +26,7 @@ pub struct ClientBuilder {
     keypair: Option<Keypair>,
     bootstrap_peers: Vec<(libp2p::PeerId, libp2p::Multiaddr)>,
     message_store_url: Option<String>,
+    identity_server_url: Option<String>,
     signaling_server_url: Option<String>,
 }
 
@@ -37,6 +38,7 @@ impl ClientBuilder {
             keypair: None,
             bootstrap_peers: Vec::new(),
             message_store_url: None,
+            identity_server_url: None,
             signaling_server_url: None,
         }
     }
@@ -65,6 +67,12 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the Identity Server URL used to discover remote prekeys.
+    pub fn identity_server_url(mut self, url: String) -> Self {
+        self.identity_server_url = Some(url);
+        self
+    }
+
     /// Set signaling server URL (WebRTC fallback signaling)
     pub fn signaling_server_url(mut self, url: String) -> Self {
         self.signaling_server_url = Some(url);
@@ -74,14 +82,13 @@ impl ClientBuilder {
     /// Build the client
     pub async fn build(self) -> Result<Client> {
         // Get or create data directory
-        let data_dir = self.data_dir.ok_or_else(|| {
-            ZapLivreError::Other("Data directory is required".to_string())
-        })?;
+        let data_dir = self
+            .data_dir
+            .ok_or_else(|| ZapLivreError::Other("Data directory is required".to_string()))?;
 
         // Create data directory if it doesn't exist
-        std::fs::create_dir_all(&data_dir).map_err(|e| {
-            ZapLivreError::Other(format!("Failed to create data directory: {}", e))
-        })?;
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|e| ZapLivreError::Other(format!("Failed to create data directory: {}", e)))?;
 
         // Get or generate keypair
         let keypair = if let Some(keypair) = self.keypair {
@@ -95,7 +102,9 @@ impl ClientBuilder {
                 if let Err(e) = std::fs::remove_file(&legacy_key_file) {
                     tracing::warn!("Failed to remove legacy identity.key: {}", e);
                 } else {
-                    tracing::info!("🔐 Removed legacy plaintext identity.key (secure storage in use)");
+                    tracing::info!(
+                        "🔐 Removed legacy plaintext identity.key (secure storage in use)"
+                    );
                 }
             }
             env_keypair
@@ -107,7 +116,10 @@ impl ClientBuilder {
                 match load_keypair_from_file(&keypair_path) {
                     Ok(kp) => kp,
                     Err(e) => {
-                        tracing::warn!("Failed to load keypair from file: {}, generating new one", e);
+                        tracing::warn!(
+                            "Failed to load keypair from file: {}, generating new one",
+                            e
+                        );
                         Keypair::generate_ed25519()
                     }
                 }
@@ -223,7 +235,10 @@ impl ClientBuilder {
 
         // Add bootstrap peers to DHT (if any)
         if !self.bootstrap_peers.is_empty() {
-            tracing::info!("Adding {} bootstrap peers to DHT", self.bootstrap_peers.len());
+            tracing::info!(
+                "Adding {} bootstrap peers to DHT",
+                self.bootstrap_peers.len()
+            );
             let mut network = network_arc.write().await;
             for (peer_id, addr) in self.bootstrap_peers {
                 tracing::info!("  Adding bootstrap peer {} at {}", peer_id, addr);
@@ -262,7 +277,7 @@ impl ClientBuilder {
                 Arc::new(database.clone()),
                 storage_key,
             )
-            .map_err(|e| ZapLivreError::Other(format!("Failed to create group manager: {}", e)))?
+            .map_err(|e| ZapLivreError::Other(format!("Failed to create group manager: {}", e)))?,
         );
 
         // Initialize group manager (load existing groups)
@@ -305,6 +320,7 @@ impl ClientBuilder {
             session_manager.clone(),
             storage_key,
             self.message_store_url,
+            self.identity_server_url,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -569,7 +585,10 @@ async fn handle_group_control(
 
         actions::SENDER_KEY => {
             // Anti-spoofing: só membros do grupo podem registrar sender key
-            if !group_manager.is_group_member(&group_id, &from_peer_id).await {
+            if !group_manager
+                .is_group_member(&group_id, &from_peer_id)
+                .await
+            {
                 tracing::warn!(
                     "Rejected sender_key for {} from non-member {}",
                     group_id,
@@ -644,7 +663,11 @@ async fn handle_group_control(
 
 fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> {
     match event {
-        MessageEvent::MessageReceived { message_id, message, .. } => {
+        MessageEvent::MessageReceived {
+            message_id,
+            message,
+            ..
+        } => {
             let from = PeerId::from_str(&message.sender_peer_id).ok()?;
             Some(super::events::ClientEvent::MessageReceived {
                 message_id,
@@ -691,14 +714,12 @@ fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> 
 
 /// Load a keypair from a file
 fn load_keypair_from_file(path: &std::path::Path) -> Result<Keypair> {
-    let bytes = std::fs::read(path).map_err(|e| {
-        ZapLivreError::Other(format!("Failed to read keypair file: {}", e))
-    })?;
+    let bytes = std::fs::read(path)
+        .map_err(|e| ZapLivreError::Other(format!("Failed to read keypair file: {}", e)))?;
 
     // Try to parse as protobuf-encoded keypair
-    Keypair::from_protobuf_encoding(&bytes).map_err(|e| {
-        ZapLivreError::Other(format!("Failed to decode keypair: {}", e))
-    })
+    Keypair::from_protobuf_encoding(&bytes)
+        .map_err(|e| ZapLivreError::Other(format!("Failed to decode keypair: {}", e)))
 }
 
 /// Load a keypair from environment variable (base64-encoded protobuf)
@@ -713,26 +734,24 @@ fn load_keypair_from_env() -> Result<Option<Keypair>> {
         return Ok(None);
     }
 
-    let bytes = general_purpose::STANDARD.decode(encoded).map_err(|e| {
-        ZapLivreError::Other(format!("Failed to decode identity from env: {}", e))
-    })?;
+    let bytes = general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|e| ZapLivreError::Other(format!("Failed to decode identity from env: {}", e)))?;
 
-    let keypair = Keypair::from_protobuf_encoding(&bytes).map_err(|e| {
-        ZapLivreError::Other(format!("Failed to decode keypair from env: {}", e))
-    })?;
+    let keypair = Keypair::from_protobuf_encoding(&bytes)
+        .map_err(|e| ZapLivreError::Other(format!("Failed to decode keypair from env: {}", e)))?;
 
     Ok(Some(keypair))
 }
 
 /// Save a keypair to a file
 fn save_keypair_to_file(keypair: &Keypair, path: &std::path::Path) -> Result<()> {
-    let bytes = keypair.to_protobuf_encoding().map_err(|e| {
-        ZapLivreError::Other(format!("Failed to encode keypair: {}", e))
-    })?;
+    let bytes = keypair
+        .to_protobuf_encoding()
+        .map_err(|e| ZapLivreError::Other(format!("Failed to encode keypair: {}", e)))?;
 
-    std::fs::write(path, bytes).map_err(|e| {
-        ZapLivreError::Other(format!("Failed to write keypair file: {}", e))
-    })
+    std::fs::write(path, bytes)
+        .map_err(|e| ZapLivreError::Other(format!("Failed to write keypair file: {}", e)))
 }
 
 impl Default for ClientBuilder {
@@ -743,7 +762,11 @@ impl Default for ClientBuilder {
 
 /// Ensure the local peer exists as a contact in the database
 /// This is required due to FOREIGN KEY constraints on messages.sender_peer_id
-fn ensure_local_contact_exists(database: &Database, peer_id: &str, keypair: &Keypair) -> Result<()> {
+fn ensure_local_contact_exists(
+    database: &Database,
+    peer_id: &str,
+    keypair: &Keypair,
+) -> Result<()> {
     use crate::storage::NewContact;
 
     // Check if contact already exists
@@ -763,9 +786,9 @@ fn ensure_local_contact_exists(database: &Database, peer_id: &str, keypair: &Key
         prekey_bundle_json: None,
     };
 
-    database.insert_contact(&local_contact).map_err(|e| {
-        ZapLivreError::Other(format!("Failed to create local contact: {}", e))
-    })?;
+    database
+        .insert_contact(&local_contact)
+        .map_err(|e| ZapLivreError::Other(format!("Failed to create local contact: {}", e)))?;
 
     tracing::info!("Created local contact for peer: {}", peer_id);
     Ok(())

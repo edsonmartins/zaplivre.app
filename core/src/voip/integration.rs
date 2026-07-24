@@ -10,8 +10,8 @@ use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 use super::{
     call::{CallDirection, CallEndReason},
     manager::{CallEvent, CallManager},
-    signaling_server::SignalingServerClient,
     signaling::SignalingMessage,
+    signaling_server::SignalingServerClient,
     Result, // Use voip::Result instead of utils::error::Result
 };
 use crate::network::swarm::NetworkManager;
@@ -195,7 +195,10 @@ impl VoIPIntegration {
                             if let Err(e) = server.send_signal(peer_id, signal) {
                                 tracing::warn!("📞 Signaling fallback send failed: {}", e);
                             } else {
-                                tracing::info!("📞 Signal re-sent via server fallback to {}", peer_id);
+                                tracing::info!(
+                                    "📞 Signal re-sent via server fallback to {}",
+                                    peer_id
+                                );
                             }
                         }
                         None => {
@@ -211,7 +214,10 @@ impl VoIPIntegration {
 
         let this = Arc::clone(&self);
         tokio::task::spawn_local(async move {
-            if let Err(e) = this.run_with_receivers(&mut signaling_rx, &mut call_event_rx).await {
+            if let Err(e) = this
+                .run_with_receivers(&mut signaling_rx, &mut call_event_rx)
+                .await
+            {
                 tracing::error!("❌ VoIP integration stopped: {}", e);
             }
         });
@@ -274,7 +280,11 @@ impl VoIPIntegration {
         match &signal {
             SignalingMessage::CallOffer { call_id, sdp } => {
                 // Incoming call offer
-                tracing::info!("📲 Incoming call offer from {} (call: {})", peer_id_str, call_id);
+                tracing::info!(
+                    "📲 Incoming call offer from {} (call: {})",
+                    peer_id_str,
+                    call_id
+                );
 
                 // Create incoming call (call_id, remote_peer_id, offer_sdp)
                 self.call_manager
@@ -359,14 +369,11 @@ impl VoIPIntegration {
             } => {
                 tracing::info!("📤 Sending offer to {} (call: {})", to_peer_id, call_id);
 
-                let peer_id = to_peer_id
-                    .parse::<PeerId>()
-                    .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+                let peer_id = to_peer_id.parse::<PeerId>().map_err(|e| {
+                    super::VoipError::InvalidState(format!("Invalid peer ID: {}", e))
+                })?;
 
-                let signal = SignalingMessage::CallOffer {
-                    call_id,
-                    sdp,
-                };
+                let signal = SignalingMessage::CallOffer { call_id, sdp };
 
                 self.send_signal(peer_id, signal).await?;
             }
@@ -378,14 +385,11 @@ impl VoIPIntegration {
             } => {
                 tracing::info!("📤 Sending answer to {} (call: {})", to_peer_id, call_id);
 
-                let peer_id = to_peer_id
-                    .parse::<PeerId>()
-                    .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+                let peer_id = to_peer_id.parse::<PeerId>().map_err(|e| {
+                    super::VoipError::InvalidState(format!("Invalid peer ID: {}", e))
+                })?;
 
-                let signal = SignalingMessage::CallAnswer {
-                    call_id,
-                    sdp,
-                };
+                let signal = SignalingMessage::CallAnswer { call_id, sdp };
 
                 self.send_signal(peer_id, signal).await?;
             }
@@ -397,11 +401,15 @@ impl VoIPIntegration {
                 sdp_mid,
                 sdp_m_line_index,
             } => {
-                tracing::debug!("📤 Sending ICE candidate to {} (call: {})", to_peer_id, call_id);
+                tracing::debug!(
+                    "📤 Sending ICE candidate to {} (call: {})",
+                    to_peer_id,
+                    call_id
+                );
 
-                let peer_id = to_peer_id
-                    .parse::<PeerId>()
-                    .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
+                let peer_id = to_peer_id.parse::<PeerId>().map_err(|e| {
+                    super::VoipError::InvalidState(format!("Invalid peer ID: {}", e))
+                })?;
 
                 let signal = SignalingMessage::IceCandidate {
                     call_id,
@@ -429,7 +437,10 @@ impl VoIPIntegration {
                 }
             }
 
-            CallEvent::IncomingCall { call_id, from_peer_id } => {
+            CallEvent::IncomingCall {
+                call_id,
+                from_peer_id,
+            } => {
                 tracing::info!("📲 Incoming call: {} from {}", call_id, from_peer_id);
                 let cb = self.call_event_callback.read().await;
                 if let Some(callback) = cb.as_ref() {
@@ -452,7 +463,12 @@ impl VoIPIntegration {
                 }
             }
 
-            CallEvent::VideoFrameReceived { call_id, frame_data, width, height } => {
+            CallEvent::VideoFrameReceived {
+                call_id,
+                frame_data,
+                width,
+                height,
+            } => {
                 // Invoke the registered video frame callback (FASE 14)
                 #[cfg(any(feature = "voip", feature = "video"))]
                 {
@@ -560,10 +576,7 @@ impl VoIPIntegration {
             .parse::<PeerId>()
             .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
 
-        let signal = SignalingMessage::CallReject {
-            call_id,
-            reason,
-        };
+        let signal = SignalingMessage::CallReject { call_id, reason };
 
         self.send_signal(peer_id, signal).await?;
 
@@ -593,9 +606,7 @@ impl VoIPIntegration {
             .parse::<PeerId>()
             .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
 
-        let signal = SignalingMessage::CallHangup {
-            call_id,
-        };
+        let signal = SignalingMessage::CallHangup { call_id };
 
         self.send_signal(peer_id, signal).await?;
 

@@ -1,6 +1,11 @@
 //! HTTP handlers for TURN credentials service
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    body::Bytes,
+    extract::State,
+    http::{HeaderMap, Method, StatusCode},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{auth, config::Config};
@@ -11,7 +16,8 @@ pub struct CredentialRequest {
     /// User ID to generate credentials for
     pub username: String,
 
-    /// TTL in seconds (optional, default: 86400 = 24 hours)
+    /// Deprecated. Credential lifetime is controlled by the server.
+    #[allow(dead_code)]
     pub ttl_seconds: Option<i64>,
 }
 
@@ -39,8 +45,15 @@ pub struct CredentialResponse {
 /// Returns credentials valid for the specified TTL
 pub async fn generate_credentials(
     State(config): State<Config>,
-    Json(req): Json<CredentialRequest>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> Result<Json<CredentialResponse>, (StatusCode, String)> {
+    let auth_peer =
+        crate::request_auth::verify(&headers, &Method::POST, "/api/turn/credentials", &body)
+            .map_err(|(status, message)| (status, message.to_string()))?;
+    let req: CredentialRequest = serde_json::from_slice(&body)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid request body".to_string()))?;
+
     // Validate request
     if req.username.is_empty() {
         return Err((
@@ -49,23 +62,17 @@ pub async fn generate_credentials(
         ));
     }
 
-    // Default TTL: 24 hours
-    let ttl = req.ttl_seconds.unwrap_or(86400);
-
-    // Validate TTL (between 1 minute and 7 days)
-    if !(60..=604800).contains(&ttl) {
+    if req.username != auth_peer {
         return Err((
-            StatusCode::BAD_REQUEST,
-            "ttl_seconds must be between 60 and 604800".to_string(),
+            StatusCode::FORBIDDEN,
+            "username does not match identity".to_string(),
         ));
     }
+    let ttl = config.credential_ttl_seconds;
 
     // Generate credentials
-    let (username, password) = auth::generate_turn_credentials(
-        &req.username,
-        ttl,
-        &config.turn_static_secret,
-    );
+    let (username, password) =
+        auth::generate_turn_credentials(&req.username, ttl, &config.turn_static_secret);
 
     tracing::info!(
         "Generated TURN credentials for user '{}' (TTL: {}s)",
@@ -107,20 +114,5 @@ mod tests {
             ttl_seconds: Some(3600),
         };
         assert!(req.username.is_empty());
-    }
-
-    #[test]
-    fn test_ttl_validation() {
-        // Too short (less than 60 seconds)
-        let too_short = 30i64;
-        assert!(too_short < 60 || too_short > 604800);
-
-        // Too long (more than 7 days)
-        let too_long = 700000i64;
-        assert!(too_long < 60 || too_long > 604800);
-
-        // Valid (1 hour)
-        let valid = 3600i64;
-        assert!(valid >= 60 && valid <= 604800);
     }
 }

@@ -1,8 +1,4 @@
-use libp2p::{
-    dcutr, identify, kad, ping, relay,
-    swarm::NetworkBehaviour,
-    PeerId,
-};
+use libp2p::{dcutr, identify, kad, ping, relay, swarm::NetworkBehaviour, PeerId};
 use std::time::Duration;
 
 use crate::config::Config;
@@ -45,12 +41,10 @@ impl BootstrapBehaviour {
         let kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
 
         // Identify configuration
-        let identify = identify::Behaviour::new(
-            identify::Config::new(
-                "/zaplivre/1.0.0".to_string(),
-                local_public_key,
-            )
-        );
+        let identify = identify::Behaviour::new(identify::Config::new(
+            "/zaplivre/1.0.0".to_string(),
+            local_public_key,
+        ));
 
         // Ping (keep-alive)
         let ping = ping::Behaviour::new(ping::Config::new());
