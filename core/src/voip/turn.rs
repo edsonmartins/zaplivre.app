@@ -38,7 +38,7 @@ impl TurnCredentialsClient {
     pub fn new(server_url: String, keypair: Keypair) -> Self {
         Self {
             server_url,
-            http_client: Client::new(),
+            http_client: crate::utils::http::client(),
             keypair,
         }
     }

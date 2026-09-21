@@ -540,10 +540,9 @@ impl RtpDepacketizer {
             // IDR frame. Convert every contained NALU back to Annex B.
             let mut offset = 1;
             while offset + 2 <= packet.payload.len() {
-                let nalu_len = u16::from_be_bytes([
-                    packet.payload[offset],
-                    packet.payload[offset + 1],
-                ]) as usize;
+                let nalu_len =
+                    u16::from_be_bytes([packet.payload[offset], packet.payload[offset + 1]])
+                        as usize;
                 offset += 2;
 
                 if nalu_len == 0 || offset + nalu_len > packet.payload.len() {

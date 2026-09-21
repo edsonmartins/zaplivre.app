@@ -9311,6 +9311,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "http-body-util",
+ "libp2p-identity",
  "rand 0.8.6",
  "redis 0.26.1",
  "regex",

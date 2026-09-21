@@ -24,8 +24,12 @@ impl Config {
         let turn_static_secret = std::env::var("TURN_STATIC_SECRET")
             .map_err(|_| anyhow::anyhow!("TURN_STATIC_SECRET must be set"))?;
 
-        // In production, these should be the actual external IPs/domains
-        let turn_host = std::env::var("TURN_HOST").unwrap_or_else(|_| "coturn".to_string());
+        // The host is handed to phones on the internet, so it must be the
+        // public name/IP of the TURN server. There is no safe default: the
+        // docker service name (`coturn`) only resolves inside the compose
+        // network, and a credential pointing at it silently breaks every call
+        // behind NAT.
+        let turn_host = parse_turn_host(std::env::var("TURN_HOST").ok())?;
 
         // `turns:` (TLS) só é anunciado quando o coturn tem TLS habilitado
         // (TURN_TLS_ENABLED=true). O coturn default usa `no-tls`/`no-dtls`
@@ -75,6 +79,21 @@ impl Config {
     }
 }
 
+/// Validate the publicly announced TURN host.
+fn parse_turn_host(value: Option<String>) -> Result<String> {
+    let host = value.map(|v| v.trim().to_string()).unwrap_or_default();
+    if host.is_empty() {
+        anyhow::bail!("TURN_HOST must be set to the public hostname or IP of the TURN server");
+    }
+    if host == "coturn" {
+        anyhow::bail!(
+            "TURN_HOST=coturn is the internal docker name and is unreachable by clients; \
+             use the public hostname or IP"
+        );
+    }
+    Ok(host)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,5 +116,16 @@ mod tests {
         };
 
         assert!(invalid_config.validate().is_err());
+    }
+
+    #[test]
+    fn turn_host_must_be_public() {
+        assert!(parse_turn_host(None).is_err());
+        assert!(parse_turn_host(Some("  ".to_string())).is_err());
+        assert!(parse_turn_host(Some("coturn".to_string())).is_err());
+        assert_eq!(
+            parse_turn_host(Some(" turn.zaplivre.app ".to_string())).unwrap(),
+            "turn.zaplivre.app"
+        );
     }
 }

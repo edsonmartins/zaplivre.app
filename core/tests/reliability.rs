@@ -3,13 +3,13 @@
 //! CORE-02: mensagem para peer offline (sem store) cai na fila local de
 //! retry e é entregue pelo worker quando o peer aparece.
 
-use std::sync::Arc;
+use std::rc::Rc;
 use std::time::Duration;
 
 use tokio::time::sleep;
 use zaplivre_core::{api::ClientBuilder, storage::MessageStatus};
 
-fn spawn_driver(client: Arc<zaplivre_core::api::Client>) {
+fn spawn_driver(client: Rc<zaplivre_core::api::Client>) {
     tokio::task::spawn_local(async move {
         loop {
             match client.poll_network_once().await {
@@ -36,7 +36,7 @@ async fn test_offline_send_queues_and_retry_delivers() {
             let dir_a = tempfile::TempDir::new().unwrap();
             let dir_b = tempfile::TempDir::new().unwrap();
 
-            let client_a = Arc::new(
+            let client_a = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_a.path().to_path_buf())
                     .build()
@@ -44,7 +44,7 @@ async fn test_offline_send_queues_and_retry_delivers() {
                     .expect("build client A"),
             );
             // B é construído mas ainda NÃO escuta - está "offline"
-            let client_b = Arc::new(
+            let client_b = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_b.path().to_path_buf())
                     .build()
@@ -68,7 +68,7 @@ async fn test_offline_send_queues_and_retry_delivers() {
                 .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
                 .await
                 .expect("listen A");
-            spawn_driver(Arc::clone(&client_a));
+            spawn_driver(Rc::clone(&client_a));
 
             // Enviar com B fora do ar: não pode falhar nem descartar -
             // precisa ficar na fila (CORE-02)
@@ -95,7 +95,7 @@ async fn test_offline_send_queues_and_retry_delivers() {
                 .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
                 .await
                 .expect("listen B");
-            spawn_driver(Arc::clone(&client_b));
+            spawn_driver(Rc::clone(&client_b));
 
             let addr_b = {
                 let mut found = None;
@@ -274,14 +274,14 @@ async fn test_dto_prekey_bundle_is_normalized() {
             let dir_a = tempfile::TempDir::new().unwrap();
             let dir_b = tempfile::TempDir::new().unwrap();
 
-            let client_a = Arc::new(
+            let client_a = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_a.path().to_path_buf())
                     .build()
                     .await
                     .expect("build client A"),
             );
-            let client_b = Arc::new(
+            let client_b = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_b.path().to_path_buf())
                     .build()
@@ -309,7 +309,7 @@ async fn test_dto_prekey_bundle_is_normalized() {
                 .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
                 .await
                 .expect("listen A");
-            spawn_driver(Arc::clone(&client_a));
+            spawn_driver(Rc::clone(&client_a));
 
             // Envio para peer offline: deve enfileirar (Pending), nunca falhar
             // por bundle inválido

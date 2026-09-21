@@ -20,7 +20,7 @@ use super::{
     connection::{ConnectionManager, ConnectionType},
     message_handler::MessageHandler,
     nat_detection::NatDetector,
-    relay::RelayManager,
+    relay::{RelayManager, ReservationStatus},
     retry::RetryPolicy,
     transport::build_transport,
 };
@@ -584,6 +584,19 @@ impl NetworkManager {
                 self.connection_manager
                     .record_success(peer_id, connection_type);
 
+                // Infrastructure peer: reserve a relay slot as soon as we reach
+                // it. Waiting for a NAT verdict is not an option on mobile,
+                // where AutoNAT rarely concludes and CGNAT is the norm.
+                if self.relay_manager.bootstrap_relay_peer == Some(peer_id) {
+                    if self.relay_manager.reservation_status == ReservationStatus::NotReserved {
+                        if let Err(e) = self.reserve_relay_slot() {
+                            tracing::warn!("Relay reservation request failed: {}", e);
+                        }
+                    }
+                    // The relay is not a contact: no prekey exchange with it.
+                    return Ok(());
+                }
+
                 // Exchange public prekeys automatically after the authenticated
                 // transport is up. This is an internal control frame and does
                 // not create a visible chat message.
@@ -968,6 +981,11 @@ impl NetworkManager {
                 libp2p::relay::client::Event::ReservationReqAccepted { relay_peer_id, .. } => {
                     tracing::info!("🔗 Relay reservation accepted by {}", relay_peer_id);
                     self.relay_manager.mark_reservation_reserved(3600);
+                    // Advertise the circuit address so peers that cannot reach
+                    // us directly find a dialable one in the DHT.
+                    if let Some(circuit) = self.relay_manager.circuit_addr(&self.local_peer_id) {
+                        self.publish_own_address(circuit);
+                    }
                 }
                 libp2p::relay::client::Event::OutboundCircuitEstablished {
                     relay_peer_id, ..

@@ -65,6 +65,13 @@ pub struct PreKeyBundle {
     /// Signal identity key (serialized public key bytes)
     #[serde(default)]
     pub signal_identity_key: Option<Vec<u8>>,
+    /// Ed25519 signature by `identity_key` over the Signal identity key
+    /// (see [`signal_identity_binding_message`]). The Signal identity is a
+    /// separate random key: without this link, whoever serves the bundle can
+    /// swap in a Signal identity of their own and intercept the session while
+    /// the safety number (Ed25519) still matches.
+    #[serde(default)]
+    pub signal_identity_signature: Option<Vec<u8>>,
     /// Signal registration id
     #[serde(default)]
     pub signal_registration_id: Option<u32>,
@@ -85,6 +92,59 @@ pub struct PreKeyBundle {
     pub kyber_prekey_signature: Vec<u8>,
     /// One-time prekey (optional)
     pub one_time_prekey: Option<OneTimePreKey>,
+}
+
+/// Message signed by the Ed25519 identity to vouch for its Signal identity key.
+pub fn signal_identity_binding_message(signal_identity_key: &[u8]) -> Vec<u8> {
+    let mut message = b"zaplivre-signal-identity-binding-v1\0".to_vec();
+    message.extend_from_slice(signal_identity_key);
+    message
+}
+
+/// Ed25519 public key embedded in a libp2p peer ID.
+pub fn ed25519_key_from_peer_id(peer_id: &str) -> Option<[u8; 32]> {
+    let peer_id: libp2p::PeerId = peer_id.parse().ok()?;
+    let multihash = peer_id.as_ref();
+    if multihash.code() != 0x00 {
+        return None;
+    }
+    let public_key = libp2p::identity::PublicKey::try_decode_protobuf(multihash.digest()).ok()?;
+    Some(public_key.try_into_ed25519().ok()?.to_bytes())
+}
+
+impl PreKeyBundle {
+    /// Check that this bundle belongs to `peer_id`: its Ed25519 key is the one
+    /// embedded in the peer ID, and that key signed the Signal identity key.
+    /// The signed and Kyber prekeys are in turn signed by the Signal identity
+    /// (libsignal verifies that), so the whole bundle chains up to the peer ID.
+    pub fn verify_belongs_to(&self, peer_id: &str) -> Result<()> {
+        let expected = ed25519_key_from_peer_id(peer_id).ok_or_else(|| {
+            ZapLivreError::Identity(format!("Peer ID {} carries no Ed25519 key", peer_id))
+        })?;
+        if self.identity_key != expected {
+            return Err(ZapLivreError::Identity(
+                "Prekey bundle identity key does not match the peer ID".to_string(),
+            ));
+        }
+        let signal_identity_key = self.signal_identity_key.as_deref().ok_or_else(|| {
+            ZapLivreError::Identity("Prekey bundle has no Signal identity key".to_string())
+        })?;
+        let signature = self.signal_identity_signature.as_deref().ok_or_else(|| {
+            ZapLivreError::Identity(
+                "Prekey bundle does not bind its Signal identity to the peer ID".to_string(),
+            )
+        })?;
+        crate::identity::keypair::PublicKey::from_bytes(&expected)?
+            .verify(
+                &signal_identity_binding_message(signal_identity_key),
+                signature,
+            )
+            .map_err(|_| {
+                ZapLivreError::Identity(
+                    "Signal identity key is not signed by the peer's identity".to_string(),
+                )
+            })
+    }
 }
 
 /// One-time prekey (consumed after first use)
@@ -321,20 +381,24 @@ impl PreKeyPool {
             .signature()
             .map_err(|e| ZapLivreError::Identity(format!("Kyber prekey signature error: {}", e)))?;
 
-        let one_time_prekey = self
-            .peek_one_time_prekey()
-            .map(|record| -> Result<OneTimePreKey> {
-                let prekey = PreKey::from_record(record.clone())?;
-                Ok(OneTimePreKey {
-                    id: prekey.id,
-                    public_key: prekey.public_key_bytes()?,
-                })
-            })
-            .transpose()?;
+        // The bundle is static: the very same copy is served by the identity
+        // server and embedded in QR codes for every initiator. A one-time
+        // prekey can only be handed to ONE initiator, so publishing it here
+        // made the second contact's first message undecryptable (and the key
+        // got reused after a restart). PQXDH is defined for bundles without a
+        // one-time prekey; per-initiator keys need a server-side pool with
+        // atomic pop, which the identity server does not have yet.
+        let one_time_prekey = None;
+
+        let signal_identity_signature = self
+            .identity_keypair
+            .sign(&signal_identity_binding_message(&signal_identity_key))
+            .to_vec();
 
         Ok(PreKeyBundle {
             identity_key: self.identity_keypair.public_key_bytes(),
             signal_identity_key: Some(signal_identity_key),
+            signal_identity_signature: Some(signal_identity_signature),
             signal_registration_id: Some(self.signal_registration_id),
             signal_device_id: Some(self.signal_device_id),
             signed_prekey_id: self
@@ -353,11 +417,6 @@ impl PreKeyPool {
             kyber_prekey_signature,
             one_time_prekey,
         })
-    }
-
-    /// Peek at a one-time prekey without consuming it
-    fn peek_one_time_prekey(&self) -> Option<&PreKeyRecord> {
-        self.one_time_prekeys.values().next()
     }
 
     /// Get a specific one-time prekey by ID

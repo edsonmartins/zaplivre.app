@@ -34,6 +34,13 @@ pub async fn register_handler(
     );
     verify_signature(&public_key, &req.signature, &message)?;
 
+    // The peer ID must be the one derived from the key that signed. Accepting
+    // any string let an attacker register a victim's (public) peer ID under
+    // their own key: the victim could never register again, and lookups by
+    // peer ID returned the attacker's key and bundle.
+    verify_peer_id_matches_key(&req.peer_id, &public_key)?;
+    verify_bundle_binding(&req.prekey_bundle, &public_key)?;
+
     // Register username
     let response = db::register_username(
         &state.db,
@@ -89,6 +96,10 @@ pub async fn update_prekeys_handler(
 
     let message = format!("update_prekeys:{}:{}", req.peer_id, req.timestamp);
     verify_signature(&public_key, &req.signature, &message)?;
+    // The request signature only covers peer_id + timestamp, so a captured
+    // request could be replayed with another bundle. The bundle must carry its
+    // own proof of belonging to the registered key.
+    verify_bundle_binding(&req.prekey_bundle, &public_key)?;
 
     let response = db::update_prekeys(&state.db, &req.peer_id, &req.prekey_bundle).await?;
     Ok(Json(response))
@@ -157,6 +168,60 @@ fn check_timestamp(timestamp: i64) -> Result<()> {
 
 /// Verify Ed25519 signature over a canonical message.
 /// Erros de decodificação/verificação retornam 400 (InvalidSignature), não 500.
+/// Check that `peer_id` is the libp2p peer ID of the Ed25519 `public_key`.
+fn verify_peer_id_matches_key(peer_id: &str, public_key: &[u8]) -> Result<()> {
+    let expected = libp2p_identity::ed25519::PublicKey::try_from_bytes(public_key)
+        .map(|key| libp2p_identity::PublicKey::from(key).to_peer_id())
+        .map_err(|_| AppError::InvalidSignature)?;
+    let claimed: libp2p_identity::PeerId = peer_id.parse().map_err(|_| AppError::PeerIdMismatch)?;
+    if claimed != expected {
+        return Err(AppError::PeerIdMismatch);
+    }
+    Ok(())
+}
+
+/// Check that the bundle belongs to `public_key`: same Ed25519 identity key,
+/// and the Signal identity key signed by it (clients enforce the same rule and
+/// refuse bundles without it, so the server must not publish one).
+fn verify_bundle_binding(bundle: &crate::models::PreKeyBundle, public_key: &[u8]) -> Result<()> {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+    let decode = |value: &str| general_purpose::STANDARD.decode(value);
+    let identity_key = decode(&bundle.identity_key)
+        .map_err(|_| AppError::InvalidPrekeyBundle("identity_key is not base64"))?;
+    if identity_key != public_key {
+        return Err(AppError::InvalidPrekeyBundle(
+            "identity_key differs from the registered public key",
+        ));
+    }
+    let signal_identity_key = bundle
+        .signal_identity_key
+        .as_deref()
+        .and_then(|value| decode(value).ok())
+        .ok_or(AppError::InvalidPrekeyBundle("missing signal_identity_key"))?;
+    let signature: [u8; 64] = bundle
+        .signal_identity_signature
+        .as_deref()
+        .and_then(|value| decode(value).ok())
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or(AppError::InvalidPrekeyBundle(
+            "missing signal_identity_signature",
+        ))?;
+
+    let mut message = b"zaplivre-signal-identity-binding-v1\0".to_vec();
+    message.extend_from_slice(&signal_identity_key);
+
+    let key_bytes: [u8; 32] = public_key
+        .try_into()
+        .map_err(|_| AppError::InvalidSignature)?;
+    VerifyingKey::from_bytes(&key_bytes)
+        .map_err(|_| AppError::InvalidSignature)?
+        .verify(&message, &Signature::from_bytes(&signature))
+        .map_err(|_| {
+            AppError::InvalidPrekeyBundle("signal identity key is not signed by the identity key")
+        })
+}
+
 fn verify_signature(public_key: &[u8], signature_b64: &str, message: &str) -> Result<()> {
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
@@ -199,4 +264,73 @@ async fn check_redis_health(redis: &redis::aio::ConnectionManager) -> Result<f64
 
     let latency = start.elapsed().as_secs_f64() * 1000.0; // Convert to ms
     Ok(latency)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keypair(seed: u8) -> (Vec<u8>, String) {
+        let public = ed25519_dalek::SigningKey::from_bytes(&[seed; 32])
+            .verifying_key()
+            .to_bytes();
+        let peer_id = libp2p_identity::PublicKey::from(
+            libp2p_identity::ed25519::PublicKey::try_from_bytes(&public).unwrap(),
+        )
+        .to_peer_id();
+        (public.to_vec(), peer_id.to_string())
+    }
+
+    fn bundle(seed: u8, signal_identity: &[u8], signed_by: u8) -> crate::models::PreKeyBundle {
+        use ed25519_dalek::Signer;
+        let mut message = b"zaplivre-signal-identity-binding-v1\0".to_vec();
+        message.extend_from_slice(signal_identity);
+        let signature = ed25519_dalek::SigningKey::from_bytes(&[signed_by; 32]).sign(&message);
+        let b64 = |bytes: &[u8]| general_purpose::STANDARD.encode(bytes);
+        crate::models::PreKeyBundle {
+            identity_key: b64(&keypair(seed).0),
+            signal_identity_key: Some(b64(signal_identity)),
+            signal_identity_signature: Some(b64(&signature.to_bytes())),
+            signal_registration_id: Some(1),
+            signal_device_id: Some(1),
+            signed_prekey_id: 1,
+            signed_prekey: b64(&[1; 33]),
+            signed_prekey_signature: b64(&[2; 64]),
+            kyber_prekey_id: 1,
+            kyber_prekey: b64(&[3; 32]),
+            kyber_prekey_signature: b64(&[4; 64]),
+            one_time_prekey: None,
+        }
+    }
+
+    #[test]
+    fn bundle_must_be_bound_to_the_registered_key() {
+        let (alice_key, _) = keypair(1);
+
+        assert!(verify_bundle_binding(&bundle(1, b"alice-signal", 1), &alice_key).is_ok());
+        // Signal identity vouched for by someone else's key.
+        assert!(verify_bundle_binding(&bundle(1, b"mallory-signal", 2), &alice_key).is_err());
+        // Bundle of another identity altogether.
+        assert!(verify_bundle_binding(&bundle(2, b"mallory-signal", 2), &alice_key).is_err());
+        let mut unsigned = bundle(1, b"alice-signal", 1);
+        unsigned.signal_identity_signature = None;
+        assert!(verify_bundle_binding(&unsigned, &alice_key).is_err());
+    }
+
+    #[test]
+    fn peer_id_must_be_derived_from_the_registering_key() {
+        let (alice_key, alice_peer) = keypair(1);
+        let (mallory_key, _) = keypair(2);
+
+        assert!(verify_peer_id_matches_key(&alice_peer, &alice_key).is_ok());
+        // Squatting: Mallory's key claiming Alice's peer ID.
+        assert!(matches!(
+            verify_peer_id_matches_key(&alice_peer, &mallory_key),
+            Err(AppError::PeerIdMismatch)
+        ));
+        assert!(matches!(
+            verify_peer_id_matches_key("12D3KooWnotapeer", &alice_key),
+            Err(AppError::PeerIdMismatch)
+        ));
+    }
 }

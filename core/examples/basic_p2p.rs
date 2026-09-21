@@ -12,7 +12,6 @@ use libp2p::identity::Keypair;
 use std::error::Error;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, Level};
-use tracing_subscriber;
 use zaplivre_core::network::NetworkManager;
 
 #[tokio::main]
@@ -29,8 +28,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut peer1 = NetworkManager::new(keypair1)?;
     let mut peer2 = NetworkManager::new(keypair2)?;
 
-    let peer1_id = peer1.local_peer_id().clone();
-    let peer2_id = peer2.local_peer_id().clone();
+    let peer1_id = *peer1.local_peer_id();
+    let peer2_id = *peer2.local_peer_id();
 
     info!("👤 Peer 1 ID: {}", peer1_id);
     info!("👤 Peer 2 ID: {}", peer2_id);
@@ -47,11 +46,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("👂 Peer 2 listening on {}", addr2);
 
     // Add peer2 to peer1's DHT
-    peer1.add_peer_to_dht(peer2_id.clone(), addr2.clone());
+    peer1.add_peer_to_dht(peer2_id, addr2.clone());
     info!("📋 Added Peer 2 to Peer 1's DHT");
 
     // Have peer1 dial peer2
-    peer1.dial(peer2_id.clone(), addr2)?;
+    peer1.dial(peer2_id, addr2)?;
     info!("📞 Peer 1 dialing Peer 2...");
 
     // Give time for connection to establish

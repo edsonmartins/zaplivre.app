@@ -140,6 +140,11 @@ impl SignalSessionManager {
                     "Missing prekey bundle for Signal session".to_string(),
                 ));
             };
+            // Every bundle source (identity server, QR code, P2P sync) ends up
+            // here, so this is where it must prove it belongs to the peer we
+            // are about to talk to. Mandatory: an optional proof could simply
+            // be left out by whoever is tampering with the bundle.
+            bundle.verify_belongs_to(peer_id)?;
             let signal_bundle = to_signal_bundle(bundle)?;
             let mut session_store = self.store.handle();
             let mut identity_store = self.store.handle();
@@ -297,6 +302,27 @@ impl SignalStoreInner {
         }
     }
 
+    /// Persiste o pool de prekeys (cifrado) após qualquer mutação. Sem isto,
+    /// uma prekey consumida reaparecia no restart e era reutilizada.
+    async fn persist_prekey_pool(&self) {
+        let persistence = self.persistence.read().await;
+        let Some((db, storage_key)) = persistence.as_ref() else {
+            return;
+        };
+
+        let snapshot = self.identity.read().await.snapshot_prekey_pool();
+        let Some(snapshot) = snapshot else {
+            return;
+        };
+        let result = snapshot
+            .and_then(|bytes| crate::crypto::storage::encrypt_for_storage(storage_key, &bytes))
+            .and_then(|blob| db.save_prekey_pool(&blob));
+
+        if let Err(e) = result {
+            tracing::warn!("Failed to persist prekey pool: {}", e);
+        }
+    }
+
     /// Persiste uma identidade TOFU (chave pública)
     async fn persist_identity(&self, address: &str, identity: &IdentityKey) {
         let persistence = self.persistence.read().await;
@@ -409,6 +435,8 @@ impl PreKeyStore for SignalStoreHandle {
         };
         let id: u32 = prekey_id.into();
         pool.store_prekey_record(id, record.clone());
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 
@@ -422,6 +450,8 @@ impl PreKeyStore for SignalStoreHandle {
         };
         let id: u32 = prekey_id.into();
         pool.remove_prekey(id);
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 }
@@ -463,6 +493,8 @@ impl SignedPreKeyStore for SignalStoreHandle {
         };
         let id: u32 = signed_prekey_id.into();
         pool.store_signed_prekey_record(id, record.clone());
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 }
@@ -504,6 +536,8 @@ impl KyberPreKeyStore for SignalStoreHandle {
         };
         let id: u32 = kyber_prekey_id.into();
         pool.store_kyber_prekey_record(id, record.clone());
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 
@@ -604,4 +638,97 @@ fn to_device_id(device_id: u32) -> Result<DeviceId> {
 
 fn signal_error<E: std::fmt::Display>(err: E) -> ZapLivreError {
     ZapLivreError::Crypto(format!("Signal error: {}", err))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn party() -> (SignalSessionManager, Arc<RwLock<Identity>>, String) {
+        let mut identity = Identity::generate(1);
+        identity.init_prekey_pool(1);
+        let peer_id = identity.keypair().libp2p_peer_id().expect("peer id");
+        let identity = Arc::new(RwLock::new(identity));
+        let manager = SignalSessionManager::new(Arc::clone(&identity));
+        (manager, identity, peer_id)
+    }
+
+    async fn bundle_of(identity: &Arc<RwLock<Identity>>) -> CorePreKeyBundle {
+        identity
+            .read()
+            .await
+            .prekey_pool()
+            .expect("pool")
+            .get_bundle()
+            .expect("bundle")
+    }
+
+    /// P0-E: quem serve o bundle (identity server, QR adulterado) não pode
+    /// trocar a identidade Signal de um contato pela sua.
+    #[tokio::test]
+    async fn bundle_that_does_not_chain_to_the_peer_id_is_refused() {
+        let (alice, _alice_identity, _alice_id) = party().await;
+        let (_bob, bob_identity, bob_id) = party().await;
+        let (_mallory, mallory_identity, _mallory_id) = party().await;
+        let bob_bundle = bundle_of(&bob_identity).await;
+        let mallory_bundle = bundle_of(&mallory_identity).await;
+
+        // Mallory's whole bundle served as if it were Bob's.
+        let err = alice
+            .encrypt_for(&bob_id, 1, Some(&mallory_bundle), b"oi")
+            .await
+            .expect_err("foreign bundle must be refused");
+        assert!(
+            err.to_string().contains("does not match the peer ID"),
+            "{err}"
+        );
+
+        // Bob's Ed25519 key kept, Signal identity and prekeys swapped.
+        let mut swapped = mallory_bundle.clone();
+        swapped.identity_key = bob_bundle.identity_key;
+        let err = alice
+            .encrypt_for(&bob_id, 1, Some(&swapped), b"oi")
+            .await
+            .expect_err("swapped Signal identity must be refused");
+        assert!(err.to_string().contains("not signed by the peer"), "{err}");
+
+        // The proof is mandatory, not best-effort.
+        let mut unsigned = bob_bundle.clone();
+        unsigned.signal_identity_signature = None;
+        assert!(alice
+            .encrypt_for(&bob_id, 1, Some(&unsigned), b"oi")
+            .await
+            .is_err());
+
+        assert!(!alice.has_session(&bob_id, 1).await.unwrap());
+        alice
+            .encrypt_for(&bob_id, 1, Some(&bob_bundle), b"oi")
+            .await
+            .expect("genuine bundle is accepted");
+    }
+
+    /// P0-J: o bundle é estático e o mesmo para todos os iniciadores. Dois
+    /// contatos que partem do MESMO bundle precisam conseguir abrir sessão.
+    #[tokio::test]
+    async fn two_initiators_can_use_the_same_published_bundle() {
+        let (bob, bob_identity, bob_id) = party().await;
+        let bundle = bundle_of(&bob_identity).await;
+        assert!(
+            bundle.one_time_prekey.is_none(),
+            "a shared static bundle must not carry a single-use key"
+        );
+
+        for text in ["oi, aqui é a Alice", "oi, aqui é a Carol"] {
+            let (initiator, _identity, initiator_id) = party().await;
+            let encrypted = initiator
+                .encrypt_for(&bob_id, 1, Some(&bundle), text.as_bytes())
+                .await
+                .expect("encrypt first message");
+            let plaintext = bob
+                .decrypt_from(&initiator_id, 1, &encrypted)
+                .await
+                .expect("every initiator's first message must decrypt");
+            assert_eq!(plaintext, text.as_bytes());
+        }
+    }
 }

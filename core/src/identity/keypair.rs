@@ -163,6 +163,16 @@ impl Keypair {
     pub fn peer_id(&self) -> String {
         self.public_key().peer_id()
     }
+
+    /// The libp2p peer ID of this key: the network-wide identifier, and the
+    /// only `peer_id` the identity server accepts for this key.
+    pub fn libp2p_peer_id(&self) -> Result<String> {
+        let public = libp2p::identity::ed25519::PublicKey::try_from_bytes(&self.public_key_bytes())
+            .map_err(|e| ZapLivreError::Identity(format!("Invalid Ed25519 public key: {}", e)))?;
+        Ok(libp2p::identity::PublicKey::from(public)
+            .to_peer_id()
+            .to_string())
+    }
 }
 
 impl fmt::Debug for Keypair {

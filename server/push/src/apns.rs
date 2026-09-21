@@ -345,6 +345,7 @@ mod tests {
                 },
                 sound: "default".to_string(),
                 mutable_content: 1,
+                content_available: 1,
                 badge: Some(5),
             },
             custom,

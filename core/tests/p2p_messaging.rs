@@ -23,8 +23,8 @@ async fn test_p2p_message_exchange() {
     let mut peer1 = NetworkManager::new(keypair1).expect("Failed to create peer1");
     let mut peer2 = NetworkManager::new(keypair2).expect("Failed to create peer2");
 
-    let peer1_id = peer1.local_peer_id().clone();
-    let peer2_id = peer2.local_peer_id().clone();
+    let peer1_id = *peer1.local_peer_id();
+    let peer2_id = *peer2.local_peer_id();
 
     println!("👤 Peer 1 ID: {}", peer1_id);
     println!("👤 Peer 2 ID: {}", peer2_id);
@@ -40,8 +40,8 @@ async fn test_p2p_message_exchange() {
     println!("👂 Peer 2 listening on {}", addr2);
 
     // Add peer2 to peer1's DHT and dial
-    peer1.add_peer_to_dht(peer2_id.clone(), addr2.clone());
-    peer1.dial(peer2_id.clone(), addr2).expect("Failed to dial");
+    peer1.add_peer_to_dht(peer2_id, addr2.clone());
+    peer1.dial(peer2_id, addr2).expect("Failed to dial");
 
     println!("📞 Peer 1 dialing Peer 2...");
 
@@ -70,7 +70,7 @@ async fn test_p2p_message_exchange() {
 
     // Send message from peer1 to peer2
     peer1
-        .send_message(peer2_id.clone(), message.clone())
+        .send_message(peer2_id, message.clone())
         .expect("Failed to send message");
 
     println!("✅ Message sent successfully!");

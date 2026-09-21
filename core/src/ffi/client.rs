@@ -434,637 +434,730 @@ async fn run_client_task(receiver: mpsc::UnboundedReceiver<ClientCommand>, clien
     run_client_task_arc(receiver, std::sync::Arc::new(client)).await
 }
 
+/// How a command is scheduled by the client task.
+enum Lane {
+    /// Local and latency-sensitive work (DB reads, call control, media
+    /// frames): handled at once, never queued behind the network.
+    Immediate,
+    /// Work that encrypts or sends. It stays strictly ordered: two concurrent
+    /// encryptions for the same peer would fork the Signal ratchet, and the
+    /// user expects messages to leave in the order they were typed.
+    Ordered,
+    /// Long transfers with no ordering requirement.
+    Background,
+}
+
+fn lane(cmd: &ClientCommand) -> Lane {
+    match cmd {
+        ClientCommand::RegisterUsername { .. }
+        | ClientCommand::LookupUsername { .. }
+        | ClientCommand::ContactTransparencyProof { .. }
+        | ClientCommand::ConnectToPeer { .. }
+        | ClientCommand::Bootstrap { .. }
+        | ClientCommand::SendTextMessage { .. }
+        | ClientCommand::SendImageMessage { .. }
+        | ClientCommand::SendVoiceMessage { .. }
+        | ClientCommand::SendDocumentMessage { .. }
+        | ClientCommand::SendVideoMessage { .. }
+        | ClientCommand::ForwardMessage { .. }
+        | ClientCommand::AddReaction { .. }
+        | ClientCommand::RemoveReaction { .. }
+        | ClientCommand::CreateGroup { .. }
+        | ClientCommand::JoinGroup { .. }
+        | ClientCommand::LeaveGroup { .. }
+        | ClientCommand::AddGroupMember { .. }
+        | ClientCommand::RemoveGroupMember { .. }
+        | ClientCommand::UpdateGroup { .. }
+        | ClientCommand::AddGroupSenderKey { .. }
+        | ClientCommand::SendGroupMessage { .. } => Lane::Ordered,
+        ClientCommand::DownloadMedia { .. } => Lane::Background,
+        _ => Lane::Immediate,
+    }
+}
+
 /// Run the client task with Arc<Client> (processes commands)
+///
+/// Commands used to run one at a time: a send to an offline peer (seconds) or
+/// a media download (tens of seconds) blocked `list_conversations` and the
+/// audio frames of an ongoing call behind it.
 async fn run_client_task_arc(
     mut receiver: mpsc::UnboundedReceiver<ClientCommand>,
     client: std::sync::Arc<Client>,
 ) {
+    let (ordered_tx, mut ordered_rx) = mpsc::unbounded_channel::<ClientCommand>();
+    let ordered_client = std::sync::Arc::clone(&client);
+    tokio::task::spawn_local(async move {
+        while let Some(cmd) = ordered_rx.recv().await {
+            handle_command(&ordered_client, cmd).await;
+        }
+    });
+
     while let Some(cmd) = receiver.recv().await {
-        match cmd {
-            ClientCommand::LocalPeerId { response } => {
-                let _ = response.send(client.local_peer_id().to_string());
+        match lane(&cmd) {
+            Lane::Immediate => handle_command(&client, cmd).await,
+            Lane::Ordered => {
+                // The worker only stops when this loop does.
+                let _ = ordered_tx.send(cmd);
             }
-            ClientCommand::SignAuthRequest {
-                method,
-                path,
-                timestamp,
-                body,
-                response,
-            } => {
-                let result = client
-                    .sign_auth_request(&method, &path, timestamp, &body)
-                    .await
-                    .map_err(Into::into);
-                let _ = response.send(result);
+            Lane::Background => {
+                let client = std::sync::Arc::clone(&client);
+                tokio::task::spawn_local(async move {
+                    handle_command(&client, cmd).await;
+                });
             }
-            ClientCommand::RegisterUsername { username, response } => {
-                let result = client
-                    .register_username(&username)
-                    .await
-                    .map_err(Into::into);
-                let _ = response.send(result);
-            }
-            ClientCommand::LookupUsername { username, response } => {
-                let result = client.lookup_username(&username).await.map_err(Into::into);
-                let _ = response.send(result);
-            }
-            ClientCommand::GetPrekeyBundleJson { response } => {
-                let result = client.get_prekey_bundle_json().await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::SetContactPrekeyBundle {
-                peer_id,
-                prekey_bundle_json,
-                response,
-            } => {
-                let result = client
-                    .set_contact_prekey_bundle(peer_id, prekey_bundle_json)
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::ListenOn {
-                multiaddr,
-                response,
-            } => {
-                let result = client.listen_on(multiaddr).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::ConnectToPeer {
-                peer_id,
-                multiaddr,
-                response,
-            } => {
-                let result = client
-                    .connect_to_peer(peer_id, multiaddr)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::SendTextMessage {
-                to,
-                content,
-                response,
-            } => {
-                let result = client
-                    .send_text_message(to, content)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetConversationMessages {
-                peer_id,
-                limit,
-                offset,
-                response,
-            } => {
-                let result = client
-                    .get_conversation_messages(&peer_id, limit, offset)
-                    .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetConversationMessagesBefore {
-                peer_id,
-                limit,
-                before_created_at,
-                before_message_id,
-                response,
-            } => {
-                let result = client
-                    .get_conversation_messages_before(
-                        &peer_id,
-                        limit,
-                        before_created_at,
-                        before_message_id.as_deref(),
-                    )
-                    .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::IdentityFingerprint { response } => {
-                let _ = response.send(Ok(client.identity_fingerprint().await));
-            }
-            ClientCommand::ContactIdentityFingerprint { peer_id, response } => {
-                let _ = response.send(client.contact_identity_fingerprint(&peer_id).map_err(Into::into));
-            }
-            ClientCommand::ContactTransparencyProof { peer_id, response } => {
-                let result = client.contact_transparency_proof(&peer_id).await.map_err(Into::into);
-                let _ = response.send(result);
-            }
-            ClientCommand::ListConversations { response } => {
-                let result = client
-                    .list_conversations()
-                    .map(|convs| convs.into_iter().map(FfiConversation::from).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::SearchMessages {
-                query,
-                limit,
-                response,
-            } => {
-                let result = client
-                    .search_messages(&query, limit)
-                    .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::MarkConversationRead { peer_id, response } => {
-                let result = client
-                    .mark_conversation_read(&peer_id)
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::ConnectedPeersCount { response } => {
-                let result = Ok(client.connected_peers_count().await as u32);
-                let _ = response.send(result);
-            }
-            ClientCommand::ListeningAddresses { response } => {
-                let result = Ok(client.listening_addresses().await);
-                let _ = response.send(result);
-            }
-            ClientCommand::Bootstrap { response } => {
-                let result = client.bootstrap().await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::StartCall {
-                to_peer_id,
-                response,
-            } => {
-                let result = client.start_call(to_peer_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::AcceptCall { call_id, response } => {
-                let result = client.accept_call(call_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::RejectCall {
-                call_id,
-                reason,
-                response,
-            } => {
-                let result = client
-                    .reject_call(call_id, reason)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::HangupCall { call_id, response } => {
-                let result = client.hangup_call(call_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::ToggleMute { call_id, response } => {
-                let result = client.toggle_mute(call_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::ToggleSpeakerphone { call_id, response } => {
-                let result = client
-                    .toggle_speakerphone(call_id)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::SendAudioFrame {
-                call_id,
-                audio_data,
-                sample_rate,
-                channels,
-                response,
-            } => {
-                let result = client
-                    .send_audio_frame(call_id, &audio_data, sample_rate, channels)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            // Video command handlers (FASE 14)
-            #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::EnableVideo {
-                call_id,
-                codec,
-                response,
-            } => {
-                let result = client
-                    .enable_video(call_id, codec.into())
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::DisableVideo { call_id, response } => {
-                let result = client.disable_video(call_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::SendVideoFrame {
-                call_id,
-                frame_data,
-                width,
-                height,
-                response,
-            } => {
-                let result = client
-                    .send_video_frame(call_id, &frame_data, width, height)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::SwitchCamera { call_id, response } => {
-                let result = client.switch_camera(call_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            #[cfg(any(feature = "voip", feature = "video"))]
-            ClientCommand::RegisterVideoFrameCallback { callback } => {
-                // Register the callback with VoIPIntegration via Client
-                client.register_video_frame_callback(callback).await;
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::RegisterAudioFrameCallback { callback } => {
-                client.register_audio_frame_callback(callback).await;
-            }
-            ClientCommand::RegisterVoipEventCallback { callback } => {
-                #[cfg(any(feature = "voip", feature = "video"))]
-                {
-                    client.register_voip_event_callback(callback).await;
-                }
+        }
+    }
+}
 
-                #[cfg(not(any(feature = "voip", feature = "video")))]
-                {
-                    let _ = callback;
-                    tracing::warn!("VoIP/video feature disabled; ignoring VoIP event callback");
-                }
-            }
-            ClientCommand::RegisterCallEventCallback { callback } => {
-                #[cfg(any(feature = "voip", feature = "video"))]
-                {
-                    client.register_call_event_callback(callback).await;
-                }
-
-                #[cfg(not(any(feature = "voip", feature = "video")))]
-                {
-                    let _ = callback;
-                    tracing::warn!("VoIP/video feature disabled; ignoring call event callback");
-                }
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::SendWebRtcOffer { call_id, sdp, response } => {
-                let result = client.send_webrtc_offer(call_id, sdp).await.map_err(Into::into);
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::SendWebRtcAnswer { call_id, sdp, response } => {
-                let result = client.send_webrtc_answer(call_id, sdp).await.map_err(Into::into);
-                let _ = response.send(result);
-            }
-            #[cfg(feature = "voip")]
-            ClientCommand::SendWebRtcIceCandidate {
-                call_id,
-                candidate,
-                sdp_mid,
-                sdp_m_line_index,
-                response,
-            } => {
-                let result = client
-                    .send_webrtc_ice_candidate(call_id, candidate, sdp_mid, sdp_m_line_index)
-                    .await
-                    .map_err(Into::into);
-                let _ = response.send(result);
-            }
-            ClientCommand::RegisterWebRtcSignalingCallback { callback } => {
-                #[cfg(any(feature = "voip", feature = "video"))]
-                client.register_webrtc_signaling_callback(callback).await;
-            }
-            ClientCommand::RegisterMessageEventCallback { callback } => {
+/// Execute one command and answer on its response channel.
+async fn handle_command(client: &std::sync::Arc<Client>, cmd: ClientCommand) {
+    match cmd {
+        ClientCommand::LocalPeerId { response } => {
+            let _ = response.send(client.local_peer_id().to_string());
+        }
+        ClientCommand::SignAuthRequest {
+            method,
+            path,
+            timestamp,
+            body,
+            response,
+        } => {
+            let result = client
+                .sign_auth_request(&method, &path, timestamp, &body)
+                .await
+                .map_err(Into::into);
+            let _ = response.send(result);
+        }
+        ClientCommand::RegisterUsername { username, response } => {
+            let result = client
+                .register_username(&username)
+                .await
+                .map_err(Into::into);
+            let _ = response.send(result);
+        }
+        ClientCommand::LookupUsername { username, response } => {
+            let result = client.lookup_username(&username).await.map_err(Into::into);
+            let _ = response.send(result);
+        }
+        ClientCommand::GetPrekeyBundleJson { response } => {
+            let result = client.get_prekey_bundle_json().await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SetContactPrekeyBundle {
+            peer_id,
+            prekey_bundle_json,
+            response,
+        } => {
+            let result = client
+                .set_contact_prekey_bundle(peer_id, prekey_bundle_json)
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::ListenOn {
+            multiaddr,
+            response,
+        } => {
+            let result = client.listen_on(multiaddr).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::ConnectToPeer {
+            peer_id,
+            multiaddr,
+            response,
+        } => {
+            let result = client
+                .connect_to_peer(peer_id, multiaddr)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SendTextMessage {
+            to,
+            content,
+            response,
+        } => {
+            let result = client
+                .send_text_message(to, content)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetConversationMessages {
+            peer_id,
+            limit,
+            offset,
+            response,
+        } => {
+            let result = client
+                .get_conversation_messages(&peer_id, limit, offset)
+                .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetConversationMessagesBefore {
+            peer_id,
+            limit,
+            before_created_at,
+            before_message_id,
+            response,
+        } => {
+            let result = client
+                .get_conversation_messages_before(
+                    &peer_id,
+                    limit,
+                    before_created_at,
+                    before_message_id.as_deref(),
+                )
+                .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::IdentityFingerprint { response } => {
+            let _ = response.send(Ok(client.identity_fingerprint().await));
+        }
+        ClientCommand::ContactIdentityFingerprint { peer_id, response } => {
+            let _ = response.send(
                 client
-                    .register_callback(MessageEventCallbackAdapter { callback })
-                    .await;
-                tracing::info!("📨 Message event callback registered");
+                    .contact_identity_fingerprint(&peer_id)
+                    .map_err(Into::into),
+            );
+        }
+        ClientCommand::ContactTransparencyProof { peer_id, response } => {
+            let result = client
+                .contact_transparency_proof(&peer_id)
+                .await
+                .map_err(Into::into);
+            let _ = response.send(result);
+        }
+        ClientCommand::ListConversations { response } => {
+            let result = client
+                .list_conversations()
+                .map(|convs| convs.into_iter().map(FfiConversation::from).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SearchMessages {
+            query,
+            limit,
+            response,
+        } => {
+            let result = client
+                .search_messages(&query, limit)
+                .map(|messages| messages.into_iter().map(FfiMessage::from).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::MarkConversationRead { peer_id, response } => {
+            let result = client
+                .mark_conversation_read(&peer_id)
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::ConnectedPeersCount { response } => {
+            let result = Ok(client.connected_peers_count().await as u32);
+            let _ = response.send(result);
+        }
+        ClientCommand::ListeningAddresses { response } => {
+            let result = Ok(client.listening_addresses().await);
+            let _ = response.send(result);
+        }
+        ClientCommand::Bootstrap { response } => {
+            let result = client.bootstrap().await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::StartCall {
+            to_peer_id,
+            response,
+        } => {
+            let result = client.start_call(to_peer_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::AcceptCall { call_id, response } => {
+            let result = client.accept_call(call_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::RejectCall {
+            call_id,
+            reason,
+            response,
+        } => {
+            let result = client
+                .reject_call(call_id, reason)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::HangupCall { call_id, response } => {
+            let result = client.hangup_call(call_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::ToggleMute { call_id, response } => {
+            let result = client.toggle_mute(call_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::ToggleSpeakerphone { call_id, response } => {
+            let result = client
+                .toggle_speakerphone(call_id)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::SendAudioFrame {
+            call_id,
+            audio_data,
+            sample_rate,
+            channels,
+            response,
+        } => {
+            let result = client
+                .send_audio_frame(call_id, &audio_data, sample_rate, channels)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        // Video command handlers (FASE 14)
+        #[cfg(any(feature = "voip", feature = "video"))]
+        ClientCommand::EnableVideo {
+            call_id,
+            codec,
+            response,
+        } => {
+            let result = client
+                .enable_video(call_id, codec.into())
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(any(feature = "voip", feature = "video"))]
+        ClientCommand::DisableVideo { call_id, response } => {
+            let result = client.disable_video(call_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(any(feature = "voip", feature = "video"))]
+        ClientCommand::SendVideoFrame {
+            call_id,
+            frame_data,
+            width,
+            height,
+            response,
+        } => {
+            let result = client
+                .send_video_frame(call_id, &frame_data, width, height)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(any(feature = "voip", feature = "video"))]
+        ClientCommand::SwitchCamera { call_id, response } => {
+            let result = client.switch_camera(call_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        #[cfg(any(feature = "voip", feature = "video"))]
+        ClientCommand::RegisterVideoFrameCallback { callback } => {
+            // Register the callback with VoIPIntegration via Client
+            client.register_video_frame_callback(callback).await;
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::RegisterAudioFrameCallback { callback } => {
+            client.register_audio_frame_callback(callback).await;
+        }
+        ClientCommand::RegisterVoipEventCallback { callback } => {
+            #[cfg(any(feature = "voip", feature = "video"))]
+            {
+                client.register_voip_event_callback(callback).await;
             }
-            // Group command handlers (FASE 15)
-            ClientCommand::CreateGroup {
-                name,
-                description,
-                response,
-            } => {
-                let result = client
-                    .create_group(name, description)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::JoinGroup {
-                group_id,
-                group_name,
-                response,
-            } => {
-                let result = client
-                    .join_group(group_id, group_name)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::LeaveGroup { group_id, response } => {
-                let result = client.leave_group(group_id).await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::AddGroupMember {
-                group_id,
-                peer_id,
-                response,
-            } => {
-                let result = client
-                    .add_group_member(group_id, peer_id)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::RemoveGroupMember {
-                group_id,
-                peer_id,
-                response,
-            } => {
-                let result = client
-                    .remove_group_member(group_id, peer_id)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetGroups { response } => {
-                let result = client.get_groups().await.map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetGroupMembers { group_id, response } => {
-                let result = client
-                    .get_group_members(group_id)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::UpdateGroup {
-                group_id,
-                name,
-                description,
-                response,
-            } => {
-                let result = client
-                    .update_group(group_id, name, description)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetGroupMessages {
-                group_id,
-                limit,
-                offset,
-                response,
-            } => {
-                let result = client
-                    .get_group_messages(group_id, limit, offset)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::SendGroupMessage {
-                group_id,
-                content,
-                response,
-            } => {
-                let result = client
-                    .send_group_message(group_id, content)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetGroupSenderKeySeed { group_id, response } => {
-                let result = client
-                    .get_group_sender_key_seed(group_id)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::AddGroupSenderKey {
-                group_id,
-                sender_peer_id,
-                sender_key_seed,
-                response,
-            } => {
-                let result = client
-                    .add_group_sender_key(group_id, sender_peer_id, sender_key_seed)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            // Media command handlers (FASE 16)
-            ClientCommand::SendImageMessage {
-                to_peer_id,
-                image_data,
-                file_name,
-                quality,
-                response,
-            } => {
-                let to: libp2p::PeerId = match to_peer_id.parse() {
-                    Ok(peer_id) => peer_id,
-                    Err(_) => {
-                        let _ = response.send(Err(ZapLivreFfiError::Network {
-                            details: "Invalid peer ID".to_string(),
-                        }));
-                        continue;
-                    }
-                };
 
-                let result = client
-                    .send_image_message(to, &image_data, file_name, quality)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
+            #[cfg(not(any(feature = "voip", feature = "video")))]
+            {
+                let _ = callback;
+                tracing::warn!("VoIP/video feature disabled; ignoring VoIP event callback");
             }
-            ClientCommand::SendVoiceMessage {
-                to_peer_id,
-                audio_data,
-                file_name,
-                duration_seconds,
-                response,
-            } => {
-                let to: libp2p::PeerId = match to_peer_id.parse() {
-                    Ok(peer_id) => peer_id,
-                    Err(_) => {
-                        let _ = response.send(Err(ZapLivreFfiError::Network {
-                            details: "Invalid peer ID".to_string(),
-                        }));
-                        continue;
-                    }
-                };
+        }
+        ClientCommand::RegisterCallEventCallback { callback } => {
+            #[cfg(any(feature = "voip", feature = "video"))]
+            {
+                client.register_call_event_callback(callback).await;
+            }
 
-                let result = client
-                    .send_voice_message(to, &audio_data, file_name, duration_seconds)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
+            #[cfg(not(any(feature = "voip", feature = "video")))]
+            {
+                let _ = callback;
+                tracing::warn!("VoIP/video feature disabled; ignoring call event callback");
             }
-            ClientCommand::SendDocumentMessage {
-                to_peer_id,
-                file_data,
-                file_name,
-                mime_type,
-                response,
-            } => {
-                let to: libp2p::PeerId = match to_peer_id.parse() {
-                    Ok(peer_id) => peer_id,
-                    Err(_) => {
-                        let _ = response.send(Err(ZapLivreFfiError::Network {
-                            details: "Invalid peer ID".to_string(),
-                        }));
-                        continue;
-                    }
-                };
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::SendWebRtcOffer {
+            call_id,
+            sdp,
+            response,
+        } => {
+            let result = client
+                .send_webrtc_offer(call_id, sdp)
+                .await
+                .map_err(Into::into);
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::SendWebRtcAnswer {
+            call_id,
+            sdp,
+            response,
+        } => {
+            let result = client
+                .send_webrtc_answer(call_id, sdp)
+                .await
+                .map_err(Into::into);
+            let _ = response.send(result);
+        }
+        #[cfg(feature = "voip")]
+        ClientCommand::SendWebRtcIceCandidate {
+            call_id,
+            candidate,
+            sdp_mid,
+            sdp_m_line_index,
+            response,
+        } => {
+            let result = client
+                .send_webrtc_ice_candidate(call_id, candidate, sdp_mid, sdp_m_line_index)
+                .await
+                .map_err(Into::into);
+            let _ = response.send(result);
+        }
+        ClientCommand::RegisterWebRtcSignalingCallback { callback } => {
+            #[cfg(any(feature = "voip", feature = "video"))]
+            client.register_webrtc_signaling_callback(callback).await;
+            #[cfg(not(any(feature = "voip", feature = "video")))]
+            drop(callback);
+        }
+        ClientCommand::RegisterMessageEventCallback { callback } => {
+            client
+                .register_callback(MessageEventCallbackAdapter { callback })
+                .await;
+            tracing::info!("📨 Message event callback registered");
+        }
+        // Group command handlers (FASE 15)
+        ClientCommand::CreateGroup {
+            name,
+            description,
+            response,
+        } => {
+            let result = client
+                .create_group(name, description)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::JoinGroup {
+            group_id,
+            group_name,
+            response,
+        } => {
+            let result = client
+                .join_group(group_id, group_name)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::LeaveGroup { group_id, response } => {
+            let result = client.leave_group(group_id).await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::AddGroupMember {
+            group_id,
+            peer_id,
+            response,
+        } => {
+            let result = client
+                .add_group_member(group_id, peer_id)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::RemoveGroupMember {
+            group_id,
+            peer_id,
+            response,
+        } => {
+            let result = client
+                .remove_group_member(group_id, peer_id)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetGroups { response } => {
+            let result = client.get_groups().await.map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetGroupMembers { group_id, response } => {
+            let result = client
+                .get_group_members(group_id)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::UpdateGroup {
+            group_id,
+            name,
+            description,
+            response,
+        } => {
+            let result = client
+                .update_group(group_id, name, description)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetGroupMessages {
+            group_id,
+            limit,
+            offset,
+            response,
+        } => {
+            let result = client
+                .get_group_messages(group_id, limit, offset)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SendGroupMessage {
+            group_id,
+            content,
+            response,
+        } => {
+            let result = client
+                .send_group_message(group_id, content)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetGroupSenderKeySeed { group_id, response } => {
+            let result = client
+                .get_group_sender_key_seed(group_id)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::AddGroupSenderKey {
+            group_id,
+            sender_peer_id,
+            sender_key_seed,
+            response,
+        } => {
+            let result = client
+                .add_group_sender_key(group_id, sender_peer_id, sender_key_seed)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        // Media command handlers (FASE 16)
+        ClientCommand::SendImageMessage {
+            to_peer_id,
+            image_data,
+            file_name,
+            quality,
+            response,
+        } => {
+            let to: libp2p::PeerId = match to_peer_id.parse() {
+                Ok(peer_id) => peer_id,
+                Err(_) => {
+                    let _ = response.send(Err(ZapLivreFfiError::Network {
+                        details: "Invalid peer ID".to_string(),
+                    }));
+                    return;
+                }
+            };
 
-                let result = client
-                    .send_document_message(to, &file_data, file_name, mime_type)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::SendVideoMessage {
-                to_peer_id,
-                video_data,
-                file_name,
-                width,
-                height,
-                duration_seconds,
-                thumbnail_data,
-                response,
-            } => {
-                let to: libp2p::PeerId = match to_peer_id.parse() {
-                    Ok(peer_id) => peer_id,
-                    Err(_) => {
-                        let _ = response.send(Err(ZapLivreFfiError::Network {
-                            details: "Invalid peer ID".to_string(),
-                        }));
-                        continue;
-                    }
-                };
+            let result = client
+                .send_image_message(to, &image_data, file_name, quality)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SendVoiceMessage {
+            to_peer_id,
+            audio_data,
+            file_name,
+            duration_seconds,
+            response,
+        } => {
+            let to: libp2p::PeerId = match to_peer_id.parse() {
+                Ok(peer_id) => peer_id,
+                Err(_) => {
+                    let _ = response.send(Err(ZapLivreFfiError::Network {
+                        details: "Invalid peer ID".to_string(),
+                    }));
+                    return;
+                }
+            };
 
-                let result = client
-                    .send_video_message(
-                        to,
-                        &video_data,
-                        file_name,
-                        width,
-                        height,
-                        duration_seconds,
-                        thumbnail_data.as_deref(),
-                    )
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::DownloadMedia {
-                media_hash,
-                response,
-            } => {
-                let result = client
-                    .download_media(&media_hash)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetConversationMedia {
-                conversation_id,
-                media_type,
-                limit,
-                response,
-            } => {
-                let internal_media_type = media_type.map(|mt| mt.into());
-                let result = client
-                    .get_conversation_media(
-                        &conversation_id,
-                        internal_media_type,
-                        limit.map(|l| l as usize),
-                    )
-                    .map(|media_vec| media_vec.into_iter().map(|m| m.into()).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            // Message action handlers (FASE 16 - Forward & Delete)
-            ClientCommand::GetMessageMedia {
-                message_id,
-                response,
-            } => {
-                let result = client
-                    .get_message_media(&message_id)
-                    .map(|media_vec| media_vec.into_iter().map(|m| m.into()).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::DeleteMessage {
-                message_id,
-                response,
-            } => {
-                let result = client.delete_message(&message_id).map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::ForwardMessage {
-                message_id,
-                to_peer_id,
-                response,
-            } => {
-                let to: libp2p::PeerId = match to_peer_id.parse() {
-                    Ok(peer_id) => peer_id,
-                    Err(_) => {
-                        let _ = response.send(Err(ZapLivreFfiError::Network {
-                            details: "Invalid peer ID".to_string(),
-                        }));
-                        continue;
-                    }
-                };
+            let result = client
+                .send_voice_message(to, &audio_data, file_name, duration_seconds)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SendDocumentMessage {
+            to_peer_id,
+            file_data,
+            file_name,
+            mime_type,
+            response,
+        } => {
+            let to: libp2p::PeerId = match to_peer_id.parse() {
+                Ok(peer_id) => peer_id,
+                Err(_) => {
+                    let _ = response.send(Err(ZapLivreFfiError::Network {
+                        details: "Invalid peer ID".to_string(),
+                    }));
+                    return;
+                }
+            };
 
-                let result = client
-                    .forward_message(&message_id, to)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            // Reaction handlers (FASE 16 - TRACK 8)
-            ClientCommand::AddReaction {
-                message_id,
-                emoji,
-                response,
-            } => {
-                let result = client
-                    .add_reaction(&message_id, &emoji)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::RemoveReaction {
-                message_id,
-                emoji,
-                response,
-            } => {
-                let result = client
-                    .remove_reaction(&message_id, &emoji)
-                    .await
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
-            ClientCommand::GetMessageReactions {
-                message_id,
-                response,
-            } => {
-                let result = client
-                    .get_message_reactions(&message_id)
-                    .map(|reactions| reactions.into_iter().map(|r| r.into()).collect())
-                    .map_err(|e| e.into());
-                let _ = response.send(result);
-            }
+            let result = client
+                .send_document_message(to, &file_data, file_name, mime_type)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::SendVideoMessage {
+            to_peer_id,
+            video_data,
+            file_name,
+            width,
+            height,
+            duration_seconds,
+            thumbnail_data,
+            response,
+        } => {
+            let to: libp2p::PeerId = match to_peer_id.parse() {
+                Ok(peer_id) => peer_id,
+                Err(_) => {
+                    let _ = response.send(Err(ZapLivreFfiError::Network {
+                        details: "Invalid peer ID".to_string(),
+                    }));
+                    return;
+                }
+            };
+
+            let result = client
+                .send_video_message(
+                    to,
+                    &video_data,
+                    file_name,
+                    width,
+                    height,
+                    duration_seconds,
+                    thumbnail_data.as_deref(),
+                )
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::DownloadMedia {
+            media_hash,
+            response,
+        } => {
+            let result = client
+                .download_media(&media_hash)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetConversationMedia {
+            conversation_id,
+            media_type,
+            limit,
+            response,
+        } => {
+            let internal_media_type = media_type.map(|mt| mt.into());
+            let result = client
+                .get_conversation_media(
+                    &conversation_id,
+                    internal_media_type,
+                    limit.map(|l| l as usize),
+                )
+                .map(|media_vec| media_vec.into_iter().map(|m| m.into()).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        // Message action handlers (FASE 16 - Forward & Delete)
+        ClientCommand::GetMessageMedia {
+            message_id,
+            response,
+        } => {
+            let result = client
+                .get_message_media(&message_id)
+                .map(|media_vec| media_vec.into_iter().map(|m| m.into()).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::DeleteMessage {
+            message_id,
+            response,
+        } => {
+            let result = client.delete_message(&message_id).map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::ForwardMessage {
+            message_id,
+            to_peer_id,
+            response,
+        } => {
+            let to: libp2p::PeerId = match to_peer_id.parse() {
+                Ok(peer_id) => peer_id,
+                Err(_) => {
+                    let _ = response.send(Err(ZapLivreFfiError::Network {
+                        details: "Invalid peer ID".to_string(),
+                    }));
+                    return;
+                }
+            };
+
+            let result = client
+                .forward_message(&message_id, to)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        // Reaction handlers (FASE 16 - TRACK 8)
+        ClientCommand::AddReaction {
+            message_id,
+            emoji,
+            response,
+        } => {
+            let result = client
+                .add_reaction(&message_id, &emoji)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::RemoveReaction {
+            message_id,
+            emoji,
+            response,
+        } => {
+            let result = client
+                .remove_reaction(&message_id, &emoji)
+                .await
+                .map_err(|e| e.into());
+            let _ = response.send(result);
+        }
+        ClientCommand::GetMessageReactions {
+            message_id,
+            response,
+        } => {
+            let result = client
+                .get_message_reactions(&message_id)
+                .map(|reactions| reactions.into_iter().map(|r| r.into()).collect())
+                .map_err(|e| e.into());
+            let _ = response.send(result);
         }
     }
 }
@@ -1273,25 +1366,50 @@ impl ZapLivreClient {
 
     pub fn identity_fingerprint(&self) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::IdentityFingerprint { response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        self.handle()
+            .sender
+            .send(ClientCommand::IdentityFingerprint { response: tx })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".into(),
+            })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".into(),
+        })?
     }
 
-    pub fn contact_identity_fingerprint(&self, peer_id: String) -> Result<String, ZapLivreFfiError> {
+    pub fn contact_identity_fingerprint(
+        &self,
+        peer_id: String,
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::ContactIdentityFingerprint { peer_id, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        self.handle()
+            .sender
+            .send(ClientCommand::ContactIdentityFingerprint {
+                peer_id,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".into(),
+            })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".into(),
+        })?
     }
 
     pub fn contact_transparency_proof(&self, peer_id: String) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
-            .send(ClientCommand::ContactTransparencyProof { peer_id, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Client command channel closed".to_string() })?;
-        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Client response channel closed".to_string() })?
+            .send(ClientCommand::ContactTransparencyProof {
+                peer_id,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Client command channel closed".to_string(),
+            })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Client response channel closed".to_string(),
+        })?
     }
 
     /// Sign a backend HTTP request without exposing the private identity key.
@@ -1505,15 +1623,18 @@ impl ZapLivreClient {
         before_message_id: Option<String>,
     ) -> Result<Vec<FfiMessage>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::GetConversationMessagesBefore {
-            peer_id,
-            limit: limit.map(|l| l as usize),
-            before_created_at,
-            before_message_id,
-            response: tx,
-        }).map_err(|_| ZapLivreFfiError::Other {
-            details: "Failed to send command".to_string(),
-        })?;
+        self.handle()
+            .sender
+            .send(ClientCommand::GetConversationMessagesBefore {
+                peer_id,
+                limit: limit.map(|l| l as usize),
+                before_created_at,
+                before_message_id,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
         execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
@@ -1999,16 +2120,26 @@ impl ZapLivreClient {
         let (tx, rx) = oneshot::channel();
         #[cfg(feature = "voip")]
         {
-        self.handle()
-            .sender
-            .send(ClientCommand::SendWebRtcOffer { call_id, sdp, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+            self.handle()
+                .sender
+                .send(ClientCommand::SendWebRtcOffer {
+                    call_id,
+                    sdp,
+                    response: tx,
+                })
+                .map_err(|_| ZapLivreFfiError::Other {
+                    details: "Failed to send command".into(),
+                })?;
+            return rx.await.map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to receive response".into(),
+            })?;
         }
         #[cfg(not(feature = "voip"))]
         {
             let _ = (call_id, sdp);
-            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+            Err(ZapLivreFfiError::Other {
+                details: "VoIP feature disabled".into(),
+            })
         }
     }
 
@@ -2021,16 +2152,26 @@ impl ZapLivreClient {
         let (tx, rx) = oneshot::channel();
         #[cfg(feature = "voip")]
         {
-        self.handle()
-            .sender
-            .send(ClientCommand::SendWebRtcAnswer { call_id, sdp, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+            self.handle()
+                .sender
+                .send(ClientCommand::SendWebRtcAnswer {
+                    call_id,
+                    sdp,
+                    response: tx,
+                })
+                .map_err(|_| ZapLivreFfiError::Other {
+                    details: "Failed to send command".into(),
+                })?;
+            return rx.await.map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to receive response".into(),
+            })?;
         }
         #[cfg(not(feature = "voip"))]
         {
             let _ = (call_id, sdp);
-            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+            Err(ZapLivreFfiError::Other {
+                details: "VoIP feature disabled".into(),
+            })
         }
     }
 
@@ -2045,22 +2186,28 @@ impl ZapLivreClient {
         let (tx, rx) = oneshot::channel();
         #[cfg(feature = "voip")]
         {
-        self.handle()
-            .sender
-            .send(ClientCommand::SendWebRtcIceCandidate {
-                call_id,
-                candidate,
-                sdp_mid,
-                sdp_m_line_index,
-                response: tx,
-            })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+            self.handle()
+                .sender
+                .send(ClientCommand::SendWebRtcIceCandidate {
+                    call_id,
+                    candidate,
+                    sdp_mid,
+                    sdp_m_line_index,
+                    response: tx,
+                })
+                .map_err(|_| ZapLivreFfiError::Other {
+                    details: "Failed to send command".into(),
+                })?;
+            return rx.await.map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to receive response".into(),
+            })?;
         }
         #[cfg(not(feature = "voip"))]
         {
             let _ = (call_id, candidate, sdp_mid, sdp_m_line_index);
-            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+            Err(ZapLivreFfiError::Other {
+                details: "VoIP feature disabled".into(),
+            })
         }
     }
 

@@ -359,12 +359,12 @@ mod tests {
         // Test PNG
         let png_input = create_test_image();
         let compressed = compress_image(&png_input, 80).unwrap();
-        assert!(compressed.len() > 0);
+        assert!(!compressed.is_empty());
 
         // Test JPEG (compress already compressed JPEG)
         let jpeg_input = compress_image(&png_input, 90).unwrap();
         let recompressed = compress_image(&jpeg_input, 70).unwrap();
-        assert!(recompressed.len() > 0);
+        assert!(!recompressed.is_empty());
         assert!(recompressed.len() < jpeg_input.len()); // Further compressed
     }
 }

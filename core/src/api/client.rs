@@ -86,7 +86,9 @@ impl Client {
             .get_contact_by_peer_id(peer_id)
             .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         if contact.public_key.is_empty() {
-            return Err(ZapLivreError::Identity("Contact identity key is unavailable".to_string()));
+            return Err(ZapLivreError::Identity(
+                "Contact identity key is unavailable".to_string(),
+            ));
         }
         Ok(format_identity_fingerprint(&contact.public_key))
     }
@@ -140,7 +142,7 @@ impl Client {
             storage_key,
             message_store_url,
             identity_server_url,
-            message_store_http: reqwest::Client::new(),
+            message_store_http: crate::utils::http::client(),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
@@ -1023,16 +1025,29 @@ impl Client {
                 }
             };
 
-            if let Err(e) = self
+            // The handler reports processing failures through the ACK status,
+            // not through `Err`. Only delete from the server what was really
+            // processed: a message that failed (e.g. session not restored yet)
+            // stays there for the next fetch, until the server-side TTL.
+            match self
                 .message_handler
                 .handle_incoming_message(sender, decoded)
                 .await
             {
-                tracing::warn!("Failed to process offline message: {}", e);
-                continue;
+                Ok(ack) if ack.status == crate::protocol::AckStatus::Received as i32 => {
+                    processed_ids.push(msg.message_id);
+                }
+                Ok(ack) => {
+                    tracing::warn!(
+                        "Offline message {} not processed, keeping it on the store: {}",
+                        msg.message_id,
+                        ack.error
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to process offline message: {}", e);
+                }
             }
-
-            processed_ids.push(msg.message_id);
         }
 
         if processed_ids.is_empty() {
@@ -1095,7 +1110,8 @@ impl Client {
             storage_hash = Self::compute_media_hash(&compressed_data, Some(&message_id));
         }
 
-        let local_path = self.write_media_file(&storage_hash, Some(&file_name), &compressed_data)?;
+        let local_path =
+            self.write_media_file(&storage_hash, Some(&file_name), &compressed_data)?;
         let media_type = MediaType::Image;
         let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(compressed_data.len());
@@ -1778,12 +1794,15 @@ impl Client {
         before_message_id: Option<&str>,
     ) -> Result<Vec<crate::storage::Message>> {
         let conversation_id = format!("1:1:{}", peer_id);
-        let mut messages = self.database.get_conversation_messages_before(
-            &conversation_id,
-            limit,
-            before_created_at,
-            before_message_id,
-        ).map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+        let mut messages = self
+            .database
+            .get_conversation_messages_before(
+                &conversation_id,
+                limit,
+                before_created_at,
+                before_message_id,
+            )
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
         for message in &mut messages {
             if message.content_plaintext.is_none() {
                 if let Some(ref encrypted) = message.content_encrypted {
@@ -2012,8 +2031,7 @@ impl Client {
             if conversation.display_name.is_none() {
                 if let Some(peer_id) = conversation.peer_id.as_ref() {
                     if let Ok(contact) = self.database.get_contact_by_peer_id(peer_id) {
-                        conversation.display_name =
-                            contact.display_name.or(contact.username);
+                        conversation.display_name = contact.display_name.or(contact.username);
                     }
                 }
             }
@@ -2980,7 +2998,10 @@ async fn verify_transparency_proof(
                 .decode(&entry.previous_hash)
                 .map_err(|_| "Invalid transparency predecessor".to_string())?;
             if advertised_previous != previous_hash {
-                return Err(format!("Transparency predecessor mismatch at {}", entry.sequence));
+                return Err(format!(
+                    "Transparency predecessor mismatch at {}",
+                    entry.sequence
+                ));
             }
             let public_key = general_purpose::STANDARD
                 .decode(&entry.public_key)
@@ -2994,7 +3015,10 @@ async fn verify_transparency_proof(
             hasher.update(entry.peer_id.as_bytes());
             hasher.update(&public_key);
             if entry_hash != hasher.finalize().to_vec() {
-                return Err(format!("Transparency entry hash mismatch at {}", entry.sequence));
+                return Err(format!(
+                    "Transparency entry hash mismatch at {}",
+                    entry.sequence
+                ));
             }
             if entry.sequence == proof.sequence {
                 if entry.peer_id != proof.peer_id
@@ -3032,17 +3056,16 @@ mod identity_fingerprint_tests {
 
     #[test]
     fn different_keys_have_different_fingerprints() {
-        assert_ne!(format_identity_fingerprint(&[1u8; 32]), format_identity_fingerprint(&[2u8; 32]));
+        assert_ne!(
+            format_identity_fingerprint(&[1u8; 32]),
+            format_identity_fingerprint(&[2u8; 32])
+        );
     }
 }
 
-/// Política SEC-01: mensagens sem sessão E2E estabelecida nunca caem em
-/// plaintext por padrão, inclusive em builds debug usados na homologação.
-/// O fallback só pode ser habilitado explicitamente para desenvolvimento local.
+/// Política SEC-01, ver [`crate::crypto::plaintext_allowed`].
 fn e2e_required() -> bool {
-    !std::env::var("ZAPLIVRE_ALLOW_PLAINTEXT")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+    !crate::crypto::plaintext_allowed()
 }
 
 #[derive(Debug, Clone)]
@@ -3106,7 +3129,7 @@ mod tests {
                     .await
                     .unwrap();
 
-                assert!(client.local_peer_id().to_string().len() > 0);
+                assert!(!client.local_peer_id().to_string().is_empty());
             })
             .await;
     }

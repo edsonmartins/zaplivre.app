@@ -113,22 +113,23 @@ impl ClientBuilder {
             let keypair_path = data_dir.join("identity.key");
             if keypair_path.exists() {
                 // Load keypair from file
-                match load_keypair_from_file(&keypair_path) {
-                    Ok(kp) => kp,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to load keypair from file: {}, generating new one",
-                            e
-                        );
-                        Keypair::generate_ed25519()
-                    }
-                }
+                // An unreadable key is an error, never a reason to mint a new
+                // identity: that silently changes the peer ID and the storage
+                // key, leaving the account and all its history unreachable.
+                load_keypair_from_file(&keypair_path).map_err(|e| {
+                    ZapLivreError::Identity(format!(
+                        "Identity key at {} exists but could not be loaded: {}",
+                        keypair_path.display(),
+                        e
+                    ))
+                })?
             } else {
-                // Generate new keypair and save to file
+                // Generate new keypair and save to file. If it cannot be
+                // saved, the next start would generate yet another identity.
                 let keypair = Keypair::generate_ed25519();
-                if let Err(e) = save_keypair_to_file(&keypair, &keypair_path) {
-                    tracing::warn!("Failed to save keypair to file: {}", e);
-                }
+                save_keypair_to_file(&keypair, &keypair_path).map_err(|e| {
+                    ZapLivreError::Identity(format!("Failed to persist new identity key: {}", e))
+                })?;
                 keypair
             }
         };
@@ -196,7 +197,15 @@ impl ClientBuilder {
         ensure_local_contact_exists(&database, &peer_id.to_string(), &keypair)?;
 
         // Create network manager
-        let network = NetworkManager::new(keypair)?;
+        // The bootstrap nodes also run the circuit relay server. Without a
+        // relay the client can only be reached on a LAN: two phones behind
+        // CGNAT never connect, and DCUtR has no circuit to upgrade.
+        let relay = self.bootstrap_peers.first().cloned();
+        let network = NetworkManager::with_relay(
+            keypair,
+            relay.as_ref().map(|(peer_id, _)| *peer_id),
+            relay.map(|(_, addr)| addr),
+        )?;
         // Arc<RwLock<NetworkManager>> !Send/Sync (libp2p Swarm); LocalSet single-thread (FASE 5).
         #[allow(clippy::arc_with_non_send_sync)]
         let network_arc = Arc::new(RwLock::new(network));
@@ -221,15 +230,18 @@ impl ClientBuilder {
         {
             tracing::warn!("Failed to attach signal session persistence: {}", e);
         }
-        let message_handler = Arc::new(crate::network::MessageHandler::new(
-            peer_id.to_string(),
-            Arc::new(database.clone()), // Shares the same SQLite connection!
-            data_dir.clone(),
-            Arc::clone(&identity),
-            session_manager.clone(),
-            storage_key,
-            Some(event_tx),
-        ));
+        let message_handler = Arc::new(
+            crate::network::MessageHandler::new(
+                peer_id.to_string(),
+                Arc::new(database.clone()), // Shares the same SQLite connection!
+                data_dir.clone(),
+                Arc::clone(&identity),
+                session_manager.clone(),
+                storage_key,
+                Some(event_tx),
+            )
+            .allow_plaintext(crate::crypto::plaintext_allowed()),
+        );
 
         // Set message handler in network manager
         {
@@ -335,7 +347,7 @@ impl ClientBuilder {
 
         // spawn_local: o processamento de GroupControl acessa o NetworkManager
         // (!Sync). build() já exige LocalSet (ver worker de retry abaixo).
-        let gc_http = reqwest::Client::new();
+        let gc_http = crate::utils::http::client();
         tokio::task::spawn_local(async move {
             while let Some(event) = event_rx.recv().await {
                 // Protocolo in-band de grupo: orquestrado aqui, onde há acesso
@@ -921,7 +933,7 @@ mod tests {
                     .await
                     .unwrap();
 
-                assert!(client.local_peer_id().to_string().len() > 0);
+                assert!(!client.local_peer_id().to_string().is_empty());
 
                 // Database should be created
                 assert!(data_dir.join("zaplivre.db").exists());

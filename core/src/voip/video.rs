@@ -26,9 +26,9 @@ impl VideoCodec {
     /// Get SDP fmtp line for the codec
     pub fn fmtp_line(&self) -> String {
         match self {
-            VideoCodec::H264 =>
-                "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f"
-                    .to_string(),
+            VideoCodec::H264 => {
+                "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f".to_string()
+            }
             VideoCodec::VP8 | VideoCodec::VP9 => String::new(),
         }
     }

@@ -263,7 +263,7 @@ pub fn store_peer_prekey_bundle(state: State<'_, ClientState>, peer_id: String, 
     let client = state.lock().map_err(|e| e.to_string())?.as_ref().cloned()
         .ok_or_else(|| "Client not initialized".to_string())?;
     let mut bundle = prekey_bundle;
-    for field in ["identity_key", "signal_identity_key", "signed_prekey", "signed_prekey_signature", "kyber_prekey", "kyber_prekey_signature"] {
+    for field in ["identity_key", "signal_identity_key", "signal_identity_signature", "signed_prekey", "signed_prekey_signature", "kyber_prekey", "kyber_prekey_signature"] {
         if let Some(encoded) = bundle.get(field).and_then(|v| v.as_str()) {
             let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).map_err(|e| e.to_string())?;
             bundle[field] = serde_json::json!(bytes);

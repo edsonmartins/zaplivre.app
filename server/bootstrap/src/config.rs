@@ -28,8 +28,16 @@ pub struct Config {
     /// Maximum circuits per peer
     pub relay_max_per_peer: usize,
 
-    /// Maximum bytes per second per circuit
-    pub relay_max_bytes_per_second: u64,
+    /// Total bytes a single relayed circuit may carry before it is closed
+    pub relay_max_circuit_bytes: u64,
+
+    /// How long a single relayed circuit may stay open
+    pub relay_max_circuit_secs: u64,
+
+    /// Publicly reachable addresses of this node (e.g. `/dns4/dht1.example/tcp/4001`).
+    /// Required in production: relay reservations carry these addresses and
+    /// Kademlia only serves inbound queries once one is known.
+    pub external_addrs: Vec<libp2p::Multiaddr>,
 }
 
 impl Config {
@@ -67,9 +75,28 @@ impl Config {
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()?,
 
-            relay_max_bytes_per_second: std::env::var("RELAY_MAX_BYTES_PER_SEC")
-                .unwrap_or_else(|_| "1000000".to_string())
+            // 64 MiB / 30 min: enough for media and a call while DCUtR tries
+            // to upgrade to a direct connection. (The former
+            // RELAY_MAX_BYTES_PER_SEC was wired to this same limit and cut
+            // every circuit after 1 MB in total.)
+            relay_max_circuit_bytes: std::env::var("RELAY_MAX_CIRCUIT_BYTES")
+                .unwrap_or_else(|_| (64 * 1024 * 1024).to_string())
                 .parse()?,
+
+            relay_max_circuit_secs: std::env::var("RELAY_MAX_CIRCUIT_SECS")
+                .unwrap_or_else(|_| "1800".to_string())
+                .parse()?,
+
+            external_addrs: std::env::var("EXTERNAL_ADDRS")
+                .unwrap_or_default()
+                .split(',')
+                .map(str::trim)
+                .filter(|addr| !addr.is_empty())
+                .map(|addr| {
+                    addr.parse()
+                        .map_err(|e| anyhow::anyhow!("invalid EXTERNAL_ADDRS entry {addr}: {e}"))
+                })
+                .collect::<Result<Vec<_>>>()?,
         })
     }
 

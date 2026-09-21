@@ -36,11 +36,11 @@ mod integration_tests {
     async fn test_full_flow_register_and_store() {
         // 1. Generate identity
         let alice = Identity::generate(10);
-        let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+        let peer_id = alice.keypair().libp2p_peer_id().unwrap();
         let username = format!("alice_{}", rand::random::<u32>());
 
         // 2. Register on Identity Server
-        let client = IdentityClient::new(&identity_server_url()).unwrap();
+        let client = IdentityClient::new(identity_server_url()).unwrap();
 
         let response = client
             .register_username(&alice, &username, &peer_id)
@@ -75,10 +75,10 @@ mod integration_tests {
     async fn test_lookup_and_cache_locally() {
         // Setup: Alice registers
         let alice = Identity::generate(10);
-        let alice_peer_id = format!("12D3KooW{}", rand::random::<u64>());
+        let alice_peer_id = alice.keypair().libp2p_peer_id().unwrap();
         let alice_username = format!("alice_{}", rand::random::<u32>());
 
-        let client = IdentityClient::new(&identity_server_url()).unwrap();
+        let client = IdentityClient::new(identity_server_url()).unwrap();
 
         client
             .register_username(&alice, &alice_username, &alice_peer_id)
@@ -118,10 +118,10 @@ mod integration_tests {
     async fn test_update_prekeys_and_refresh_cache() {
         // Alice registers
         let alice = Identity::generate(10);
-        let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+        let peer_id = alice.keypair().libp2p_peer_id().unwrap();
         let username = format!("alice_{}", rand::random::<u32>());
 
-        let client = IdentityClient::new(&identity_server_url()).unwrap();
+        let client = IdentityClient::new(identity_server_url()).unwrap();
 
         client
             .register_username(&alice, &username, &peer_id)
@@ -162,9 +162,9 @@ mod integration_tests {
 
         // Alice registers
         let alice = Identity::generate(10);
-        let alice_peer_id = format!("12D3KooW{}", rand::random::<u64>());
+        let alice_peer_id = alice.keypair().libp2p_peer_id().unwrap();
 
-        let client = IdentityClient::new(&identity_server_url()).unwrap();
+        let client = IdentityClient::new(identity_server_url()).unwrap();
 
         client
             .register_username(&alice, &username, &alice_peer_id)
@@ -186,7 +186,7 @@ mod integration_tests {
 
         // Eve tries to register same username (should fail on server)
         let eve = Identity::generate(10);
-        let eve_peer_id = format!("12D3KooW{}", rand::random::<u64>());
+        let eve_peer_id = eve.keypair().libp2p_peer_id().unwrap();
 
         let result = client
             .register_username(&eve, &username, &eve_peer_id)
@@ -212,7 +212,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_search_contacts_after_registration() {
         let db = setup_db();
-        let client = IdentityClient::new(&identity_server_url()).unwrap();
+        let client = IdentityClient::new(identity_server_url()).unwrap();
 
         // Register multiple users
         let users = vec![
@@ -223,7 +223,7 @@ mod integration_tests {
 
         for (username, display_name) in &users {
             let identity = Identity::generate(5);
-            let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id = identity.keypair().libp2p_peer_id().unwrap();
             let full_username = format!("{}_{}", username, rand::random::<u16>());
 
             // Register on server
@@ -260,7 +260,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_health_check() {
-        let client = IdentityClient::new(&identity_server_url()).unwrap();
+        let client = IdentityClient::new(identity_server_url()).unwrap();
         let health = client.health_check().await.unwrap();
 
         assert_eq!(health["status"], "healthy");

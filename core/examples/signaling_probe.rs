@@ -9,6 +9,7 @@
 //!   cargo run --example signaling_probe -- <ws_url>
 //!   ex.: cargo run --example signaling_probe -- ws://localhost:8086/ws
 
+use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use libp2p::identity::Keypair;
 use libp2p::PeerId;
@@ -81,12 +82,11 @@ async fn register(
     kp: &Keypair,
     peer: &PeerId,
     ts: i64,
-) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>
-{
+) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>> {
     let (mut ws, _) = connect_async(url).await.expect("conectar ao /ws");
 
     let msg = format!("signaling-register:{}:{}", peer, ts);
-    let sig = kp.sign(msg.as_bytes());
+    let sig = kp.sign(msg.as_bytes()).expect("assinar registro");
     let sig_b64 = base64::engine::general_purpose::STANDARD.encode(sig);
     let reg = json!({
         "type": "register",

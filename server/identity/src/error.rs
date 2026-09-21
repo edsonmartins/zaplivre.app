@@ -31,6 +31,12 @@ pub enum AppError {
     #[error("Invalid signature")]
     InvalidSignature,
 
+    #[error("Peer ID does not belong to the supplied public key")]
+    PeerIdMismatch,
+
+    #[error("Invalid prekey bundle: {0}")]
+    InvalidPrekeyBundle(&'static str),
+
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
 
@@ -51,6 +57,8 @@ impl AppError {
             Self::UsernameTaken(_) => StatusCode::CONFLICT,
             Self::UsernameNotFound(_) => StatusCode::NOT_FOUND,
             Self::InvalidSignature => StatusCode::BAD_REQUEST,
+            Self::PeerIdMismatch => StatusCode::BAD_REQUEST,
+            Self::InvalidPrekeyBundle(_) => StatusCode::BAD_REQUEST,
             Self::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             Self::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Redis(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -64,6 +72,8 @@ impl AppError {
             Self::UsernameTaken(_) => "USERNAME_TAKEN",
             Self::UsernameNotFound(_) => "USERNAME_NOT_FOUND",
             Self::InvalidSignature => "INVALID_SIGNATURE",
+            Self::PeerIdMismatch => "PEER_ID_MISMATCH",
+            Self::InvalidPrekeyBundle(_) => "INVALID_PREKEY_BUNDLE",
             Self::RateLimitExceeded => "RATE_LIMIT_EXCEEDED",
             Self::Database(_) => "INTERNAL_ERROR",
             Self::Redis(_) => "INTERNAL_ERROR",

@@ -8,8 +8,8 @@ use super::video::VideoCodec;
 use super::VoipError;
 use crate::voip::Result;
 use interceptor::registry::Registry;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
@@ -347,9 +347,7 @@ impl WebRTCPeer {
         // RTCP feedback (PLI/NACK/receiver reports), as required by the
         // webrtc-rs media examples.
         let rtcp_sender = Arc::clone(&rtp_sender);
-        tokio::spawn(async move {
-            while rtcp_sender.read_rtcp().await.is_ok() {}
-        });
+        tokio::spawn(async move { while rtcp_sender.read_rtcp().await.is_ok() {} });
         self.video_sender = Some(rtp_sender);
         self.video_track = Some(video_track);
         tracing::info!(
@@ -837,8 +835,8 @@ mod tests {
         .expect("local WebRTC peers did not connect");
 
         let frame = [
-            0, 0, 0, 1, 0x67, 0x42, 0xe0, 0x1f, 0, 0, 0, 1, 0x68, 0xce, 0x06, 0xe2,
-            0, 0, 0, 1, 0x65, 0x88, 0x84,
+            0, 0, 0, 1, 0x67, 0x42, 0xe0, 0x1f, 0, 0, 0, 1, 0x68, 0xce, 0x06, 0xe2, 0, 0, 0, 1,
+            0x65, 0x88, 0x84,
         ];
         sender.send_video_frame(&frame).await.unwrap();
 

@@ -16,6 +16,9 @@ pub struct PreKeyBundle {
     pub identity_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signal_identity_key: Option<String>,
+    /// Ed25519 signature binding the Signal identity key to `identity_key`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal_identity_signature: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signal_registration_id: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,6 +49,10 @@ impl PreKeyBundle {
                 .signal_identity_key
                 .as_ref()
                 .map(|value| general_purpose::STANDARD.encode(value)),
+            signal_identity_signature: bundle
+                .signal_identity_signature
+                .as_ref()
+                .map(|value| general_purpose::STANDARD.encode(value)),
             signal_registration_id: bundle.signal_registration_id,
             signal_device_id: bundle.signal_device_id,
             signed_prekey_id: bundle.signed_prekey_id as i32,
@@ -67,6 +74,10 @@ impl PreKeyBundle {
     pub fn to_core(&self) -> Result<CorePreKeyBundle> {
         let identity_key_bytes = general_purpose::STANDARD.decode(&self.identity_key)?;
         let signal_identity_key_bytes = match &self.signal_identity_key {
+            Some(value) => Some(general_purpose::STANDARD.decode(value)?),
+            None => None,
+        };
+        let signal_identity_signature_bytes = match &self.signal_identity_signature {
             Some(value) => Some(general_purpose::STANDARD.decode(value)?),
             None => None,
         };
@@ -94,6 +105,7 @@ impl PreKeyBundle {
         Ok(CorePreKeyBundle {
             identity_key,
             signal_identity_key: signal_identity_key_bytes,
+            signal_identity_signature: signal_identity_signature_bytes,
             signal_registration_id: self.signal_registration_id,
             signal_device_id: self.signal_device_id,
             signed_prekey_id: self.signed_prekey_id as u32,
@@ -486,7 +498,7 @@ mod tests {
         // This test verifies signature creation (without actually calling server)
         let identity = Identity::generate(1);
         let username = "alice";
-        let peer_id = "12D3KooWTest";
+        let _peer_id = "12D3KooWTest";
         let timestamp = Utc::now().timestamp();
 
         // Create signature
@@ -529,7 +541,7 @@ mod tests {
             let client = IdentityClient::new("http://localhost:8080").unwrap();
             let identity = Identity::generate(10);
             let username = format!("test_{}", rand::random::<u32>());
-            let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id = identity.keypair().libp2p_peer_id().unwrap();
 
             // Register username
             let register_response = client
@@ -552,7 +564,7 @@ mod tests {
             let client = IdentityClient::new("http://localhost:8080").unwrap();
             let identity = Identity::generate(10);
             let username = format!("test_{}", rand::random::<u32>());
-            let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id = identity.keypair().libp2p_peer_id().unwrap();
 
             // Register first
             client
@@ -572,8 +584,8 @@ mod tests {
             let identity1 = Identity::generate(10);
             let identity2 = Identity::generate(10);
             let username = format!("test_{}", rand::random::<u32>());
-            let peer_id1 = format!("12D3KooW{}", rand::random::<u64>());
-            let peer_id2 = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id1 = identity2.keypair().libp2p_peer_id().unwrap();
+            let peer_id2 = identity2.keypair().libp2p_peer_id().unwrap();
 
             // Register username with first identity
             client
