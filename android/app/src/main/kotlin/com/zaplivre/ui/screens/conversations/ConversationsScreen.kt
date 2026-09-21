@@ -247,7 +247,10 @@ fun ConversationRow(row: ConversationUi, onClick: () -> Unit) {
 }
 
 @Composable
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(
+    ExperimentalComposeUiApi::class,
+    com.google.accompanist.permissions.ExperimentalPermissionsApi::class,
+)
 fun NewConversationDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
@@ -256,6 +259,36 @@ fun NewConversationDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+    val cameraPermission = com.google.accompanist.permissions.rememberPermissionState(
+        android.Manifest.permission.CAMERA
+    ) { granted -> if (granted) scanning = true }
+
+    if (scanning) {
+        com.zaplivre.ui.components.QrScannerDialog(
+            onDismiss = { scanning = false },
+            onResult = { raw ->
+                scanning = false
+                val qr = com.zaplivre.core.ContactQrCode.parse(raw)
+                if (qr == null) {
+                    error = "QR de contato inválido"
+                    return@QrScannerDialog
+                }
+                loading = true
+                scope.launch {
+                    // O bundle embutido (QRs antigos do iOS) é verificado pelo core
+                    // antes de abrir sessão; o normal é trocar prekeys após conectar.
+                    qr.prekeyBundle?.let {
+                        ZapLivreClientWrapper.storePeerPrekeyBundle(qr.peerId, it)
+                    }
+                    qr.multiaddr?.let { ZapLivreClientWrapper.connectToPeer(qr.peerId, it) }
+                    loading = false
+                    onConfirm(qr.peerId)
+                }
+            },
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.conversations_new)) },
@@ -270,6 +303,18 @@ fun NewConversationDialog(
                 modifier = Modifier.fillMaxWidth().testTag("new_chat_peer_input")
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            TextButton(
+                onClick = {
+                    error = null
+                    if (cameraPermission.status == com.google.accompanist.permissions.PermissionStatus.Granted) {
+                        scanning = true
+                    } else {
+                        cameraPermission.launchPermissionRequest()
+                    }
+                },
+                enabled = !loading,
+                modifier = Modifier.testTag("new_chat_scan_qr")
+            ) { Text("Escanear QR do contato") }
             }
         },
         confirmButton = {
