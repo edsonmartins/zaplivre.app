@@ -54,6 +54,11 @@ const MIGRATIONS: &[Migration] = &[
         description: "Add identity_prekeys table (SEC-07: stable prekey bundle across restarts)",
         up: migrate_to_v8,
     },
+    Migration {
+        version: 9,
+        description: "Add processed_messages table (idempotent at-least-once delivery)",
+        up: migrate_to_v9,
+    },
 ];
 
 /// Migrate database to latest version
@@ -266,6 +271,23 @@ fn migrate_to_v8(db: &Database) -> Result<()> {
             pool BLOB NOT NULL,
             updated_at INTEGER NOT NULL DEFAULT (unixepoch())
         );
+        "#,
+    )?;
+
+    Ok(())
+}
+
+fn migrate_to_v9(db: &Database) -> Result<()> {
+    db.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS processed_messages (
+            sender_peer_id TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            processed_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            PRIMARY KEY (sender_peer_id, message_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_processed_messages_at
+            ON processed_messages(processed_at);
         "#,
     )?;
 

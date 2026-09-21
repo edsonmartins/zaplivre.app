@@ -208,6 +208,43 @@ impl Database {
         Ok(messages)
     }
 
+    /// Messages of `sender_peer_id` in a conversation that could not be
+    /// decrypted when they arrived (no plaintext yet), oldest first.
+    pub fn undecrypted_messages_from(
+        &self,
+        conversation_id: &str,
+        sender_peer_id: &str,
+    ) -> Result<Vec<Message>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, message_id, conversation_id, sender_peer_id, recipient_peer_id,
+                   message_type, content_encrypted, content_plaintext, created_at,
+                   sent_at, received_at, read_at, status, is_deleted, parent_message_id
+            FROM messages
+            WHERE conversation_id = ?1 AND sender_peer_id = ?2
+              AND content_plaintext IS NULL AND content_encrypted IS NOT NULL
+              AND is_deleted = 0
+            ORDER BY created_at ASC, id ASC
+            "#,
+        )?;
+        let messages = stmt
+            .query_map(params![conversation_id, sender_peer_id], |row| {
+                self.message_from_row(row)
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(messages)
+    }
+
+    /// Fill in the plaintext of a message that was stored undecrypted.
+    pub fn set_message_plaintext(&self, message_id: &str, plaintext: &str) -> Result<()> {
+        self.conn().execute(
+            "UPDATE messages SET content_plaintext = ?1 WHERE message_id = ?2",
+            params![plaintext, message_id],
+        )?;
+        Ok(())
+    }
+
     /// Update message
     pub fn update_message(&self, message_id: &str, update: &UpdateMessage) -> Result<()> {
         let conn = self.conn();

@@ -71,6 +71,30 @@ impl GroupControlEnvelope {
     }
 }
 
+/// Prefix of a group message fanned out over the 1:1 channel.
+pub const GROUP_MESSAGE_PREFIX: &str = "zaplivre-group-msg:v1:";
+
+/// Wrap a signed [`GroupMessage`](super::GroupMessage) for delivery to one
+/// member through the 1:1 pipeline (Signal session, message store, outbox).
+pub fn encode_group_message(message: &super::GroupMessage) -> Result<String> {
+    use base64::{engine::general_purpose, Engine as _};
+    let json = serde_json::to_vec(message)
+        .map_err(|e| ZapLivreError::Protocol(format!("Invalid group message: {}", e)))?;
+    Ok(format!(
+        "{}{}",
+        GROUP_MESSAGE_PREFIX,
+        general_purpose::STANDARD.encode(json)
+    ))
+}
+
+/// Inverse of [`encode_group_message`]; `None` when `input` is something else.
+pub fn decode_group_message(input: &str) -> Option<super::GroupMessage> {
+    use base64::{engine::general_purpose, Engine as _};
+    let encoded = input.strip_prefix(GROUP_MESSAGE_PREFIX)?;
+    let json = general_purpose::STANDARD.decode(encoded).ok()?;
+    serde_json::from_slice(&json).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -826,7 +826,9 @@ impl Client {
         }
     }
 
+    #[allow(clippy::too_many_arguments)] // helper estático chamado do worker de grupo, sem &self
     async fn deliver_message_with(
+        database: &Database,
         network: Arc<RwLock<NetworkManager>>,
         identity: Arc<RwLock<Identity>>,
         to: PeerId,
@@ -842,6 +844,46 @@ impl Client {
             return Ok(());
         }
 
+        // Offline: leave a copy on the message store when there is one, and
+        // always queue a local retry. Reactions and group control (invites,
+        // sender keys, removals) used to be dropped here when the store was
+        // missing or down, so an offline member never got the group key.
+        let queued = {
+            use prost::Message as _;
+            database.enqueue_outbound(
+                &proto_message.id,
+                &to.to_string(),
+                message_type,
+                &proto_message.encode_to_vec(),
+                chrono::Utc::now().timestamp() + 5,
+            )
+        };
+        let stored = Self::store_message_with(
+            &identity,
+            &proto_message,
+            message_type,
+            message_store_url,
+            message_store_http,
+        )
+        .await;
+
+        match (stored, queued) {
+            (Ok(()), _) | (_, Ok(())) => Ok(()),
+            (Err(store_err), Err(queue_err)) => Err(ZapLivreError::Network(format!(
+                "Peer offline; store failed ({}) and retry queue failed ({})",
+                store_err, queue_err
+            ))),
+        }
+    }
+
+    /// Leave `proto_message` on the message store for an offline recipient.
+    async fn store_message_with(
+        identity: &Arc<RwLock<Identity>>,
+        proto_message: &Message,
+        message_type: &str,
+        message_store_url: Option<String>,
+        message_store_http: reqwest::Client,
+    ) -> Result<()> {
         let Some(base_url) = message_store_url
             .as_ref()
             .map(|url| url.trim_end_matches('/').to_string())
@@ -851,7 +893,7 @@ impl Client {
             ));
         };
 
-        let payload = crate::protocol::codec::encode(&proto_message)?;
+        let payload = crate::protocol::codec::encode(proto_message)?;
         let request = StoreMessageRequest {
             recipient_peer_id: proto_message.recipient_peer_id.clone(),
             sender_peer_id: proto_message.sender_peer_id.clone(),
@@ -864,7 +906,7 @@ impl Client {
         let body =
             serde_json::to_vec(&request).map_err(|e| ZapLivreError::Network(e.to_string()))?;
         let (peer, ts, sig) = Self::store_auth_headers_with(
-            &identity,
+            identity,
             &proto_message.sender_peer_id,
             "POST",
             "/api/store",
@@ -2041,6 +2083,7 @@ impl Client {
         };
 
         if let Err(e) = Client::deliver_message_with(
+            &self.database,
             Arc::clone(&self.network),
             Arc::clone(&self.identity),
             to_peer_id,
@@ -2470,6 +2513,7 @@ impl Client {
             };
 
             return Client::deliver_message_with(
+                database,
                 network,
                 identity,
                 to,
@@ -2497,6 +2541,7 @@ impl Client {
         };
 
         Client::deliver_message_with(
+            database,
             network,
             identity,
             to,
@@ -2790,13 +2835,10 @@ impl Client {
             group_message.sign(identity.keypair())?;
         }
 
-        let payload = serde_json::to_vec(&group_message)
-            .map_err(|e| ZapLivreError::Protocol(format!("Invalid group message: {}", e)))?;
+        let wire_content = crate::group::encode_group_message(&group_message)?;
 
-        // Persistir ANTES de publicar (4b/ISSUES_BACKLOG): se o publish falhar
-        // (ex.: rede off), a mensagem já está salva localmente com status
-        // Pending e o worker de retry tenta de novo. Antes, o erro do publish
-        // propagava e a mensagem nunca era gravada.
+        // Persist before sending: whatever happens to the deliveries, the
+        // message is in the conversation as Pending.
         let new_msg = crate::storage::NewMessage {
             message_id: message_id.clone(),
             conversation_id: conversation_id.clone(),
@@ -2815,43 +2857,54 @@ impl Client {
             .update_conversation_last_message(&conversation_id, &message_id)
             .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
-        let publish_result = {
-            let mut network = self.network.write().await;
-            let topic = libp2p::gossipsub::IdentTopic::new(&group.topic);
-            network.publish_gossipsub(&topic, payload)
-        };
-
-        if let Err(e) = publish_result {
-            // Rede indisponível: a mensagem já está persistida como Pending e
-            // visível na conversa. Sem fila de retry dedicada para grupos ainda
-            // (worker atual cobre 1:1); o usuário reenvia manualmente.
-            tracing::warn!(
-                "group message {} not published (kept as Pending): {}",
-                message_id,
-                e
-            );
-            return Ok(message_id);
+        // Fan out to every member over the 1:1 pipeline: Signal session, message
+        // store for whoever is offline, outbox retry. GossipSub only reached
+        // members that were online and directly connected at that instant,
+        // with no retry, and its topic exposed group id, sender and timing to
+        // any subscriber.
+        let local_peer = self.local_peer_id().to_string();
+        let mut delivered = 0usize;
+        let mut recipients = 0usize;
+        for member in group.members.iter().filter(|m| **m != local_peer) {
+            let Ok(peer) = member.parse::<PeerId>() else {
+                tracing::warn!("group {}: invalid member peer id {}", group_id, member);
+                continue;
+            };
+            recipients += 1;
+            // Each copy has its own wire id: the message store keys by it.
+            let wire_id = uuid::Uuid::new_v4().to_string();
+            match self
+                .deliver_media_content(peer, &wire_id, wire_content.clone(), "group_text")
+                .await
+            {
+                Ok(_) => delivered += 1,
+                Err(e) => tracing::warn!(
+                    "group message {} not delivered to {}: {}",
+                    message_id,
+                    member,
+                    e
+                ),
+            }
         }
 
-        // Publish OK: o flip de status é best-effort. Se o update falhar, a
-        // mensagem fica Pending no banco mesmo já estando na rede; como não há
-        // worker de retry de grupo, retornar erro aqui só esconderia o sucesso
-        // do envio (e um resend manual duplicaria).
+        // Sent once at least one member has it (or it is queued for them);
+        // a group with nobody else in it has nothing left to deliver.
+        let status = if delivered > 0 || recipients == 0 {
+            MessageStatus::Sent
+        } else {
+            MessageStatus::Failed
+        };
         if let Err(e) = self.database.update_message(
             &message_id,
             &crate::storage::UpdateMessage {
                 sent_at: Some(chrono::Utc::now().timestamp()),
                 received_at: None,
                 read_at: None,
-                status: Some(MessageStatus::Sent),
+                status: Some(status),
                 is_deleted: None,
             },
         ) {
-            tracing::warn!(
-                "group message {} published but status flip to Sent failed: {}",
-                message_id,
-                e
-            );
+            tracing::warn!("group message {} status update failed: {}", message_id, e);
         }
 
         Ok(message_id)

@@ -21,6 +21,9 @@ pub mod storage;
 pub mod types;
 
 // Re-exports
-pub use envelope::{GroupControlEnvelope, GROUP_CONTROL_PREFIX};
+pub use envelope::{
+    decode_group_message, encode_group_message, GroupControlEnvelope, GROUP_CONTROL_PREFIX,
+    GROUP_MESSAGE_PREFIX,
+};
 pub use manager::GroupManager;
 pub use types::{Group, GroupEvent, GroupMember, GroupMessage, GroupRole};
