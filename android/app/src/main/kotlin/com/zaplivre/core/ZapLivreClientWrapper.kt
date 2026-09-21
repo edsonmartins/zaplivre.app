@@ -554,6 +554,26 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     }
 
     /**
+     * ICE servers (STUN próprio + credenciais TURN de curta duração) para uma
+     * sessão WebRTC nativa. Lista vazia em caso de falha: a chamada ainda
+     * funciona na rede local, e o motivo fica no log.
+     */
+    suspend fun iceServers(): List<org.webrtc.PeerConnection.IceServer> =
+        withContext(Dispatchers.IO) {
+            try {
+                getClient().iceServers().map { server ->
+                    val builder = org.webrtc.PeerConnection.IceServer.builder(server.urls)
+                    server.username?.let { builder.setUsername(it) }
+                    server.credential?.let { builder.setPassword(it) }
+                    builder.createIceServer()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to fetch ICE servers", e)
+                emptyList()
+            }
+        }
+
+    /**
      * Drena a caixa offline no message store. Retorna quantas mensagens foram
      * processadas, ou null em caso de falha. É o que um push deve acionar: o app
      * pode ter só alguns segundos, então pede exatamente isto em vez de um

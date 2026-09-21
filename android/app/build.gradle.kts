@@ -49,6 +49,11 @@ android {
             ?: "wss://signal.zaplivre.app/ws"
         buildConfigField("String", "SIGNALING_SERVER_URL", "\"$signalingServerUrl\"")
 
+        val turnCredentialsUrl = (project.findProperty("TURN_CREDENTIALS_URL") as String?)
+            ?: System.getenv("TURN_CREDENTIALS_URL")
+            ?: "https://turn.zaplivre.app"
+        buildConfigField("String", "TURN_CREDENTIALS_URL", "\"$turnCredentialsUrl\"")
+
         val identityServerUrl = (project.findProperty("IDENTITY_SERVER_URL") as String?)
             ?: System.getenv("IDENTITY_SERVER_URL")
             ?: "https://identity.zaplivre.app"

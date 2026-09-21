@@ -877,6 +877,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_hangup_call(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_ice_servers(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_identity_fingerprint(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_join_group(
@@ -1066,6 +1068,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_message_reactions
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_get_prekey_bundle_json(`ptr`: Long,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_hangup_call(`ptr`: Long,`callId`: RustBuffer.ByValue,
+): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_ice_servers(`ptr`: Long,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_identity_fingerprint(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
@@ -1353,6 +1357,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_hangup_call() != 18803) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_ice_servers() != 41367) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_identity_fingerprint() != 44568) {
@@ -2120,6 +2127,8 @@ public interface ZapLivreClientInterface {
     
     suspend fun `hangupCall`(`callId`: kotlin.String)
     
+    suspend fun `iceServers`(): List<FfiIceServer>
+    
     fun `identityFingerprint`(): kotlin.String
     
     suspend fun `joinGroup`(`groupId`: kotlin.String, `groupName`: kotlin.String)
@@ -2801,6 +2810,27 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
         // lift function
         { Unit },
         
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `iceServers`() : List<FfiIceServer> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_ice_servers(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeFfiIceServer.lift(it) },
         // Error FFI converter
         ZapLivreFfiException.ErrorHandler,
     )
@@ -3840,6 +3870,49 @@ public object FfiConverterTypeFfiGroup: FfiConverterRustBuffer<FfiGroup> {
             FfiConverterUInt.write(value.`memberCount`, buf)
             FfiConverterBoolean.write(value.`isAdmin`, buf)
             FfiConverterLong.write(value.`createdAt`, buf)
+    }
+}
+
+
+
+data class FfiIceServer (
+    var `urls`: List<kotlin.String>
+    , 
+    var `username`: kotlin.String?
+    , 
+    var `credential`: kotlin.String?
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiIceServer: FfiConverterRustBuffer<FfiIceServer> {
+    override fun read(buf: ByteBuffer): FfiIceServer {
+        return FfiIceServer(
+            FfiConverterSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiIceServer) = (
+            FfiConverterSequenceString.allocationSize(value.`urls`) +
+            FfiConverterOptionalString.allocationSize(value.`username`) +
+            FfiConverterOptionalString.allocationSize(value.`credential`)
+    )
+
+    override fun write(value: FfiIceServer, buf: ByteBuffer) {
+            FfiConverterSequenceString.write(value.`urls`, buf)
+            FfiConverterOptionalString.write(value.`username`, buf)
+            FfiConverterOptionalString.write(value.`credential`, buf)
     }
 }
 
@@ -5480,6 +5553,34 @@ public object FfiConverterSequenceTypeFfiGroup: FfiConverterRustBuffer<List<FfiG
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeFfiGroup.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiIceServer: FfiConverterRustBuffer<List<FfiIceServer>> {
+    override fun read(buf: ByteBuffer): List<FfiIceServer> {
+        val len = buf.getInt()
+        return List<FfiIceServer>(len) {
+            FfiConverterTypeFfiIceServer.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiIceServer>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiIceServer.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiIceServer>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiIceServer.write(it, buf)
         }
     }
 }

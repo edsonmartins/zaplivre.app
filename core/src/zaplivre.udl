@@ -127,6 +127,13 @@ dictionary FfiConversation {
 };
 
 // VoIP call record (FASE 12)
+// One entry of a WebRTC iceServers list (STUN, or TURN with credentials)
+dictionary FfiIceServer {
+    sequence<string> urls;
+    string? username;
+    string? credential;
+};
+
 dictionary FfiCall {
     string id;
     string remote_peer_id;
@@ -277,6 +284,12 @@ string contact_transparency_proof(string peer_id);
 
     [Throws=ZapLivreFfiError, Async]
     void bootstrap();
+
+    // ICE servers (own STUN + short-lived TURN credentials) for a native WebRTC
+    // session. Without them only host candidates exist and calls fail on
+    // mobile data. Fetch right before creating the peer connection.
+    [Throws=ZapLivreFfiError, Async]
+    sequence<FfiIceServer> ice_servers();
 
     // Drain the offline mailbox on the message store; returns how many messages
     // were processed. Call it when a push wakes the app.

@@ -647,6 +647,8 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func hangupCall(callId: String) async throws 
     
+    func iceServers() async throws  -> [FfiIceServer]
+    
     func identityFingerprint() throws  -> String
     
     func joinGroup(groupId: String, groupName: String) async throws 
@@ -1168,6 +1170,23 @@ open func hangupCall(callId: String)async throws   {
             completeFunc: ffi_zaplivre_core_rust_future_complete_void,
             freeFunc: ffi_zaplivre_core_rust_future_free_void,
             liftFunc: { $0 },
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+    
+open func iceServers()async throws  -> [FfiIceServer]  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_ice_servers(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_rust_buffer,
+            freeFunc: ffi_zaplivre_core_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeFfiIceServer.lift,
             errorHandler: FfiConverterTypeZapLivreFfiError_lift
         )
 }
@@ -2074,6 +2093,64 @@ public func FfiConverterTypeFfiGroup_lift(_ buf: RustBuffer) throws -> FfiGroup 
 #endif
 public func FfiConverterTypeFfiGroup_lower(_ value: FfiGroup) -> RustBuffer {
     return FfiConverterTypeFfiGroup.lower(value)
+}
+
+
+public struct FfiIceServer: Equatable, Hashable {
+    public var urls: [String]
+    public var username: String?
+    public var credential: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(urls: [String], username: String?, credential: String?) {
+        self.urls = urls
+        self.username = username
+        self.credential = credential
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension FfiIceServer: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiIceServer: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiIceServer {
+        return
+            try FfiIceServer(
+                urls: FfiConverterSequenceString.read(from: &buf), 
+                username: FfiConverterOptionString.read(from: &buf), 
+                credential: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiIceServer, into buf: inout [UInt8]) {
+        FfiConverterSequenceString.write(value.urls, into: &buf)
+        FfiConverterOptionString.write(value.username, into: &buf)
+        FfiConverterOptionString.write(value.credential, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiIceServer_lift(_ buf: RustBuffer) throws -> FfiIceServer {
+    return try FfiConverterTypeFfiIceServer.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiIceServer_lower(_ value: FfiIceServer) -> RustBuffer {
+    return FfiConverterTypeFfiIceServer.lower(value)
 }
 
 
@@ -4533,6 +4610,31 @@ fileprivate struct FfiConverterSequenceTypeFfiGroup: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeFfiIceServer: FfiConverterRustBuffer {
+    typealias SwiftType = [FfiIceServer]
+
+    public static func write(_ value: [FfiIceServer], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeFfiIceServer.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [FfiIceServer] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [FfiIceServer]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeFfiIceServer.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeFfiMedia: FfiConverterRustBuffer {
     typealias SwiftType = [FfiMedia]
 
@@ -4747,6 +4849,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_hangup_call() != 18803) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_ice_servers() != 41367) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_identity_fingerprint() != 44568) {

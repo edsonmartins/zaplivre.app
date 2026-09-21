@@ -72,6 +72,7 @@ pub struct Client {
     message_store_url: Option<String>,
     /// Optional identity server used for automatic remote prekey discovery
     identity_server_url: Option<String>,
+    turn_credentials_url: Option<String>,
     /// HTTP client for message store
     message_store_http: reqwest::Client,
     /// Message handler (for processing offline messages)
@@ -132,6 +133,7 @@ impl Client {
         storage_key: [u8; 32],
         message_store_url: Option<String>,
         identity_server_url: Option<String>,
+        turn_credentials_url: Option<String>,
         #[cfg(any(feature = "voip", feature = "video"))] call_manager: Arc<CallManager>,
         #[cfg(any(feature = "voip", feature = "video"))] voip_integration: Arc<VoIPIntegration>,
         group_manager: Arc<crate::group::GroupManager>,
@@ -148,6 +150,7 @@ impl Client {
             storage_key,
             message_store_url,
             identity_server_url,
+            turn_credentials_url,
             message_store_http: crate::utils::http::client(),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
@@ -2171,6 +2174,54 @@ impl Client {
             .collect()
     }
 
+    /// ICE servers for a call: our own STUN plus short-lived TURN credentials.
+    ///
+    /// WebRTC sessions were created with no ICE servers at all, so only host
+    /// candidates existed and a call between two phones on mobile data (CGNAT)
+    /// could never connect. The credentials are requested with a signed
+    /// request, exactly like the message store.
+    pub async fn ice_servers(&self) -> Result<Vec<IceServer>> {
+        let base_url = self
+            .turn_credentials_url
+            .as_deref()
+            .map(|url| url.trim_end_matches('/'))
+            .filter(|url| !url.is_empty())
+            .ok_or_else(|| {
+                ZapLivreError::Network("TURN credentials server is not configured".to_string())
+            })?;
+
+        let local_peer = self.local_peer_id().to_string();
+        let body = serde_json::to_vec(&serde_json::json!({ "username": local_peer }))
+            .map_err(|e| ZapLivreError::Network(e.to_string()))?;
+        let path = "/api/turn/credentials";
+        let (peer, ts, sig) =
+            Self::store_auth_headers_with(&self.identity, &local_peer, "POST", path, &body).await;
+
+        let response = self
+            .message_store_http
+            .post(format!("{}{}", base_url, path))
+            .header("x-zaplivre-peer", peer)
+            .header("x-zaplivre-ts", ts)
+            .header("x-zaplivre-sig", sig)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| ZapLivreError::Network(format!("TURN credentials error: {}", e)))?;
+        if !response.status().is_success() {
+            return Err(ZapLivreError::Network(format!(
+                "TURN credentials server returned {}",
+                response.status()
+            )));
+        }
+        let credentials: TurnCredentialsResponse = response
+            .json()
+            .await
+            .map_err(|e| ZapLivreError::Network(format!("Invalid TURN credentials: {}", e)))?;
+
+        Ok(ice_servers_from(credentials))
+    }
+
     /// Bootstrap DHT
     pub async fn bootstrap(&self) -> Result<()> {
         tracing::info!("🌐 Client bootstrap requested");
@@ -2188,9 +2239,39 @@ impl Client {
     }
 
     // === VoIP Methods ===
+    /// Hand fresh TURN credentials to the core's own WebRTC stack (voice
+    /// calls). Without them it only had a third-party STUN server: calls
+    /// failed behind symmetric NAT and that server learned who was calling.
+    /// Best-effort: a call on the local network must still work.
+    #[cfg(feature = "voip")]
+    async fn refresh_turn_credentials(&self) {
+        let turn = match self.ice_servers().await {
+            Ok(servers) => servers.into_iter().find(|s| s.username.is_some()),
+            Err(e) => {
+                tracing::warn!("Calling without TURN: {}", e);
+                return;
+            }
+        };
+        if let Some(IceServer {
+            urls,
+            username: Some(username),
+            credential: Some(password),
+        }) = turn
+        {
+            self.call_manager
+                .set_turn_credentials(crate::voip::TurnCredentials {
+                    username,
+                    password,
+                    uris: urls,
+                })
+                .await;
+        }
+    }
+
     #[cfg(feature = "voip")]
     /// Start a voice call to a peer
     pub async fn start_call(&self, to_peer_id: String) -> Result<String> {
+        self.refresh_turn_credentials().await;
         self.voip_integration
             .start_call(to_peer_id)
             .await
@@ -2200,6 +2281,7 @@ impl Client {
     #[cfg(feature = "voip")]
     /// Accept an incoming call
     pub async fn accept_call(&self, call_id: String) -> Result<()> {
+        self.refresh_turn_credentials().await;
         self.voip_integration
             .accept_call(call_id)
             .await
@@ -3209,6 +3291,54 @@ struct OfflineMessageDto {
     created_at: String,
 }
 
+/// One entry of a WebRTC `iceServers` list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IceServer {
+    pub urls: Vec<String>,
+    pub username: Option<String>,
+    pub credential: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TurnCredentialsResponse {
+    username: String,
+    password: String,
+    uris: Vec<String>,
+}
+
+/// TURN entry with its credentials, preceded by a STUN entry on the same host:
+/// coturn answers STUN too, so no third-party STUN server learns who is calling.
+fn ice_servers_from(credentials: TurnCredentialsResponse) -> Vec<IceServer> {
+    let mut servers = Vec::new();
+    let stun: Vec<String> = credentials
+        .uris
+        .iter()
+        .filter_map(|uri| uri.strip_prefix("turn:"))
+        .filter_map(|rest| rest.split('?').next())
+        .map(|host_port| format!("stun:{}", host_port))
+        .fold(Vec::new(), |mut unique, uri| {
+            if !unique.contains(&uri) {
+                unique.push(uri);
+            }
+            unique
+        });
+    if !stun.is_empty() {
+        servers.push(IceServer {
+            urls: stun,
+            username: None,
+            credential: None,
+        });
+    }
+    if !credentials.uris.is_empty() {
+        servers.push(IceServer {
+            urls: credentials.uris,
+            username: Some(credentials.username),
+            credential: Some(credentials.password),
+        });
+    }
+    servers
+}
+
 #[derive(Debug, Serialize)]
 struct DeleteMessagesRequest {
     message_ids: Vec<String>,
@@ -3218,6 +3348,27 @@ struct DeleteMessagesRequest {
 mod tests {
     use crate::api::ClientBuilder;
     use tempfile::TempDir;
+
+    #[test]
+    fn ice_servers_pair_our_own_stun_with_the_turn_credentials() {
+        let servers = super::ice_servers_from(super::TurnCredentialsResponse {
+            username: "1700000000:peer".to_string(),
+            password: "hmac".to_string(),
+            uris: vec![
+                "turn:turn.zaplivre.app:3478?transport=udp".to_string(),
+                "turn:turn.zaplivre.app:3478?transport=tcp".to_string(),
+            ],
+        });
+
+        assert_eq!(servers.len(), 2);
+        // STUN on the same host, once, and with no credentials
+        assert_eq!(servers[0].urls, vec!["stun:turn.zaplivre.app:3478"]);
+        assert_eq!(servers[0].username, None);
+        // TURN keeps every transport and carries the credentials
+        assert_eq!(servers[1].urls.len(), 2);
+        assert_eq!(servers[1].username.as_deref(), Some("1700000000:peer"));
+        assert_eq!(servers[1].credential.as_deref(), Some("hmac"));
+    }
 
     // build() spawna workers com spawn_local, então precisa rodar em LocalSet
     // (igual ao caminho FFI de produção)

@@ -717,10 +717,24 @@ pub fn build_turn_config(
     username: String,
     credential: String,
 ) -> Vec<RTCIceServer> {
+    // STUN on our own TURN host (coturn answers both), so no third party
+    // learns who is calling whom.
+    let mut stun_urls: Vec<String> = Vec::new();
+    for uri in &turn_uris {
+        let host_port = uri
+            .strip_prefix("turn:")
+            .and_then(|rest| rest.split('?').next());
+        if let Some(host_port) = host_port {
+            let stun = format!("stun:{}", host_port);
+            if !stun_urls.contains(&stun) {
+                stun_urls.push(stun);
+            }
+        }
+    }
+
     vec![
-        // STUN server (public Google STUN)
         RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+            urls: stun_urls,
             ..Default::default()
         },
         // TURN server (from FASE 10)

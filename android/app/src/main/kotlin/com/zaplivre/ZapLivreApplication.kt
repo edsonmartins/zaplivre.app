@@ -59,6 +59,14 @@ class ZapLivreApplication : Application() {
                 Log.w(TAG, "Failed to set SIGNALING_SERVER_URL env", e)
             }
         }
+        val turnCredentialsUrl = BuildConfig.TURN_CREDENTIALS_URL
+        if (turnCredentialsUrl.isNotBlank()) {
+            try {
+                Os.setenv("TURN_CREDENTIALS_URL", turnCredentialsUrl, true)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set TURN_CREDENTIALS_URL env", e)
+            }
+        }
         val identityUrl = BuildConfig.IDENTITY_SERVER_URL
         if (identityUrl.isNotBlank()) {
             try {

@@ -658,3 +658,21 @@ impl From<crate::storage::Reaction> for FfiReaction {
         }
     }
 }
+
+/// One entry of a WebRTC `iceServers` list.
+#[derive(Debug, Clone)]
+pub struct FfiIceServer {
+    pub urls: Vec<String>,
+    pub username: Option<String>,
+    pub credential: Option<String>,
+}
+
+impl From<crate::api::client::IceServer> for FfiIceServer {
+    fn from(server: crate::api::client::IceServer) -> Self {
+        Self {
+            urls: server.urls,
+            username: server.username,
+            credential: server.credential,
+        }
+    }
+}

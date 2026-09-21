@@ -47,6 +47,7 @@ targets:
         IDENTITY_SERVER_URL: https://identity.zaplivre.app
         MESSAGE_STORE_URL: https://store.zaplivre.app
         SIGNALING_SERVER_URL: wss://signal.zaplivre.app/ws
+        TURN_CREDENTIALS_URL: https://turn.zaplivre.app
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UILaunchScreen:

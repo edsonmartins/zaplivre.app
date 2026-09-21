@@ -588,3 +588,17 @@ Verificado: gates de Rust verdes; `./gradlew :app:compileDebugKotlin` e `:app:te
 **Observação de ambiente:** o JDK padrão desta máquina (25.0.2) quebra o Gradle do projeto; os builds Android foram feitos com `JAVA_HOME` apontando para o Temurin 17.
 
 **Falta nesta frente:** iOS usar `fetchOfflineMessages` no wake por push e ter ciclo de vida (MA8); PushKit + push de chamada (M6); Telecom/`CallStyle` no Android; ICE servers a partir do `turn-credentials` (M3); APK só via CI com `cargo ndk` limpo e arm64 (M1); OOM de mídia por `List<UByte>` (MA1); logout do iOS (MA2); paridade de descoberta de contato (MA3).
+
+### Lote 10 — branch `feat/apps-turn-ice` (2026-09-21)
+
+Verificado: gates de Rust verdes (fmt, clippy `--all-targets`, `check --features voip`, `cargo test --workspace`); Android `:app:compileDebugKotlin` (JDK 17); **iOS `xcodebuild` para o simulador: BUILD SUCCEEDED**, com as libs nativas reconstruídas a partir do core atual (`ios/build-rust.sh`). **Validado contra o `turn-credentials` real** rodando localmente: `cargo test -p zaplivre-core --test ice_servers -- --ignored` → request assinado aceito, credenciais devolvidas. **Não verificado:** chamada real entre dois aparelhos em rede móvel (depende do coturn no ar com `TURN_HOST` público).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| M3 / P0-O — clientes não consumiam o TURN | **Corrigido** | `Client::ice_servers()` (sem depender da feature `voip`): request assinado ao `turn-credentials`, mesmo esquema do message store; devolve STUN no **nosso** host (o coturn responde STUN) + TURN com credenciais efêmeras. Exposto na FFI (`ice_servers()` → `FfiIceServer`), na pista de background para não esperar envios enfileirados. URL por `TURN_CREDENTIALS_URL` (Android `BuildConfig`, iOS `Info.plist`/`project.yml`), default `https://turn.zaplivre.app` |
+| Vídeo — Android | **Corrigido** | `NativeWebRtcSession` busca os ICE servers (teto de 5 s) antes de criar a `PeerConnection`; antes era `RTCConfiguration(emptyList())` |
+| Vídeo — iOS | **Corrigido** | Idem. O observer de sinais é registrado **antes** da busca e os sinais são guardados até a conexão existir: as notificações do iOS não têm replay e uma oferta que chegasse durante a busca seria perdida |
+| N5 — áudio (WebRTC do core) só com STUN do Google | **Corrigido** | `start_call`/`accept_call` entregam credenciais TURN frescas ao `CallManager` (best-effort); `build_turn_config` usa STUN no nosso host em vez do Google, que ficava sabendo quem liga para quem |
+| MA8 (parte) — iOS no wake por push | **Parcial** | O handler de push drena a caixa offline (`fetchOfflineMessages`); antes só discava o remetente, o que não traz a mensagem que está no store. **Falta:** inicializar o core no wake em background e o ciclo de vida (`scenePhase`, `beginBackgroundTask`) |
+
+**Deploy:** depende de `TURN_HOST` público no `turn-credentials` (P0-O) e do coturn alcançável; o default do app aponta para `https://turn.zaplivre.app`.
