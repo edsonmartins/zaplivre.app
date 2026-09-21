@@ -148,6 +148,24 @@ class ZapLivreCore: ObservableObject {
     }
 
     /// Store a peer's prekey bundle (JSON) for E2E encryption
+    /// Resolve a username on the identity server and keep the contact's prekey
+    /// bundle (the core verifies that it belongs to the returned peer ID before
+    /// any session). Returns the peer ID.
+    func lookupUsername(_ username: String) async throws -> String {
+        guard let client = client else { throw ZapLivreCoreError.notInitialized }
+        let json = try await client.lookupUsername(username: username)
+        guard let object = try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+              let peerId = object["peer_id"] as? String,
+              let bundle = object["prekey_bundle"],
+              let bundleData = try? JSONSerialization.data(withJSONObject: bundle),
+              let bundleJson = String(data: bundleData, encoding: .utf8)
+        else {
+            throw ZapLivreCoreError.storageError("Invalid identity server response")
+        }
+        try client.setContactPrekeyBundle(peerId: peerId, prekeyBundleJson: bundleJson)
+        return peerId
+    }
+
     func storePeerPrekeyBundle(peerId: String, bundleJson: String) throws {
         try client?.setContactPrekeyBundle(peerId: peerId, prekeyBundleJson: bundleJson)
     }

@@ -118,11 +118,11 @@ struct NewChatView: View {
 
                 // Manual peer ID input
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Inserir Peer ID manualmente")
+                    Text("Inserir @usuário ou Peer ID")
                         .font(ZapFont.rowName)
                         .foregroundColor(ZapColor.ink)
 
-                    TextField("12D3KooW...", text: $peerId)
+                    TextField("@usuario ou 12D3KooW...", text: $peerId)
                         .accessibilityIdentifier("new_chat_peer_input")
                         .font(.system(size: 15, design: .monospaced))
                         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -198,8 +198,48 @@ struct NewChatView: View {
             && value.unicodeScalars.allSatisfy(base58.contains)
     }
 
+    /// Usernames as the identity server accepts them (`^[a-z0-9_]{3,20}$`).
+    static func normalizedUsername(_ input: String) -> String? {
+        let name = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+            .lowercased()
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789_")
+        guard (3...20).contains(name.count), name.unicodeScalars.allSatisfy(allowed.contains)
+        else { return nil }
+        return name
+    }
+
     private func startChat() {
-        guard !peerId.isEmpty else { return }
+        let input = peerId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty else { return }
+
+        // Anything that does not look like a peer ID is a username: the iOS app
+        // could only start chats by QR or pasted peer ID, so iOS and Android
+        // users could not find each other the same way.
+        if !input.hasPrefix("12D3KooW") && !input.hasPrefix("Qm") {
+            guard let username = Self.normalizedUsername(input) else {
+                errorMessage = "Usuário inválido. Use de 3 a 20 letras minúsculas, números ou _."
+                return
+            }
+            isStartingChat = true
+            errorMessage = nil
+            Task {
+                do {
+                    let found = try await ZapLivreCore.shared.lookupUsername(username)
+                    await MainActor.run {
+                        isStartingChat = false
+                        appState.openConversation(peerId: found)
+                        dismiss()
+                    }
+                } catch {
+                    await MainActor.run {
+                        isStartingChat = false
+                        errorMessage = "Usuário @\(username) não encontrado"
+                    }
+                }
+            }
+            return
+        }
 
         guard Self.isValidPeerId(peerId) else {
             errorMessage = "Peer ID inválido. Confira o código ou escaneie o QR do contato."
