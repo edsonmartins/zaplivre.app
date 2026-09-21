@@ -4,9 +4,11 @@
 
 pub mod envelope;
 pub mod image;
+pub mod transfer;
 
 pub use envelope::{MediaEnvelope, MEDIA_ENVELOPE_PREFIX};
 pub use image::{compress_image, generate_thumbnail, resize_image, ImageProcessingError};
+pub use transfer::{MediaOfferEnvelope, MediaOfferMeta, MEDIA_OFFER_PREFIX};
 
 pub fn media_summary(
     media_type: &str,
