@@ -44,6 +44,8 @@
 	<string>ZapLivre precisa acessar fotos para compartilhar imagens</string>
 	<key>SIGNALING_SERVER_URL</key>
 	<string>wss://signal.zaplivre.app/ws</string>
+	<key>TURN_CREDENTIALS_URL</key>
+	<string>https://turn.zaplivre.app</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -160,6 +160,19 @@ class PushNotificationManager: NSObject, ObservableObject {
             }
         }
 
+        // The push only says something is waiting: the message itself sits on
+        // the message store (the sender fell back to it because we were not
+        // reachable). Drain the mailbox; dialing the sender, below, does not
+        // bring that message in.
+        Task {
+            do {
+                let fetched = try await ZapLivreCore.shared.fetchOfflineMessages()
+                print("📬 Offline mailbox drained after push: \(fetched)")
+            } catch {
+                print("⚠️ Offline mailbox fetch failed: \(error)")
+            }
+        }
+
         // Handle custom data
         // The push target's `peer_id` identifies this device. The sender is
         // carried in the data payload and is the peer we must dial.

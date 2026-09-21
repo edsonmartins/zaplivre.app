@@ -21,6 +21,8 @@ final class NativeWebRtcSession: NSObject, ObservableObject {
     private var videoCapturer: RTCCameraVideoCapturer?
     private var localAudioTrack: RTCAudioTrack?
     private var signalObserver: NSObjectProtocol?
+    private var setupTask: Task<Void, Never>?
+    private var pendingSignals: [Notification] = []
     private var pendingCandidates: [RTCIceCandidate] = []
     private var usingFrontCamera = true
 
@@ -30,10 +32,42 @@ final class NativeWebRtcSession: NSObject, ObservableObject {
         super.init()
     }
 
+    /// The peer connection is created after the ICE servers are known. Without
+    /// them only host candidates exist and a call between two phones on mobile
+    /// data (CGNAT) never connects.
     func start() {
         configureAudioSession()
 
+        // Listen before anything else: these notifications are not replayed, so
+        // an offer arriving while the ICE servers are being fetched would be
+        // lost. `handle` parks signals until the peer connection exists.
+        signalObserver = NotificationCenter.default.addObserver(
+            forName: .zapLivreWebRtcSignal,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in self?.handle(notification) }
+        }
+
+        setupTask = Task { @MainActor [weak self] in
+            let iceServers = await ZapLivreCore.shared.iceServers().map { server in
+                RTCIceServer(
+                    urlStrings: server.urls,
+                    username: server.username,
+                    credential: server.credential
+                )
+            }
+            guard let self, !Task.isCancelled else { return }
+            if iceServers.isEmpty {
+                print("⚠️ No ICE servers available: call limited to the local network")
+            }
+            self.connect(iceServers: iceServers)
+        }
+    }
+
+    private func connect(iceServers: [RTCIceServer]) {
         let configuration = RTCConfiguration()
+        configuration.iceServers = iceServers
         configuration.sdpSemantics = .unifiedPlan
         configuration.continualGatheringPolicy = .gatherContinually
         let constraints = RTCMediaConstraints(
@@ -62,21 +96,21 @@ final class NativeWebRtcSession: NSObject, ObservableObject {
         peerConnection.add(videoTrack, streamIds: ["stream-\(callId)"])
         startCapture(front: true)
 
-        signalObserver = NotificationCenter.default.addObserver(
-            forName: .zapLivreWebRtcSignal,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            Task { @MainActor in self?.handle(notification) }
-        }
-
         let localPeerId = ZapLivreCore.shared.localPeerId ?? ""
         if localPeerId < remotePeerId {
             createOffer()
         }
+
+        // Signals that arrived while the connection was being set up
+        let parked = pendingSignals
+        pendingSignals.removeAll()
+        parked.forEach { handle($0) }
     }
 
     func stop() {
+        setupTask?.cancel()
+        setupTask = nil
+        pendingSignals.removeAll()
         if let signalObserver { NotificationCenter.default.removeObserver(signalObserver) }
         signalObserver = nil
         videoCapturer?.stopCapture()
@@ -141,6 +175,10 @@ final class NativeWebRtcSession: NSObject, ObservableObject {
     }
 
     private func handle(_ notification: Notification) {
+        guard peerConnection != nil else {
+            pendingSignals.append(notification)
+            return
+        }
         guard let values = notification.userInfo,
               values["callId"] as? String == callId,
               let rawKind = values["kind"] as? String,

@@ -190,6 +190,9 @@ enum ClientCommand {
     FetchOfflineMessages {
         response: oneshot::Sender<Result<u32, ZapLivreFfiError>>,
     },
+    IceServers {
+        response: oneshot::Sender<Result<Vec<crate::ffi::FfiIceServer>, ZapLivreFfiError>>,
+    },
     // VoIP commands
     #[cfg(feature = "voip")]
     StartCall {
@@ -477,7 +480,8 @@ fn lane(cmd: &ClientCommand) -> Lane {
         | ClientCommand::UpdateGroup { .. }
         | ClientCommand::AddGroupSenderKey { .. }
         | ClientCommand::SendGroupMessage { .. } => Lane::Ordered,
-        ClientCommand::DownloadMedia { .. } => Lane::Background,
+        // Call setup must not wait behind queued sends.
+        ClientCommand::DownloadMedia { .. } | ClientCommand::IceServers { .. } => Lane::Background,
         _ => Lane::Immediate,
     }
 }
@@ -666,6 +670,14 @@ async fn handle_command(client: &std::sync::Arc<Client>, cmd: ClientCommand) {
         }
         ClientCommand::ListeningAddresses { response } => {
             let result = Ok(client.listening_addresses().await);
+            let _ = response.send(result);
+        }
+        ClientCommand::IceServers { response } => {
+            let result = client
+                .ice_servers()
+                .await
+                .map(|servers| servers.into_iter().map(Into::into).collect())
+                .map_err(|e| e.into());
             let _ = response.send(result);
         }
         ClientCommand::FetchOfflineMessages { response } => {
@@ -1209,6 +1221,12 @@ impl ZapLivreClient {
                     if let Ok(url) = std::env::var("MESSAGE_STORE_URL") {
                         if !url.trim().is_empty() {
                             builder = builder.message_store_url(url);
+                        }
+                    }
+
+                    if let Ok(url) = std::env::var("TURN_CREDENTIALS_URL") {
+                        if !url.trim().is_empty() {
+                            builder = builder.turn_credentials_url(url);
                         }
                     }
 
@@ -1768,6 +1786,21 @@ impl ZapLivreClient {
         self.handle()
             .sender
             .send(ClientCommand::Bootstrap { response: tx })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// ICE servers for a native WebRTC session (own STUN + TURN credentials).
+    pub async fn ice_servers(&self) -> Result<Vec<crate::ffi::FfiIceServer>, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::IceServers { response: tx })
             .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;

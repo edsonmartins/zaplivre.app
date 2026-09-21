@@ -10,6 +10,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.Camera2Enumerator
@@ -40,6 +41,7 @@ class NativeWebRtcSession(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val eglBase = EglBase.create()
     private var signalJob: Job? = null
+    private var setupJob: Job? = null
     private var peerConnection: PeerConnection? = null
     private var videoCapturer: CameraVideoCapturer? = null
     private var textureHelper: SurfaceTextureHelper? = null
@@ -65,6 +67,22 @@ class NativeWebRtcSession(
         remoteRenderer.setMirror(false)
         remoteRenderer.setEnableHardwareScaler(true)
 
+        // A PeerConnection nasce depois de obter os ICE servers. Sem eles só há
+        // candidatos host e a chamada nunca conecta entre dois celulares em
+        // rede móvel (CGNAT). `stop()` cancela o scope, e com ele este launch.
+        setupJob = scope.launch {
+            val iceServers = withTimeoutOrNull(ICE_SERVERS_TIMEOUT_MS) {
+                ZapLivreClientWrapper.iceServers()
+            }.orEmpty()
+            if (iceServers.isEmpty()) {
+                Log.w(TAG, "No ICE servers available: call limited to the local network")
+            }
+            connect(iceServers, createOffer)
+        }
+    }
+
+    private fun connect(iceServers: List<PeerConnection.IceServer>, createOffer: Boolean) {
+        val localRenderer = localRenderer ?: return
         ensureFactoryInitialized(appContext)
         val factory = PeerConnectionFactory.builder()
             .setVideoEncoderFactory(
@@ -74,7 +92,7 @@ class NativeWebRtcSession(
             .createPeerConnectionFactory()
 
         peerConnection = factory.createPeerConnection(
-            PeerConnection.RTCConfiguration(emptyList()).apply {
+            PeerConnection.RTCConfiguration(iceServers).apply {
                 sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
                 continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
             },
@@ -117,6 +135,7 @@ class NativeWebRtcSession(
     }
 
     fun stop() {
+        setupJob?.cancel()
         signalJob?.cancel()
         try { videoCapturer?.stopCapture() } catch (_: InterruptedException) { }
         localVideoTrack?.dispose()
@@ -258,6 +277,9 @@ class NativeWebRtcSession(
 
     companion object {
         private const val TAG = "NativeWebRtcSession"
+
+        /** Teto para obter os ICE servers antes de seguir só com a rede local. */
+        private const val ICE_SERVERS_TIMEOUT_MS = 5_000L
         @Volatile private var initialized = false
 
         @Synchronized

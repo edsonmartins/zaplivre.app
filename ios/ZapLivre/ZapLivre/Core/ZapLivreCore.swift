@@ -50,6 +50,11 @@ class ZapLivreCore: ObservableObject {
                 setenv("SIGNALING_SERVER_URL", signalingUrl, 1)
             }
         }
+        if let turnUrl = Bundle.main.object(forInfoDictionaryKey: "TURN_CREDENTIALS_URL") as? String {
+            if !turnUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                setenv("TURN_CREDENTIALS_URL", turnUrl, 1)
+            }
+        }
         if let identityUrl = Bundle.main.object(forInfoDictionaryKey: "IDENTITY_SERVER_URL") as? String {
             if !identityUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 setenv("ZAPLIVRE_IDENTITY_SERVER_URL", identityUrl, 1)
@@ -203,6 +208,25 @@ class ZapLivreCore: ObservableObject {
         return URL(fileURLWithPath: dataDir)
             .appendingPathComponent("zaplivre.db")
             .path
+    }
+
+    /// Drain the offline mailbox on the message store. This is what a push
+    /// wake-up should ask for: the app may only have a few seconds.
+    @discardableResult
+    func fetchOfflineMessages() async throws -> UInt32 {
+        try await client?.fetchOfflineMessages() ?? 0
+    }
+
+    /// ICE servers (own STUN + short-lived TURN credentials) for a native
+    /// WebRTC session. Empty on failure: the call still works on the local
+    /// network and the reason is logged.
+    func iceServers() async -> [FfiIceServer] {
+        do {
+            return try await client?.iceServers() ?? []
+        } catch {
+            print("⚠️ Failed to fetch ICE servers: \(error)")
+            return []
+        }
     }
 
     /// Connect to bootstrap nodes

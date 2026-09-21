@@ -27,6 +27,7 @@ pub struct ClientBuilder {
     bootstrap_peers: Vec<(libp2p::PeerId, libp2p::Multiaddr)>,
     message_store_url: Option<String>,
     identity_server_url: Option<String>,
+    turn_credentials_url: Option<String>,
     signaling_server_url: Option<String>,
 }
 
@@ -39,6 +40,7 @@ impl ClientBuilder {
             bootstrap_peers: Vec::new(),
             message_store_url: None,
             identity_server_url: None,
+            turn_credentials_url: None,
             signaling_server_url: None,
         }
     }
@@ -64,6 +66,12 @@ impl ClientBuilder {
     /// Set message store URL (store-and-forward)
     pub fn message_store_url(mut self, url: String) -> Self {
         self.message_store_url = Some(url);
+        self
+    }
+
+    /// Base URL of the TURN credentials server (ICE servers for calls)
+    pub fn turn_credentials_url(mut self, url: String) -> Self {
+        self.turn_credentials_url = Some(url);
         self
     }
 
@@ -337,6 +345,7 @@ impl ClientBuilder {
             storage_key,
             self.message_store_url,
             self.identity_server_url,
+            self.turn_credentials_url,
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]
