@@ -108,11 +108,13 @@ jobs:
           BIND_ADDR=0.0.0.0:8083 RATE_LIMIT_DISABLED=1 \
             nohup ./target/debug/zaplivre-identity-server > identity-server.log 2>&1 &
           for i in $(seq 1 30); do
-            curl -sf http://localhost:8083/health && exit 0
+            curl -sf http://localhost:8083/health && break
             sleep 1
           done
-          cat identity-server.log
-          exit 1
+          curl -sf http://localhost:8083/health || { cat identity-server.log; exit 1; }
+          # Contato que os flows 03 e 10 procuram por username
+          cargo run -p zaplivre-core --example seed_username -- \
+            http://localhost:8083 maestro_e2e_peer
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
