@@ -1,10 +1,10 @@
 # Configuração da suíte Android.
 # Só os flows numerados na raiz são executáveis; common/ contém helpers
 # (chamados via runFlow) e fica fora da execução direta.
-# Os flows 2dev_* exigem dois devices com contas combinadas entre si e são
-# rodados manualmente; num emulador só eles não têm como passar (e um deles
-# nem é YAML válido: `release:true`, sem espaço). Ficam fora da execução.
+# Os flows de dois aparelhos ficam em two-devices/ e são rodados manualmente
+# (exigem duas contas combinadas entre si). O Maestro faz o parse de todo .yml
+# do diretório antes de filtrar, então mantê-los aqui quebrava a suíte inteira.
 flows:
-  - "[0-9]*.yml"
+  - "*.yml"
 executionOrder:
   continueOnFailure: true

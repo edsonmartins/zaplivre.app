@@ -31,6 +31,27 @@ jobs:
     # CI (adb/emulador instáveis). O job reporta o resultado real, mas não
     # trava o PR. Rever ao estabilizar (PLANO_HOMOLOGACAO Fase E).
     continue-on-error: true
+    # Identity server próprio do job: o onboarding Android registra o username,
+    # e depender do servidor de produção derrubava a suíte inteira quando ele
+    # estava fora (HTTP 502 em set/26: 10/10 flows falhando no onboarding).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: zaplivre
+          POSTGRES_DB: zaplivre_identity
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +59,7 @@ jobs:
         # protoc: build.rs do spqr-syft (libsignal PQXDH). cmake: audiopus_sys (Opus, --features voip).
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler cmake
+          sudo apt-get install -y protobuf-compiler cmake postgresql-client
 
       - name: Enable KVM
         run: |
@@ -76,6 +97,25 @@ jobs:
           cd core
           cargo ndk -t x86_64 -o ../android/app/src/main/jniLibs build --release --features voip
 
+      - name: Start identity server
+        env:
+          DATABASE_URL: postgres://zaplivre@localhost:5432/zaplivre_identity
+          REDIS_URL: redis://localhost:6379
+        run: |
+          psql "$DATABASE_URL" -f server/identity/schema.sql
+          cargo build -p zaplivre-identity-server
+          # 0.0.0.0: o emulador alcança o host por 10.0.2.2
+          BIND_ADDR=0.0.0.0:8083 RATE_LIMIT_DISABLED=1 \
+            nohup ./target/debug/zaplivre-identity-server > identity-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8083/health && break
+            sleep 1
+          done
+          curl -sf http://localhost:8083/health || { cat identity-server.log; exit 1; }
+          # Contato que os flows 03 e 10 procuram por username
+          cargo run -p zaplivre-core --example seed_username -- \
+            http://localhost:8083 maestro_e2e_peer
+
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -87,6 +127,10 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build debug APK
+        env:
+          # O core (Rust) faz o registro; a política de cleartext do Android não
+          # se aplica aos sockets nativos, então HTTP para o host funciona.
+          IDENTITY_SERVER_URL: http://10.0.2.2:8083
         run: |
           chmod +x android/gradlew
           cd android && ./gradlew assembleDebug
@@ -116,6 +160,7 @@ jobs:
           path: |
             ~/.maestro/tests/**
             maestro-android-report.xml
+            identity-server.log
           if-no-files-found: ignore
 
       - name: Upload JUnit report
