@@ -135,6 +135,40 @@ class PushNotificationManager: NSObject, ObservableObject {
         }
     }
 
+    /// Tell the push server to stop notifying this device. Must run while the
+    /// identity still exists: the request is signed with it.
+    func unregisterFromServer() async {
+        guard let url = URL(string: "\(pushServerURL)/api/v1/unregister"),
+              let peerId = ZapLivreCore.shared.localPeerId, !peerId.isEmpty,
+              let deviceId = UIDevice.current.identifierForVendor?.uuidString else { return }
+
+        do {
+            var request = URLRequest(url: url)
+            request.httpMethod = "DELETE"
+            request.timeoutInterval = 5
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body = try JSONSerialization.data(
+                withJSONObject: ["peer_id": peerId, "device_id": deviceId],
+                options: [.sortedKeys]
+            )
+            let timestamp = Int64(Date().timeIntervalSince1970)
+            let signature = try await ZapLivreCore.shared.signAuthRequest(
+                method: "DELETE",
+                path: "/api/v1/unregister",
+                timestamp: timestamp,
+                body: body
+            )
+            request.setValue(peerId, forHTTPHeaderField: "x-zaplivre-peer")
+            request.setValue(String(timestamp), forHTTPHeaderField: "x-zaplivre-ts")
+            request.setValue(signature, forHTTPHeaderField: "x-zaplivre-sig")
+            request.httpBody = body
+            _ = try await URLSession.shared.data(for: request)
+            print("✅ Device token unregistered from push server")
+        } catch {
+            print("⚠️ Push unregistration failed: \(error)")
+        }
+    }
+
     /// Handle incoming push notification
     func handleNotification(userInfo: [AnyHashable: Any], openConversation: Bool = false) {
         print("📨 Push notification received")

@@ -223,13 +223,25 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         showLogoutDialog = false
-                        // Logout destrutivo: parar o service, apagar identidade
-                        // segura + dados locais e encerrar o processo
-                        com.zaplivre.service.ZapLivreService.stop(context)
-                        com.zaplivre.core.AndroidIdentityStore.deleteIdentity(context)
-                        java.io.File(context.filesDir, "zaplivre_data").deleteRecursively()
-                        (context as? android.app.Activity)?.finishAffinity()
-                        Runtime.getRuntime().exit(0)
+                        scope.launch {
+                            // Enquanto a identidade ainda existe (o request é
+                            // assinado): parar os pushes para este aparelho. Sem
+                            // isto o servidor seguia notificando uma conta apagada.
+                            val peerId = com.zaplivre.core.ZapLivreClientWrapper.localPeerId.value
+                            if (!peerId.isNullOrBlank()) {
+                                kotlinx.coroutines.withTimeoutOrNull(5_000) {
+                                    com.zaplivre.push.PushServerClient.create(context)
+                                        .unregisterToken(peerId)
+                                }
+                            }
+                            // Logout destrutivo: parar o service, apagar identidade
+                            // segura + dados locais e encerrar o processo
+                            com.zaplivre.service.ZapLivreService.stop(context)
+                            com.zaplivre.core.AndroidIdentityStore.deleteIdentity(context)
+                            java.io.File(context.filesDir, "zaplivre_data").deleteRecursively()
+                            (context as? android.app.Activity)?.finishAffinity()
+                            Runtime.getRuntime().exit(0)
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ZapColor.danger

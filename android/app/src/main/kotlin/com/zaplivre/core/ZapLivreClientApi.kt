@@ -53,7 +53,7 @@ interface ZapLivreClientApi {
     /** Envia mensagem de imagem. */
     suspend fun sendImageMessage(
         toPeerId: String,
-        imageData: List<UByte>,
+        imageData: ByteArray,
         fileName: String,
         quality: UInt = 85u
     )
@@ -61,7 +61,7 @@ interface ZapLivreClientApi {
     /** Envia mensagem de voz. */
     suspend fun sendVoiceMessage(
         toPeerId: String,
-        audioData: List<UByte>,
+        audioData: ByteArray,
         fileName: String,
         durationSeconds: Int
     )
@@ -69,7 +69,7 @@ interface ZapLivreClientApi {
     /** Envia documento/arquivo. */
     suspend fun sendDocumentMessage(
         toPeerId: String,
-        fileData: List<UByte>,
+        fileData: ByteArray,
         fileName: String,
         mimeType: String
     )
@@ -77,12 +77,12 @@ interface ZapLivreClientApi {
     /** Envia mensagem de vídeo. */
     suspend fun sendVideoMessage(
         toPeerId: String,
-        videoData: List<UByte>,
+        videoData: ByteArray,
         fileName: String,
         width: Int? = null,
         height: Int? = null,
         durationSeconds: Int,
-        thumbnailData: List<UByte>? = null
+        thumbnailData: ByteArray? = null
     )
 
     /** Exclui uma mensagem. */

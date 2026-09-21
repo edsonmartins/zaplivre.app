@@ -602,3 +602,13 @@ Verificado: gates de Rust verdes (fmt, clippy `--all-targets`, `check --features
 | MA8 (parte) — iOS no wake por push | **Parcial** | O handler de push drena a caixa offline (`fetchOfflineMessages`); antes só discava o remetente, o que não traz a mensagem que está no store. **Falta:** inicializar o core no wake em background e o ciclo de vida (`scenePhase`, `beginBackgroundTask`) |
 
 **Deploy:** depende de `TURN_HOST` público no `turn-credentials` (P0-O) e do coturn alcançável; o default do app aponta para `https://turn.zaplivre.app`.
+
+### Lote 11 — branch `fix/apps-media-oom-logout` (2026-09-21)
+
+Verificado: gates de Rust verdes; Android `:app:compileDebugKotlin` + `:app:testDebugUnitTest` (18/18, JDK 17); iOS `xcodebuild` para o simulador com **BUILD SUCCEEDED** contra libs nativas reconstruídas. **Não verificado:** execução em device (envio de vídeo grande, fluxo de logout).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| MA1 — OOM ao enviar mídia no Android | **Corrigido** | Os cinco métodos de mídia da FFI (`send_image/voice/document/video_message`, `download_media`) passaram de `sequence<u8>` para `bytes`. No Kotlin, `List<UByte>` (um objeto por byte: vídeo de 25 MB → centenas de MB de heap → `OutOfMemoryError`, que não é `Exception` e derrubava o app) vira `ByteArray`; no Swift, `Data`. Bindings regenerados e chamadores atualizados nas duas plataformas. **Falta:** os frames de chamada (`send_audio_frame`, `send_video_frame` e callbacks) seguem como `sequence<u8>` — é custo de desempenho, não crash; o app ainda lê o arquivo inteiro para a memória e não comprime |
+| MA2 — logout do iOS | **Corrigido** | Desregistra o push (enquanto a identidade existe: o request é assinado), apaga identidade do Keychain, banco, mídia e preferências, e encerra o processo após voltar à tela inicial. O core Rust não pode ser recriado no mesmo processo (`OnceLock`): por isso restaurar backup logo após o logout falhava com "Import requires app restart", e o banco do usuário anterior ficava para o próximo. **Risco conhecido:** encerrar o processo no iOS é desaconselhado pela Apple; a alternativa exige tornar o core reinicializável (N3) |
+| MA2 — logout do Android sem `unregisterToken` | **Corrigido** | Desregistra o push antes de apagar a identidade, com teto de 5 s |

@@ -588,6 +588,24 @@ fileprivate struct FfiConverterString: FfiConverter {
     }
 }
 
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterData: FfiConverterRustBuffer {
+    typealias SwiftType = Data
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
+        let len: Int32 = try readInt(&buf)
+        return Data(try readBytes(&buf, count: Int(len)))
+    }
+
+    public static func write(_ value: Data, into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        writeBytes(&buf, value)
+    }
+}
+
 
 
 
@@ -617,7 +635,7 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func disableVideo(callId: String) async throws 
     
-    func downloadMedia(mediaHash: String) async throws  -> [UInt8]
+    func downloadMedia(mediaHash: String) async throws  -> Data
     
     func enableVideo(callId: String, codec: FfiVideoCodec) async throws 
     
@@ -691,19 +709,19 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func sendAudioFrame(callId: String, audioData: [UInt8], sampleRate: UInt32, channels: UInt32) async throws 
     
-    func sendDocumentMessage(toPeerId: String, fileData: [UInt8], fileName: String, mimeType: String) async throws  -> String
+    func sendDocumentMessage(toPeerId: String, fileData: Data, fileName: String, mimeType: String) async throws  -> String
     
     func sendGroupMessage(groupId: String, content: String) async throws  -> String
     
-    func sendImageMessage(toPeerId: String, imageData: [UInt8], fileName: String, quality: UInt32) async throws  -> String
+    func sendImageMessage(toPeerId: String, imageData: Data, fileName: String, quality: UInt32) async throws  -> String
     
     func sendTextMessage(toPeerId: String, content: String) async throws  -> String
     
     func sendVideoFrame(callId: String, frameData: [UInt8], width: UInt32, height: UInt32) async throws 
     
-    func sendVideoMessage(toPeerId: String, videoData: [UInt8], fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: [UInt8]?) async throws  -> String
+    func sendVideoMessage(toPeerId: String, videoData: Data, fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: Data?) async throws  -> String
     
-    func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: String, durationSeconds: Int32) async throws  -> String
+    func sendVoiceMessage(toPeerId: String, audioData: Data, fileName: String, durationSeconds: Int32) async throws  -> String
     
     func sendWebrtcAnswer(callId: String, sdp: String) async throws 
     
@@ -958,7 +976,7 @@ open func disableVideo(callId: String)async throws   {
         )
 }
     
-open func downloadMedia(mediaHash: String)async throws  -> [UInt8]  {
+open func downloadMedia(mediaHash: String)async throws  -> Data  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
@@ -970,7 +988,7 @@ open func downloadMedia(mediaHash: String)async throws  -> [UInt8]  {
             pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
             completeFunc: ffi_zaplivre_core_rust_future_complete_rust_buffer,
             freeFunc: ffi_zaplivre_core_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterSequenceUInt8.lift,
+            liftFunc: FfiConverterData.lift,
             errorHandler: FfiConverterTypeZapLivreFfiError_lift
         )
 }
@@ -1443,13 +1461,13 @@ open func sendAudioFrame(callId: String, audioData: [UInt8], sampleRate: UInt32,
         )
 }
     
-open func sendDocumentMessage(toPeerId: String, fileData: [UInt8], fileName: String, mimeType: String)async throws  -> String  {
+open func sendDocumentMessage(toPeerId: String, fileData: Data, fileName: String, mimeType: String)async throws  -> String  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_zaplivre_core_fn_method_zaplivreclient_send_document_message(
                     self.uniffiCloneHandle(),
-                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(fileData),FfiConverterString.lower(fileName),FfiConverterString.lower(mimeType)
+                    FfiConverterString.lower(toPeerId),FfiConverterData.lower(fileData),FfiConverterString.lower(fileName),FfiConverterString.lower(mimeType)
                 )
             },
             pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
@@ -1477,13 +1495,13 @@ open func sendGroupMessage(groupId: String, content: String)async throws  -> Str
         )
 }
     
-open func sendImageMessage(toPeerId: String, imageData: [UInt8], fileName: String, quality: UInt32)async throws  -> String  {
+open func sendImageMessage(toPeerId: String, imageData: Data, fileName: String, quality: UInt32)async throws  -> String  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_zaplivre_core_fn_method_zaplivreclient_send_image_message(
                     self.uniffiCloneHandle(),
-                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(imageData),FfiConverterString.lower(fileName),FfiConverterUInt32.lower(quality)
+                    FfiConverterString.lower(toPeerId),FfiConverterData.lower(imageData),FfiConverterString.lower(fileName),FfiConverterUInt32.lower(quality)
                 )
             },
             pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
@@ -1528,13 +1546,13 @@ open func sendVideoFrame(callId: String, frameData: [UInt8], width: UInt32, heig
         )
 }
     
-open func sendVideoMessage(toPeerId: String, videoData: [UInt8], fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: [UInt8]?)async throws  -> String  {
+open func sendVideoMessage(toPeerId: String, videoData: Data, fileName: String, width: Int32?, height: Int32?, durationSeconds: Int32, thumbnailData: Data?)async throws  -> String  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_zaplivre_core_fn_method_zaplivreclient_send_video_message(
                     self.uniffiCloneHandle(),
-                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(videoData),FfiConverterString.lower(fileName),FfiConverterOptionInt32.lower(width),FfiConverterOptionInt32.lower(height),FfiConverterInt32.lower(durationSeconds),FfiConverterOptionSequenceUInt8.lower(thumbnailData)
+                    FfiConverterString.lower(toPeerId),FfiConverterData.lower(videoData),FfiConverterString.lower(fileName),FfiConverterOptionInt32.lower(width),FfiConverterOptionInt32.lower(height),FfiConverterInt32.lower(durationSeconds),FfiConverterOptionData.lower(thumbnailData)
                 )
             },
             pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
@@ -1545,13 +1563,13 @@ open func sendVideoMessage(toPeerId: String, videoData: [UInt8], fileName: Strin
         )
 }
     
-open func sendVoiceMessage(toPeerId: String, audioData: [UInt8], fileName: String, durationSeconds: Int32)async throws  -> String  {
+open func sendVoiceMessage(toPeerId: String, audioData: Data, fileName: String, durationSeconds: Int32)async throws  -> String  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_zaplivre_core_fn_method_zaplivreclient_send_voice_message(
                     self.uniffiCloneHandle(),
-                    FfiConverterString.lower(toPeerId),FfiConverterSequenceUInt8.lower(audioData),FfiConverterString.lower(fileName),FfiConverterInt32.lower(durationSeconds)
+                    FfiConverterString.lower(toPeerId),FfiConverterData.lower(audioData),FfiConverterString.lower(fileName),FfiConverterInt32.lower(durationSeconds)
                 )
             },
             pollFunc: ffi_zaplivre_core_rust_future_poll_rust_buffer,
@@ -4438,6 +4456,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
+    typealias SwiftType = Data?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterData.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterData.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeFfiMediaType: FfiConverterRustBuffer {
     typealias SwiftType = FfiMediaType?
 
@@ -4478,30 +4520,6 @@ fileprivate struct FfiConverterOptionTypeFfiVideoCodec: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeFfiVideoCodec.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-fileprivate struct FfiConverterOptionSequenceUInt8: FfiConverterRustBuffer {
-    typealias SwiftType = [UInt8]?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterSequenceUInt8.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterSequenceUInt8.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -4806,7 +4824,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_disable_video() != 2025) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_download_media() != 7430) {
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_download_media() != 30959) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_enable_video() != 33234) {
@@ -4917,13 +4935,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_audio_frame() != 2325) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_document_message() != 7576) {
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_document_message() != 35112) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_group_message() != 6109) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_image_message() != 64620) {
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_image_message() != 53342) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_text_message() != 45071) {
@@ -4932,10 +4950,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_frame() != 7388) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_message() != 4570) {
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_message() != 19967) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message() != 12496) {
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message() != 56380) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_answer() != 11808) {

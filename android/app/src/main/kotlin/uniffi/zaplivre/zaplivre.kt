@@ -1314,7 +1314,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_disable_video() != 2025) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_download_media() != 7430) {
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_download_media() != 30959) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_enable_video() != 33234) {
@@ -1425,13 +1425,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_audio_frame() != 2325) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_document_message() != 7576) {
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_document_message() != 35112) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_group_message() != 6109) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_image_message() != 64620) {
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_image_message() != 53342) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_text_message() != 45071) {
@@ -1440,10 +1440,10 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_frame() != 7388) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_message() != 4570) {
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_video_message() != 19967) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message() != 12496) {
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_voice_message() != 56380) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_send_webrtc_answer() != 11808) {
@@ -1975,6 +1975,25 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
     }
 }
 
+/**
+ * @suppress
+ */
+public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
+    override fun read(buf: ByteBuffer): ByteArray {
+        val len = buf.getInt()
+        val byteArr = ByteArray(len)
+        buf.get(byteArr)
+        return byteArr
+    }
+    override fun allocationSize(value: ByteArray): ULong {
+        return 4UL + value.size.toULong()
+    }
+    override fun write(value: ByteArray, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        buf.put(value)
+    }
+}
+
 
 // This template implements a class for working with a Rust struct via a handle
 // to the live Rust struct on the other side of the FFI.
@@ -2097,7 +2116,7 @@ public interface ZapLivreClientInterface {
     
     suspend fun `disableVideo`(`callId`: kotlin.String)
     
-    suspend fun `downloadMedia`(`mediaHash`: kotlin.String): List<kotlin.UByte>
+    suspend fun `downloadMedia`(`mediaHash`: kotlin.String): kotlin.ByteArray
     
     suspend fun `enableVideo`(`callId`: kotlin.String, `codec`: FfiVideoCodec)
     
@@ -2171,19 +2190,19 @@ public interface ZapLivreClientInterface {
     
     suspend fun `sendAudioFrame`(`callId`: kotlin.String, `audioData`: List<kotlin.UByte>, `sampleRate`: kotlin.UInt, `channels`: kotlin.UInt)
     
-    suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: List<kotlin.UByte>, `fileName`: kotlin.String, `mimeType`: kotlin.String): kotlin.String
+    suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: kotlin.ByteArray, `fileName`: kotlin.String, `mimeType`: kotlin.String): kotlin.String
     
     suspend fun `sendGroupMessage`(`groupId`: kotlin.String, `content`: kotlin.String): kotlin.String
     
-    suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: List<kotlin.UByte>, `fileName`: kotlin.String, `quality`: kotlin.UInt): kotlin.String
+    suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: kotlin.ByteArray, `fileName`: kotlin.String, `quality`: kotlin.UInt): kotlin.String
     
     suspend fun `sendTextMessage`(`toPeerId`: kotlin.String, `content`: kotlin.String): kotlin.String
     
     suspend fun `sendVideoFrame`(`callId`: kotlin.String, `frameData`: List<kotlin.UByte>, `width`: kotlin.UInt, `height`: kotlin.UInt)
     
-    suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: List<kotlin.UByte>, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: List<kotlin.UByte>?): kotlin.String
+    suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: kotlin.ByteArray, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: kotlin.ByteArray?): kotlin.String
     
-    suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int): kotlin.String
+    suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: kotlin.ByteArray, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int): kotlin.String
     
     suspend fun `sendWebrtcAnswer`(`callId`: kotlin.String, `sdp`: kotlin.String)
     
@@ -2543,7 +2562,7 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `downloadMedia`(`mediaHash`: kotlin.String) : List<kotlin.UByte> {
+    override suspend fun `downloadMedia`(`mediaHash`: kotlin.String) : kotlin.ByteArray {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_download_media(
@@ -2555,7 +2574,7 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
         { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_rust_buffer(future, continuation) },
         { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_rust_buffer(future) },
         // lift function
-        { FfiConverterSequenceUByte.lift(it) },
+        { FfiConverterByteArray.lift(it) },
         // Error FFI converter
         ZapLivreFfiException.ErrorHandler,
     )
@@ -3194,12 +3213,12 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: List<kotlin.UByte>, `fileName`: kotlin.String, `mimeType`: kotlin.String) : kotlin.String {
+    override suspend fun `sendDocumentMessage`(`toPeerId`: kotlin.String, `fileData`: kotlin.ByteArray, `fileName`: kotlin.String, `mimeType`: kotlin.String) : kotlin.String {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_document_message(
                 uniffiHandle,
-                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`fileData`),FfiConverterString.lower(`fileName`),FfiConverterString.lower(`mimeType`),
+                FfiConverterString.lower(`toPeerId`),FfiConverterByteArray.lower(`fileData`),FfiConverterString.lower(`fileName`),FfiConverterString.lower(`mimeType`),
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -3236,12 +3255,12 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: List<kotlin.UByte>, `fileName`: kotlin.String, `quality`: kotlin.UInt) : kotlin.String {
+    override suspend fun `sendImageMessage`(`toPeerId`: kotlin.String, `imageData`: kotlin.ByteArray, `fileName`: kotlin.String, `quality`: kotlin.UInt) : kotlin.String {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_image_message(
                 uniffiHandle,
-                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`imageData`),FfiConverterString.lower(`fileName`),FfiConverterUInt.lower(`quality`),
+                FfiConverterString.lower(`toPeerId`),FfiConverterByteArray.lower(`imageData`),FfiConverterString.lower(`fileName`),FfiConverterUInt.lower(`quality`),
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -3300,12 +3319,12 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: List<kotlin.UByte>, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: List<kotlin.UByte>?) : kotlin.String {
+    override suspend fun `sendVideoMessage`(`toPeerId`: kotlin.String, `videoData`: kotlin.ByteArray, `fileName`: kotlin.String, `width`: kotlin.Int?, `height`: kotlin.Int?, `durationSeconds`: kotlin.Int, `thumbnailData`: kotlin.ByteArray?) : kotlin.String {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_video_message(
                 uniffiHandle,
-                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`videoData`),FfiConverterString.lower(`fileName`),FfiConverterOptionalInt.lower(`width`),FfiConverterOptionalInt.lower(`height`),FfiConverterInt.lower(`durationSeconds`),FfiConverterOptionalSequenceUByte.lower(`thumbnailData`),
+                FfiConverterString.lower(`toPeerId`),FfiConverterByteArray.lower(`videoData`),FfiConverterString.lower(`fileName`),FfiConverterOptionalInt.lower(`width`),FfiConverterOptionalInt.lower(`height`),FfiConverterInt.lower(`durationSeconds`),FfiConverterOptionalByteArray.lower(`thumbnailData`),
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -3321,12 +3340,12 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
     
     @Throws(ZapLivreFfiException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: List<kotlin.UByte>, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int) : kotlin.String {
+    override suspend fun `sendVoiceMessage`(`toPeerId`: kotlin.String, `audioData`: kotlin.ByteArray, `fileName`: kotlin.String, `durationSeconds`: kotlin.Int) : kotlin.String {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_send_voice_message(
                 uniffiHandle,
-                FfiConverterString.lower(`toPeerId`),FfiConverterSequenceUByte.lower(`audioData`),FfiConverterString.lower(`fileName`),FfiConverterInt.lower(`durationSeconds`),
+                FfiConverterString.lower(`toPeerId`),FfiConverterByteArray.lower(`audioData`),FfiConverterString.lower(`fileName`),FfiConverterInt.lower(`durationSeconds`),
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -5355,6 +5374,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeFfiMediaType: FfiConverterRustBuffer<FfiMediaType?> {
     override fun read(buf: ByteBuffer): FfiMediaType? {
         if (buf.get().toInt() == 0) {
@@ -5409,38 +5460,6 @@ public object FfiConverterOptionalTypeFfiVideoCodec: FfiConverterRustBuffer<FfiV
         } else {
             buf.put(1)
             FfiConverterTypeFfiVideoCodec.write(value, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
-public object FfiConverterOptionalSequenceUByte: FfiConverterRustBuffer<List<kotlin.UByte>?> {
-    override fun read(buf: ByteBuffer): List<kotlin.UByte>? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterSequenceUByte.read(buf)
-    }
-
-    override fun allocationSize(value: List<kotlin.UByte>?): ULong {
-        if (value == null) {
-            return 1UL
-        } else {
-            return 1UL + FfiConverterSequenceUByte.allocationSize(value)
-        }
-    }
-
-    override fun write(value: List<kotlin.UByte>?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterSequenceUByte.write(value, buf)
         }
     }
 }

@@ -103,7 +103,7 @@ class MediaPickerViewModel(
             // The compression happens in the Rust core via compress_image()
             val messageId = client.sendImageMessage(
                 toPeerId = toPeerId,
-                imageData = imageBytes.toUByteArray().toList(),
+                imageData = imageBytes,
                 fileName = mediaItem.fileName ?: "image_${System.currentTimeMillis()}.jpg",
                 quality = quality
             )
