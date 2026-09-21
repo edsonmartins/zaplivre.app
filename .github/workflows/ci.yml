@@ -9,6 +9,19 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  fmt:
+    # Job próprio: um diff de formatação não pode pular clippy e testes
+    # (foi assim que a main ficou 5 commits sem rodar teste nenhum).
+    name: Rustfmt (AGENTS.md gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format check
+        run: cargo fmt --all --check
+
   rust:
     name: Rust (core + servers)
     runs-on: ubuntu-latest
@@ -24,11 +37,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Format check (AGENTS.md gate)
-        run: cargo fmt --all --check
-
       - name: Clippy (AGENTS.md gate)
-        run: cargo clippy --workspace -- -D warnings
+        # --all-targets: testes e examples também compilam e passam no lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Check workspace (default features)
         run: cargo check --workspace
@@ -42,10 +53,10 @@ jobs:
         run: cargo test -p zaplivre-core --lib
 
       - name: Integration tests (working suites)
-        run: cargo test -p zaplivre-core --test p2p_messaging --test relay_integration --test message_integration --test reliability --test plaintext_integration
+        run: cargo test -p zaplivre-core --test p2p_messaging --test relay_integration --test message_integration --test reliability --test plaintext_integration --test relay_circuit
 
       - name: Server tests
-        run: cargo test -p zaplivre-store -p zaplivre-push -p turn-credentials -p zaplivre-signaling
+        run: cargo test -p zaplivre-store -p zaplivre-push -p turn-credentials -p zaplivre-signaling -p zaplivre-identity-server -p zaplivre-bootstrap
 
   identity-integration:
     name: Identity server integration

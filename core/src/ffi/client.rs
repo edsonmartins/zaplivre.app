@@ -545,10 +545,17 @@ async fn run_client_task_arc(
                 let _ = response.send(Ok(client.identity_fingerprint().await));
             }
             ClientCommand::ContactIdentityFingerprint { peer_id, response } => {
-                let _ = response.send(client.contact_identity_fingerprint(&peer_id).map_err(Into::into));
+                let _ = response.send(
+                    client
+                        .contact_identity_fingerprint(&peer_id)
+                        .map_err(Into::into),
+                );
             }
             ClientCommand::ContactTransparencyProof { peer_id, response } => {
-                let result = client.contact_transparency_proof(&peer_id).await.map_err(Into::into);
+                let result = client
+                    .contact_transparency_proof(&peer_id)
+                    .await
+                    .map_err(Into::into);
                 let _ = response.send(result);
             }
             ClientCommand::ListConversations { response } => {
@@ -715,13 +722,27 @@ async fn run_client_task_arc(
                 }
             }
             #[cfg(feature = "voip")]
-            ClientCommand::SendWebRtcOffer { call_id, sdp, response } => {
-                let result = client.send_webrtc_offer(call_id, sdp).await.map_err(Into::into);
+            ClientCommand::SendWebRtcOffer {
+                call_id,
+                sdp,
+                response,
+            } => {
+                let result = client
+                    .send_webrtc_offer(call_id, sdp)
+                    .await
+                    .map_err(Into::into);
                 let _ = response.send(result);
             }
             #[cfg(feature = "voip")]
-            ClientCommand::SendWebRtcAnswer { call_id, sdp, response } => {
-                let result = client.send_webrtc_answer(call_id, sdp).await.map_err(Into::into);
+            ClientCommand::SendWebRtcAnswer {
+                call_id,
+                sdp,
+                response,
+            } => {
+                let result = client
+                    .send_webrtc_answer(call_id, sdp)
+                    .await
+                    .map_err(Into::into);
                 let _ = response.send(result);
             }
             #[cfg(feature = "voip")]
@@ -741,6 +762,8 @@ async fn run_client_task_arc(
             ClientCommand::RegisterWebRtcSignalingCallback { callback } => {
                 #[cfg(any(feature = "voip", feature = "video"))]
                 client.register_webrtc_signaling_callback(callback).await;
+                #[cfg(not(any(feature = "voip", feature = "video")))]
+                drop(callback);
             }
             ClientCommand::RegisterMessageEventCallback { callback } => {
                 client
@@ -1273,25 +1296,50 @@ impl ZapLivreClient {
 
     pub fn identity_fingerprint(&self) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::IdentityFingerprint { response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        self.handle()
+            .sender
+            .send(ClientCommand::IdentityFingerprint { response: tx })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".into(),
+            })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".into(),
+        })?
     }
 
-    pub fn contact_identity_fingerprint(&self, peer_id: String) -> Result<String, ZapLivreFfiError> {
+    pub fn contact_identity_fingerprint(
+        &self,
+        peer_id: String,
+    ) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::ContactIdentityFingerprint { peer_id, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?
+        self.handle()
+            .sender
+            .send(ClientCommand::ContactIdentityFingerprint {
+                peer_id,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".into(),
+            })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".into(),
+        })?
     }
 
     pub fn contact_transparency_proof(&self, peer_id: String) -> Result<String, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
         self.handle()
             .sender
-            .send(ClientCommand::ContactTransparencyProof { peer_id, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Client command channel closed".to_string() })?;
-        execute_future(rx).map_err(|_| ZapLivreFfiError::Other { details: "Client response channel closed".to_string() })?
+            .send(ClientCommand::ContactTransparencyProof {
+                peer_id,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Client command channel closed".to_string(),
+            })?;
+        execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
+            details: "Client response channel closed".to_string(),
+        })?
     }
 
     /// Sign a backend HTTP request without exposing the private identity key.
@@ -1505,15 +1553,18 @@ impl ZapLivreClient {
         before_message_id: Option<String>,
     ) -> Result<Vec<FfiMessage>, ZapLivreFfiError> {
         let (tx, rx) = oneshot::channel();
-        self.handle().sender.send(ClientCommand::GetConversationMessagesBefore {
-            peer_id,
-            limit: limit.map(|l| l as usize),
-            before_created_at,
-            before_message_id,
-            response: tx,
-        }).map_err(|_| ZapLivreFfiError::Other {
-            details: "Failed to send command".to_string(),
-        })?;
+        self.handle()
+            .sender
+            .send(ClientCommand::GetConversationMessagesBefore {
+                peer_id,
+                limit: limit.map(|l| l as usize),
+                before_created_at,
+                before_message_id,
+                response: tx,
+            })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
         execute_future(rx).map_err(|_| ZapLivreFfiError::Other {
             details: "Failed to receive response".to_string(),
         })?
@@ -1999,16 +2050,26 @@ impl ZapLivreClient {
         let (tx, rx) = oneshot::channel();
         #[cfg(feature = "voip")]
         {
-        self.handle()
-            .sender
-            .send(ClientCommand::SendWebRtcOffer { call_id, sdp, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+            self.handle()
+                .sender
+                .send(ClientCommand::SendWebRtcOffer {
+                    call_id,
+                    sdp,
+                    response: tx,
+                })
+                .map_err(|_| ZapLivreFfiError::Other {
+                    details: "Failed to send command".into(),
+                })?;
+            return rx.await.map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to receive response".into(),
+            })?;
         }
         #[cfg(not(feature = "voip"))]
         {
             let _ = (call_id, sdp);
-            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+            Err(ZapLivreFfiError::Other {
+                details: "VoIP feature disabled".into(),
+            })
         }
     }
 
@@ -2021,16 +2082,26 @@ impl ZapLivreClient {
         let (tx, rx) = oneshot::channel();
         #[cfg(feature = "voip")]
         {
-        self.handle()
-            .sender
-            .send(ClientCommand::SendWebRtcAnswer { call_id, sdp, response: tx })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+            self.handle()
+                .sender
+                .send(ClientCommand::SendWebRtcAnswer {
+                    call_id,
+                    sdp,
+                    response: tx,
+                })
+                .map_err(|_| ZapLivreFfiError::Other {
+                    details: "Failed to send command".into(),
+                })?;
+            return rx.await.map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to receive response".into(),
+            })?;
         }
         #[cfg(not(feature = "voip"))]
         {
             let _ = (call_id, sdp);
-            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+            Err(ZapLivreFfiError::Other {
+                details: "VoIP feature disabled".into(),
+            })
         }
     }
 
@@ -2045,22 +2116,28 @@ impl ZapLivreClient {
         let (tx, rx) = oneshot::channel();
         #[cfg(feature = "voip")]
         {
-        self.handle()
-            .sender
-            .send(ClientCommand::SendWebRtcIceCandidate {
-                call_id,
-                candidate,
-                sdp_mid,
-                sdp_m_line_index,
-                response: tx,
-            })
-            .map_err(|_| ZapLivreFfiError::Other { details: "Failed to send command".into() })?;
-        return rx.await.map_err(|_| ZapLivreFfiError::Other { details: "Failed to receive response".into() })?;
+            self.handle()
+                .sender
+                .send(ClientCommand::SendWebRtcIceCandidate {
+                    call_id,
+                    candidate,
+                    sdp_mid,
+                    sdp_m_line_index,
+                    response: tx,
+                })
+                .map_err(|_| ZapLivreFfiError::Other {
+                    details: "Failed to send command".into(),
+                })?;
+            return rx.await.map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to receive response".into(),
+            })?;
         }
         #[cfg(not(feature = "voip"))]
         {
             let _ = (call_id, candidate, sdp_mid, sdp_m_line_index);
-            Err(ZapLivreFfiError::Other { details: "VoIP feature disabled".into() })
+            Err(ZapLivreFfiError::Other {
+                details: "VoIP feature disabled".into(),
+            })
         }
     }
 

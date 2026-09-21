@@ -486,7 +486,7 @@ mod tests {
         // This test verifies signature creation (without actually calling server)
         let identity = Identity::generate(1);
         let username = "alice";
-        let peer_id = "12D3KooWTest";
+        let _peer_id = "12D3KooWTest";
         let timestamp = Utc::now().timestamp();
 
         // Create signature

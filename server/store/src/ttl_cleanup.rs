@@ -57,7 +57,6 @@ impl TtlCleanupJob {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_ttl_job_creation() {

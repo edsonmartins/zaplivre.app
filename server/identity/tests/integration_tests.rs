@@ -5,9 +5,7 @@
 //!
 //! Run with: cargo test --test integration_tests -- --ignored --test-threads=1
 
-use reqwest;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 const BASE_URL: &str = "http://localhost:8083";
 
@@ -43,6 +41,8 @@ struct RegisterRequest {
 struct RegisterResponse {
     username: String,
     peer_id: String,
+    // Deserialized only to assert the response contract carries the field.
+    #[allow(dead_code)]
     created_at: String,
 }
 
@@ -51,6 +51,8 @@ struct LookupResponse {
     username: String,
     peer_id: String,
     prekey_bundle: PreKeyBundle,
+    // Deserialized only to assert the response contract carries the field.
+    #[allow(dead_code)]
     last_updated: String,
 }
 
@@ -114,7 +116,7 @@ fn create_test_prekey_bundle() -> PreKeyBundle {
 async fn test_health_check() {
     let client = reqwest::Client::new();
     let response = client
-        .get(&format!("{}/health", BASE_URL))
+        .get(format!("{}/health", BASE_URL))
         .send()
         .await
         .expect("Failed to send request");
@@ -148,7 +150,7 @@ async fn test_register_username_success() {
     };
 
     let response = client
-        .post(&format!("{}/api/v1/register", BASE_URL))
+        .post(format!("{}/api/v1/register", BASE_URL))
         .json(&request)
         .send()
         .await
@@ -183,7 +185,7 @@ async fn test_lookup_username_success() {
     };
 
     client
-        .post(&format!("{}/api/v1/register", BASE_URL))
+        .post(format!("{}/api/v1/register", BASE_URL))
         .json(&request)
         .send()
         .await
@@ -191,7 +193,7 @@ async fn test_lookup_username_success() {
 
     // Then, lookup the username
     let response = client
-        .get(&format!("{}/api/v1/lookup?username={}", BASE_URL, username))
+        .get(format!("{}/api/v1/lookup?username={}", BASE_URL, username))
         .send()
         .await
         .expect("Failed to send request");
@@ -226,7 +228,7 @@ async fn test_register_duplicate_username() {
     };
 
     let response1 = client
-        .post(&format!("{}/api/v1/register", BASE_URL))
+        .post(format!("{}/api/v1/register", BASE_URL))
         .json(&request1)
         .send()
         .await
@@ -249,7 +251,7 @@ async fn test_register_duplicate_username() {
     };
 
     let response2 = client
-        .post(&format!("{}/api/v1/register", BASE_URL))
+        .post(format!("{}/api/v1/register", BASE_URL))
         .json(&request2)
         .send()
         .await
@@ -271,7 +273,7 @@ async fn test_lookup_nonexistent_username() {
     let username = format!("nonexistent_{}", rand::random::<u32>());
 
     let response = client
-        .get(&format!("{}/api/v1/lookup?username={}", BASE_URL, username))
+        .get(format!("{}/api/v1/lookup?username={}", BASE_URL, username))
         .send()
         .await
         .expect("Failed to send request");
@@ -305,7 +307,7 @@ async fn test_invalid_username_format() {
     };
 
     let response = client
-        .post(&format!("{}/api/v1/register", BASE_URL))
+        .post(format!("{}/api/v1/register", BASE_URL))
         .json(&request)
         .send()
         .await
@@ -342,7 +344,7 @@ async fn test_rate_limiting_register() {
         };
 
         let response = client
-            .post(&format!("{}/api/v1/register", BASE_URL))
+            .post(format!("{}/api/v1/register", BASE_URL))
             .json(&request)
             .send()
             .await
@@ -375,7 +377,7 @@ async fn test_rate_limit_headers() {
     };
 
     let response = client
-        .post(&format!("{}/api/v1/register", BASE_URL))
+        .post(format!("{}/api/v1/register", BASE_URL))
         .json(&request)
         .send()
         .await

@@ -117,7 +117,7 @@ pub async fn register_username(
         Err(e) => {
             tx.rollback().await.ok();
             Err(e.into())
-        },
+        }
     }
 }
 
@@ -132,7 +132,9 @@ async fn append_transparency_entry(
     )
     .fetch_optional(&mut **tx)
     .await?;
-    let previous_hash = previous.map(|(_, hash)| hash).unwrap_or_else(|| vec![0; 32]);
+    let previous_hash = previous
+        .map(|(_, hash)| hash)
+        .unwrap_or_else(|| vec![0; 32]);
     let entry_hash = crate::transparency::entry_hash(&previous_hash, peer_id, public_key).to_vec();
 
     sqlx::query(
@@ -156,9 +158,11 @@ pub async fn transparency_for_peer(pool: &PgPool, peer_id: &str) -> Result<Trans
     .fetch_optional(pool)
     .await?
     .ok_or_else(|| crate::error::AppError::UsernameNotFound(peer_id.to_string()))?;
-    let root = sqlx::query("SELECT sequence, entry_hash FROM key_transparency_log ORDER BY sequence DESC LIMIT 1")
-        .fetch_one(pool)
-        .await?;
+    let root = sqlx::query(
+        "SELECT sequence, entry_hash FROM key_transparency_log ORDER BY sequence DESC LIMIT 1",
+    )
+    .fetch_one(pool)
+    .await?;
     let public_key: Vec<u8> = row.try_get("public_key")?;
     let entry_hash: Vec<u8> = row.try_get("entry_hash")?;
     let previous_hash: Vec<u8> = row.try_get("previous_hash")?;

@@ -15,13 +15,18 @@ pub fn entry_hash(previous_hash: &[u8], peer_id: &str, public_key: &[u8]) -> [u8
 }
 
 /// Verify ordering, predecessor links, and hashes in a downloaded segment.
-pub fn verify_segment(entries: &[TransparencyLogEntry], initial_previous: Option<&[u8]>) -> Result<(), String> {
+pub fn verify_segment(
+    entries: &[TransparencyLogEntry],
+    initial_previous: Option<&[u8]>,
+) -> Result<(), String> {
     if entries.is_empty() {
         return Ok(());
     }
-    let mut previous = initial_previous.map(ToOwned::to_owned).unwrap_or_else(|| vec![0; 32]);
-    let mut sequence = entries[0].sequence;
-    for entry in entries {
+    let mut previous = initial_previous
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| vec![0; 32]);
+    let first_sequence = entries[0].sequence;
+    for (sequence, entry) in (first_sequence..).zip(entries) {
         if entry.sequence != sequence {
             return Err("transparency sequence gap or reordering".to_string());
         }
@@ -29,7 +34,10 @@ pub fn verify_segment(entries: &[TransparencyLogEntry], initial_previous: Option
             .decode(&entry.previous_hash)
             .map_err(|_| "invalid previous hash encoding".to_string())?;
         if advertised_previous != previous {
-            return Err(format!("invalid predecessor at sequence {}", entry.sequence));
+            return Err(format!(
+                "invalid predecessor at sequence {}",
+                entry.sequence
+            ));
         }
         let public_key = general_purpose::STANDARD
             .decode(&entry.public_key)
@@ -41,7 +49,6 @@ pub fn verify_segment(entries: &[TransparencyLogEntry], initial_previous: Option
             return Err(format!("invalid entry hash at sequence {}", entry.sequence));
         }
         previous = advertised_hash;
-        sequence += 1;
     }
     Ok(())
 }

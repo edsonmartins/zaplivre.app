@@ -53,8 +53,7 @@ pub struct VoIPIntegration {
 
     // Call lifecycle callback (incoming/state/ended)
     call_event_callback: Arc<RwLock<Option<Box<dyn crate::FfiCallEventCallback>>>>,
-    webrtc_signaling_callback:
-        Arc<RwLock<Option<Box<dyn crate::FfiWebRtcSignalingCallback>>>>,
+    webrtc_signaling_callback: Arc<RwLock<Option<Box<dyn crate::FfiWebRtcSignalingCallback>>>>,
 }
 
 impl VoIPIntegration {
@@ -573,9 +572,9 @@ impl VoIPIntegration {
                 .map(|call| call.remote_peer_id.clone())
                 .ok_or_else(|| super::VoipError::InvalidState("Call not found".to_string()))?
         };
-        let peer_id = remote_peer_id.parse::<PeerId>().map_err(|e| {
-            super::VoipError::InvalidState(format!("Invalid peer ID: {}", e))
-        })?;
+        let peer_id = remote_peer_id
+            .parse::<PeerId>()
+            .map_err(|e| super::VoipError::InvalidState(format!("Invalid peer ID: {}", e)))?;
         self.send_signal(peer_id, signal).await
     }
 
