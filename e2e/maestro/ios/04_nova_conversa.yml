@@ -1,8 +1,9 @@
-# Nova conversa (peer offline): valida a NewChatView e o tratamento de erro.
+# Nova conversa: valida a NewChatView e a recusa de um Peer ID malformado.
 #
 # Uma conversa 1:1 completa exige um segundo device alcançável (fora do escopo
-# de 1 device). Com o peer placeholder offline, o comportamento determinístico
-# é o app tratar a falha de rede sem travar — é isso que validamos aqui.
+# de 1 device). O placeholder abaixo tem o prefixo certo mas não é um peer ID
+# válido (tamanho e caracteres fora do base58): o app precisa recusá-lo na hora,
+# em vez de abrir uma conversa em que tudo falha depois.
 # O envio ponta-a-ponta está em docs/guides/testing-manual.md (2 devices).
 appId: app.zaplivre.ios
 env:
@@ -21,5 +22,5 @@ env:
     id: "new_chat_confirm"
 # Peer offline → o app mostra o erro de rede e não trava (sheet segue aberto)
 - extendedWaitUntil:
-    visible: "Falha ao iniciar conversa.*"
+    visible: "Peer ID inválido.*"
     timeout: 20000

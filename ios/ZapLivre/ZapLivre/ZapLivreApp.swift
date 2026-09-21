@@ -22,6 +22,31 @@ struct ZapLivreApp: App {
         setupCallKit()
     }
 
+    /// The Keychain survives uninstalling the app; the data directory does not.
+    /// A reinstalled app therefore found an identity, skipped onboarding and
+    /// opened "logged in" over an empty database, and the private key stayed on
+    /// the device after the user had removed the app. An identity with no data
+    /// directory next to it belongs to a previous install and is discarded; the
+    /// account can still be brought back from an exported backup.
+    ///
+    /// Called from `didFinishLaunching`: inside `App.init` the protected-data
+    /// flag is not reliable yet, and the UI has not looked for an identity.
+    static func discardIdentityOrphanedByReinstall() {
+        // Never decide this while files are locked (background launch before
+        // the first unlock): a directory we cannot see is not a missing one.
+        guard UIApplication.shared.isProtectedDataAvailable,
+              let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        else { return }
+
+        let dataDir = docs.appendingPathComponent("zaplivre_data")
+        guard !FileManager.default.fileExists(atPath: dataDir.path),
+              (try? KeychainStore.loadIdentity()) ?? nil != nil
+        else { return }
+
+        print("🧹 Discarding identity left in the Keychain by a previous install")
+        try? KeychainStore.deleteIdentity()
+    }
+
     static func hasExistingIdentity() -> Bool {
         if (try? KeychainStore.loadIdentity()) ?? nil != nil {
             return true

@@ -186,12 +186,23 @@ struct NewChatView: View {
         }
     }
 
+    /// An Ed25519 libp2p peer ID: "12D3KooW" + base58, 52 characters in total.
+    /// A prefix check alone let malformed IDs through: the conversation opened
+    /// and every message failed later with no explanation. Legacy "Qm..." (RSA)
+    /// IDs are refused too: they carry no Ed25519 key, which the protocol needs
+    /// to verify the contact's prekey bundle.
+    static func isValidPeerId(_ value: String) -> Bool {
+        let base58 = CharacterSet(charactersIn: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+        return value.count == 52
+            && value.hasPrefix("12D3KooW")
+            && value.unicodeScalars.allSatisfy(base58.contains)
+    }
+
     private func startChat() {
         guard !peerId.isEmpty else { return }
 
-        // Validate peer ID format (should start with 12D3KooW for libp2p)
-        guard peerId.starts(with: "12D3KooW") || peerId.starts(with: "Qm") else {
-            errorMessage = "Peer ID inválido. Deve começar com 12D3KooW ou Qm"
+        guard Self.isValidPeerId(peerId) else {
+            errorMessage = "Peer ID inválido. Confira o código ou escaneie o QR do contato."
             return
         }
 

@@ -12,7 +12,7 @@ appId: com.zaplivre
 - longPressOn:
     id: "Hold to record voice message"
     duration: 2000
-    release:true
+    release: true
 # Wait for recording UI to change to sending state
 - extendedWaitUntil:
     visible: "Cancel recording"
