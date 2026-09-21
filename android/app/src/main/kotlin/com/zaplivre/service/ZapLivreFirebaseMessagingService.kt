@@ -44,13 +44,18 @@ class ZapLivreFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d(TAG, "Push notification received")
 
-        // Show notification
-        NotificationHelper.showMessageNotification(
-            context = this,
-            title = title,
-            body = body,
-            peerId = peerId
-        )
+        // Chamada: o push só acorda o app. O serviço inicia o core, que se
+        // registra no signaling e recebe a oferta guardada lá; é esse evento
+        // que abre a tela de chamada. Uma notificação "Nova mensagem" aqui
+        // seria enganosa.
+        if (message.data["type"] != "incoming_call") {
+            NotificationHelper.showMessageNotification(
+                context = this,
+                title = title,
+                body = body,
+                peerId = peerId
+            )
+        }
 
         // Wake up ZapLivreService to poll new messages
         try {

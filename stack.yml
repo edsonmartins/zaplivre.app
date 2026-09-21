@@ -308,6 +308,9 @@ services:
     image: ghcr.io/integrall-tech/zaplivre-signaling:${ZAPLIVRE_TAG:?ZAPLIVRE_TAG obrigatório}
     environment:
       - RUST_LOG=${RUST_LOG:-info}
+      # Acorda o app fechado quando chega uma chamada (push de chamada)
+      - PUSH_SERVER_URL=http://push-server:8081
+      - PUSH_SERVICE_SECRET=${PUSH_SERVICE_SECRET:?PUSH_SERVICE_SECRET obrigatorio}
     ports:
       - "8086:8086"
     healthcheck:
