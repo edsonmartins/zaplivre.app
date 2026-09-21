@@ -20,6 +20,11 @@
 //! - `api`: Public Client API
 //! - `ffi`: UniFFI bindings for Kotlin/Swift
 
+// `uniffi::include_scaffolding!` expands at the crate root and generates a large
+// const array; newer clippy flags it and the generated code cannot carry its own
+// attribute, so the lint is allowed crate-wide.
+#![allow(clippy::large_const_arrays)]
+
 // Re-export public API
 // TODO: Uncomment when modules are implemented
 // pub use api::{Client, ClientBuilder, Event};
