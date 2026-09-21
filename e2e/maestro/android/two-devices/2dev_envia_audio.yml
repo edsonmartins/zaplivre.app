@@ -9,18 +9,16 @@ appId: com.zaplivre
 - extendedWaitUntil:
     visible: "Hold to record voice message"
     timeout: 10000
+# longPressOn não aceita duração: segura pelo tempo fixo do Maestro e solta.
 - longPressOn:
     id: "Hold to record voice message"
-    duration: 2000
-    release: true
 # Wait for recording UI to change to sending state
 - extendedWaitUntil:
     visible: "Cancel recording"
     timeout: 5000
+# Toque no botão de enviar a gravação (tapOn não aceita `desc` nem `timeout`)
 - tapOn:
     id: "chat_mic_button"
-    desc: "Send voice message"
-    timeout: 5000
 # Wait for message to be sent (appears in chat as voice message)
 - extendedWaitUntil:
     visible: "Voice message"
