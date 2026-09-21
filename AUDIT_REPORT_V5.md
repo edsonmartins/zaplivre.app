@@ -625,3 +625,18 @@ Verificado **localmente com Maestro 2.4.0** num simulador iPhone 17 Pro, com o a
 | E2E Android | **Parcial, não verificado** | Os 12 flows `2dev_*` exigem dois devices e entravam na execução de um emulador só (`*.yml`); um deles nem era YAML válido (`release:true`) e abortava o parse. O `config.yaml` passa a rodar só os flows numerados; o YAML foi corrigido. O `adb: device offline` do emulador no CI não foi tratado |
 
 **Observação:** os workflows de E2E só disparam em PRs contra `main`/`develop`; num PR empilhado eles não rodam.
+
+### Merge da pilha dos apps (2026-09-21)
+
+PRs #11, #12, #13 e #14 mergeados na `main`. Em #11 só falhavam os dois jobs de Maestro, as falhas antigas corrigidas pelo #14; os demais checks estavam verdes, inclusive "Build Android".
+
+### Lote 13 — branch `feat/ios-username-lookup` (2026-09-21)
+
+Verificado: iOS `xcodebuild` (assinatura ad-hoc) com BUILD SUCCEEDED; **suíte Maestro iOS 8/8** sem regressão e um flow ad-hoc confirmando a recusa de username inválido; Android `:app:compileDebugKotlin` + `:app:testDebugUnitTest` **22/22** (4 novos). **Não verificado:** busca de username com sucesso no iOS (exige identity server alcançável; o de produção responde 502) e leitura de QR com câmera real no Android (sem emulador/aparelho nesta sessão).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| MA3 — iOS sem busca por username | **Corrigido** | O campo da nova conversa aceita `@usuário` ou Peer ID. Username (formato do servidor, `^[a-z0-9_]{3,20}$`) é resolvido no identity server e o bundle é guardado; o core verifica que ele pertence ao peer ID (P0-E) antes de qualquer sessão |
+| MA3 — Android sem leitor de QR | **Corrigido, não validado com câmera** | `QrScannerDialog` com CameraX + zxing (dependências que o app já tinha) e `ContactQrCode.parse` para os três formatos (JSON v1 do iOS, `peerId@multiaddr`, só peer ID), com peer ID Ed25519 validado por inteiro; com endereço, disca o contato |
+
+Com isso os dois apps conseguem se encontrar pelos dois caminhos: username e QR.
