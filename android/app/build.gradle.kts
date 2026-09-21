@@ -131,23 +131,45 @@ android {
 }
 
 // Build da lib nativa Rust (libzaplivre_core.so) antes do build Android.
-// Por padrão roda apenas se as .so ainda não existem; force com -PrebuildNative.
-// No CI as .so já vêm do step cargo-ndk — passe -PskipNativeBuild para pular.
+// A task declara o core como entrada e as .so como saída: o Gradle a roda de
+// novo sempre que o core muda. Antes ela só rodava quando faltava alguma .so,
+// então uma lib antiga era reaproveitada para sempre e o app caía na primeira
+// chamada a uma função nova da FFI. Força com -PrebuildNative; no CI as .so já
+// vêm do step cargo-ndk — passe -PskipNativeBuild para pular.
+// Por padrão o script compila só arm64 (aparelhos); BUILD_ANDROID_ALL=1 inclui
+// x86_64 (emuladores) e armv7.
 val buildRustCore = tasks.register<Exec>("buildRustCore") {
     group = "build"
     description = "Compila libzaplivre_core.so via cargo (android/build-native.sh)"
     workingDir = rootDir.parentFile
     commandLine("bash", "android/build-native.sh")
+
+    val coreDir = rootDir.parentFile.resolve("core")
+    inputs.files(
+        fileTree(coreDir.resolve("src")),
+        coreDir.resolve("Cargo.toml"),
+        coreDir.resolve("build.rs"),
+        rootDir.parentFile.resolve("Cargo.lock"),
+        rootDir.parentFile.resolve("proto"),
+        file("../build-native.sh"),
+    ).withPropertyName("rustCoreSources")
+    inputs.property("allAbis", System.getenv("BUILD_ANDROID_ALL") == "1")
+
+    val abis = if (System.getenv("BUILD_ANDROID_ALL") == "1") {
+        listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+    } else {
+        listOf("arm64-v8a")
+    }
+    outputs.files(abis.map { file("src/main/jniLibs/$it/libzaplivre_core.so") })
+        .withPropertyName("nativeLibs")
+
     // Capturas LOCAIS ao bloco de configuração: a lambda onlyIf as serializa como
-    // valores simples (Boolean/File), sem prender o objeto do build script nem
-    // usar `project` em tempo de execução — exigência do configuration cache.
+    // valores simples, sem prender o objeto do build script — exigência do
+    // configuration cache.
     val skip = project.hasProperty("skipNativeBuild")
     val force = project.hasProperty("rebuildNative")
-    val arm64Lib = file("src/main/jniLibs/arm64-v8a/libzaplivre_core.so")
-    val x86Lib = file("src/main/jniLibs/x86_64/libzaplivre_core.so")
-    onlyIf {
-        !skip && (force || !arm64Lib.exists() || !x86Lib.exists())
-    }
+    onlyIf { !skip }
+    outputs.upToDateWhen { !force }
 }
 
 tasks.named("preBuild") {
