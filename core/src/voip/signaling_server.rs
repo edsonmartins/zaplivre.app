@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, Mutex};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
+/// Time allowed to open the signaling WebSocket.
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
 use super::{signaling::SignalingMessage, Result, VoipError};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,9 +48,16 @@ impl SignalingServerClient {
         inbound_tx: mpsc::UnboundedSender<(PeerId, SignalingMessage)>,
     ) -> Result<Self> {
         let ws_url = normalize_ws_url(&url);
-        let (ws_stream, _) = connect_async(ws_url).await.map_err(|e| {
-            VoipError::NetworkError(format!("Failed to connect signaling server: {}", e))
-        })?;
+        // Bounded: this runs inside the client build, and an unresponsive
+        // signaling server must not hold the app on its splash screen.
+        let (ws_stream, _) = tokio::time::timeout(CONNECT_TIMEOUT, connect_async(ws_url))
+            .await
+            .map_err(|_| {
+                VoipError::NetworkError("Timed out connecting to signaling server".to_string())
+            })?
+            .map_err(|e| {
+                VoipError::NetworkError(format!("Failed to connect signaling server: {}", e))
+            })?;
 
         let (mut write, mut read) = ws_stream.split();
 

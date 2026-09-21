@@ -142,7 +142,7 @@ impl Client {
             storage_key,
             message_store_url,
             identity_server_url,
-            message_store_http: reqwest::Client::new(),
+            message_store_http: crate::utils::http::client(),
             #[cfg(any(feature = "voip", feature = "video"))]
             call_manager,
             #[cfg(any(feature = "voip", feature = "video"))]

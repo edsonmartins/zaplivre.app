@@ -113,22 +113,23 @@ impl ClientBuilder {
             let keypair_path = data_dir.join("identity.key");
             if keypair_path.exists() {
                 // Load keypair from file
-                match load_keypair_from_file(&keypair_path) {
-                    Ok(kp) => kp,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to load keypair from file: {}, generating new one",
-                            e
-                        );
-                        Keypair::generate_ed25519()
-                    }
-                }
+                // An unreadable key is an error, never a reason to mint a new
+                // identity: that silently changes the peer ID and the storage
+                // key, leaving the account and all its history unreachable.
+                load_keypair_from_file(&keypair_path).map_err(|e| {
+                    ZapLivreError::Identity(format!(
+                        "Identity key at {} exists but could not be loaded: {}",
+                        keypair_path.display(),
+                        e
+                    ))
+                })?
             } else {
-                // Generate new keypair and save to file
+                // Generate new keypair and save to file. If it cannot be
+                // saved, the next start would generate yet another identity.
                 let keypair = Keypair::generate_ed25519();
-                if let Err(e) = save_keypair_to_file(&keypair, &keypair_path) {
-                    tracing::warn!("Failed to save keypair to file: {}", e);
-                }
+                save_keypair_to_file(&keypair, &keypair_path).map_err(|e| {
+                    ZapLivreError::Identity(format!("Failed to persist new identity key: {}", e))
+                })?;
                 keypair
             }
         };
@@ -346,7 +347,7 @@ impl ClientBuilder {
 
         // spawn_local: o processamento de GroupControl acessa o NetworkManager
         // (!Sync). build() já exige LocalSet (ver worker de retry abaixo).
-        let gc_http = reqwest::Client::new();
+        let gc_http = crate::utils::http::client();
         tokio::task::spawn_local(async move {
             while let Some(event) = event_rx.recv().await {
                 // Protocolo in-band de grupo: orquestrado aqui, onde há acesso

@@ -488,3 +488,13 @@ Verificado após o lote: fmt limpo, `cargo clippy --workspace --all-targets -- -
 | M2 / N2 (DNS no Android) | **Corrigido** | Android usa o mesmo transporte DNS explícito do iOS; default do app inclui `dht2` |
 
 **Atenção para o deploy:** o bootstrap agora espera `EXTERNAL_ADDRS` e o `turn-credentials` não sobe sem `TURN_HOST`. O repositório `zaplivre-devops` precisa das duas variáveis antes do próximo deploy.
+
+### Lote 3 — branch `fix/audit-v5-p0` (2026-09-20)
+
+Verificado após o lote: fmt, `clippy --workspace --all-targets -D warnings`, `cargo test --workspace` e `cargo check --features voip` limpos.
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| P0-L (HTTP sem timeout) | **Corrigido** | `utils::http::client()` com connect 5 s / request 15 s, usado no message store, no worker de grupo e no cliente TURN; conexão do WebSocket de signaling limitada a 10 s (rodava dentro do `build()`) |
+| P0-L (fila serial da FFI) | **Corrigido, não medido em device** | Três pistas: *Immediate* (leituras de DB, controle de chamada, frames de áudio/vídeo) nunca espera a rede; *Ordered* (tudo que cifra ou envia) continua estritamente em ordem — duas cifragens concorrentes para o mesmo peer bifurcariam o ratchet; *Background* (download de mídia). **Falta:** `spawn_blocking` para compressão de imagem e IO de arquivo |
+| C3 (identidade regenerada em silêncio) | **Corrigido no caminho de arquivo** | `identity.key` ilegível e falha ao gravar a chave nova agora são erro de build do cliente. **Falta:** o mesmo para o caminho de Keychain do desktop (D3) e recusar identidade nova sobre um banco existente, que depende de corrigir antes o logout do iOS (MA2) |
