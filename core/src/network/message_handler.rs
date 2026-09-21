@@ -405,7 +405,8 @@ impl MessageHandler {
 
     /// Handle text message
     async fn handle_text_message(&self, message: &Message, text: &TextMessage) -> Result<()> {
-        tracing::debug!("📝 Received text: \"{}\"", text.content);
+        // Never log message content: RUST_LOG can raise the level in production.
+        tracing::debug!("📝 Received text ({} bytes)", text.content.len());
 
         if let Some(envelope) = ReactionEnvelope::decode(&text.content) {
             return self.handle_reaction_envelope(message, envelope).await;

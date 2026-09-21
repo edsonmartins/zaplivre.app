@@ -519,3 +519,18 @@ Verificado após o lote: fmt, `clippy --workspace --all-targets -D warnings` e `
 | P0-I (busca offline) | **Corrigido no core** | `fetch_offline_messages()` é pública, devolve quantas mensagens processou e pagina em lotes de 100 enquanto houver lote cheio e progresso. Falha ao limpar a caixa no servidor interrompe o laço (o próximo fetch recebe de novo e a recepção responde como duplicata). Erro HTTP do store deixa de ser tratado como "caixa vazia". A caixa passa a ser consultada a cada 30 s com o app aberto — antes só era lida no `bootstrap()`, então o que caía no store durante a sessão ficava lá até o próximo lançamento. `bootstrap()` não segura mais o lock do `NetworkManager` durante o HTTP. **Falta:** expor `fetch_offline_messages` na UDL (exige regenerar bindings e libs nativas) e acionar por push nos apps |
 | P2 store (`limit` negativo → 500) | **Corrigido** | `clamp(1, 1000)` |
 | Cobertura | **Novo** | `core/tests/offline_mailbox.rs`: primeiro teste ponta a ponta do store-and-forward, com store HTTP falso e cifragem Signal real — mensagem deixada no store com o destinatário offline, drenagem, payload indecifrável permanece no servidor, segunda drenagem não duplica |
+
+### Lote 6 — branch `fix/audit-v5-hardening` (2026-09-21)
+
+Verificado: fmt, `clippy --workspace --all-targets -D warnings`, `cargo test --workspace` verdes (core unit 159).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| CI (pós-merge do #6) | **Corrigido** | O clippy do CI é mais novo que o local e acusava `large_const_arrays` no scaffolding gerado pelo UniFFI; permitido no nível do crate. `setup-android` pedia o pacote `tools`, removido do `sdkmanager`; trocado por `platform-tools`. Confirmado no CI real: job "Rust (core + servers)" verde no PR #7. O conserto do Android **não foi confirmado** (os workflows de Android só disparam com mudanças em `android/`) |
+| P2 — conteúdo em claro no log | **Corrigido** | `Received text` loga só o tamanho |
+| P2 — seed em `Debug` | **Corrigido** | `SenderKey` tem `Debug` manual com a seed redigida (`GroupSession` deriva `Debug` sobre ele) |
+| C4 — overflow do counter de grupo | **Corrigido** | `checked_add` antes do decrypt; counter `u64::MAX` é recusado sem mover a guarda de replay |
+| P2 — `registration_id` zero | **Corrigido** | Faixa 1..=16380 |
+| P2 — `ZAPLIVRE_ALLOW_PLAINTEXT` em release | **Corrigido** | A chave só existe em builds debug (`cfg!(debug_assertions)`); nenhum app, script ou workflow dependia dela |
+
+Dívida mantida: `cargo clippy -p zaplivre-core --features voip --all-targets -- -D warnings` tem ~27 lints, vários não mecânicos.
