@@ -534,3 +534,18 @@ Verificado: fmt, `clippy --workspace --all-targets -D warnings`, `cargo test --w
 | P2 — `ZAPLIVRE_ALLOW_PLAINTEXT` em release | **Corrigido** | A chave só existe em builds debug (`cfg!(debug_assertions)`); nenhum app, script ou workflow dependia dela |
 
 Dívida mantida: `cargo clippy -p zaplivre-core --features voip --all-targets -- -D warnings` tem ~27 lints, vários não mecânicos.
+
+### Lote 7 — branch `feat/audit-v5-media-e2e` (2026-09-21)
+
+Verificado: fmt, `clippy --workspace --all-targets -D warnings`, `cargo check --features voip`, `cargo test --workspace` verdes (core unit 163).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| P0-D (mídia >512 KiB fora do E2E) | **Corrigido no core** | Novo `media::transfer`: o arquivo é selado com AES-256-GCM sob chave aleatória por arquivo (AAD de domínio). A oferta (`MediaOfferEnvelope`: chave, nonce, metadados, miniatura) viaja **dentro da sessão Signal**, pelo mesmo caminho do texto — inclusive store e outbox, então nome, tamanho e tipo do arquivo não ficam mais em claro no message store. A mídia passa a ser identificada pelo SHA-256 do blob **selado**; os chunks carregam só ciphertext. O receptor confere o hash, abre o blob e grava apenas o plaintext. O remetente não guarda cópia selada: recria o blob de forma determinística a partir do arquivo local e da oferta guardada cifrada em repouso. `Payload::MediaOffer` em plaintext não é mais enviado nem aceito. Mídia sem oferta não é servida |
+| N4 (chunk `is_last` fora de ordem) | **Corrigido** | A conclusão do download é "todos os bytes recebidos", não "chegou o chunk marcado como último"; o `.part` não é mais truncado no offset 0; re-pedidos não contam em dobro |
+| Bug pré-existente (hash de conteúdo × hash de armazenamento) | **Eliminado** | A oferta anunciava `content_hash`, mas o registro local usava um hash salgado quando o mesmo arquivo era reenviado; o pedido do receptor caía no registro de outra mensagem. Com chave aleatória por envio, cada envio tem hash próprio |
+| Cobertura | **Novo** | `media::transfer` (4 testes: ida e volta, hash não relacionado ao plaintext, blob adulterado/de outra oferta, chave fora do `Debug`); testes de chunk adaptados ao blob selado, com chegada fora de ordem; `core/tests/media_transfer.rs`: dois clientes reais, documento de 1,5 MiB, da oferta cifrada ao download, no CI |
+
+**Compatibilidade:** quebra o protocolo de mídia grande com versões anteriores (ofertas em plaintext são recusadas). Não muda a UDL nem o esquema do banco: os apps continuam chamando `download_media(media_hash)` com o hash do registro de mídia.
+
+**Falta:** o remetente ainda precisa estar online no momento do download (modelo pull P2P; o padrão de mercado é blob cifrado em servidor); arquivo inteiro em memória para selar/abrir; timeout fixo de 10 s por tentativa em `download_media`; sem retomada de download.

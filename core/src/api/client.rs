@@ -18,8 +18,8 @@ use crate::{
     media::MediaEnvelope,
     network::NetworkManager,
     protocol::{
-        pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaOffer, MediaRequest,
-        Message, MessageType, TextMessage,
+        pb::message::Payload, EncryptedMessage as ProtoEncryptedMessage, MediaRequest, Message,
+        MessageType, TextMessage,
     },
     reactions::ReactionEnvelope,
     storage::{
@@ -1156,6 +1156,7 @@ impl Client {
         let media_type = MediaType::Image;
         let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(compressed_data.len());
+        let mut offer_content: Option<String> = None;
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
@@ -1171,31 +1172,29 @@ impl Client {
             self.deliver_media_content(to, &message_id, content, "image")
                 .await
         } else {
-            let timestamp = chrono::Utc::now().timestamp_millis();
-            let offer = MediaOffer {
-                message_id: message_id.clone(),
-                media_hash: content_hash.clone(),
-                media_type: media_type.as_str().to_string(),
-                file_name: file_name.clone(),
-                mime_type: "image/jpeg".to_string(),
-                file_size: compressed_data.len() as i64,
-                width: 0,
-                height: 0,
-                duration_seconds: 0,
-            };
-            let message_type = MessageType::MediaOffer;
-            let payload = Payload::MediaOffer(offer);
-
-            let proto_message = Message {
-                id: message_id.clone(),
-                sender_peer_id: self.local_peer_id().to_string(),
-                recipient_peer_id: to.to_string(),
-                timestamp,
-                r#type: message_type as i32,
-                payload: Some(payload),
-            };
-
-            self.deliver_message(to, &proto_message, "image").await
+            // Too large to inline: seal the file under a fresh key and send the
+            // offer (key included) through the Signal session. Only the sealed
+            // blob ever crosses the chunk protocol.
+            let offer = crate::media::transfer::new_offer(
+                crate::media::MediaOfferMeta {
+                    media_type: media_type.as_str(),
+                    file_name: Some(file_name.clone()),
+                    mime_type: Some("image/jpeg".to_string()),
+                    width: None,
+                    height: None,
+                    duration_seconds: None,
+                    thumbnail: None,
+                },
+                &compressed_data,
+            )?;
+            // The media is known by the hash of its sealed form on both ends.
+            storage_hash = offer.media_hash.clone();
+            let content = offer.encode()?;
+            let outcome = self
+                .deliver_media_content(to, &message_id, content.clone(), "image")
+                .await;
+            offer_content = Some(content);
+            outcome
         };
 
         // Store in database
@@ -1227,7 +1226,11 @@ impl Client {
                 )?;
                 self.encrypt_for_storage(content.as_bytes()).ok()
             } else {
-                None
+                // Keeps the file key (encrypted at rest) so the sealed blob can be
+                // re-created when the peer requests the chunks.
+                offer_content
+                    .as_ref()
+                    .and_then(|content| self.encrypt_for_storage(content.as_bytes()).ok())
             },
             content_plaintext: Some(summary.clone()),
             status,
@@ -1293,6 +1296,7 @@ impl Client {
             Some(duration_seconds),
         );
         let inline = Self::should_inline_media(audio_data.len());
+        let mut offer_content: Option<String> = None;
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
@@ -1308,31 +1312,29 @@ impl Client {
             self.deliver_media_content(to, &message_id, content, "voice")
                 .await
         } else {
-            let timestamp = chrono::Utc::now().timestamp_millis();
-            let offer = MediaOffer {
-                message_id: message_id.clone(),
-                media_hash: content_hash.clone(),
-                media_type: media_type.as_str().to_string(),
-                file_name: file_name.clone(),
-                mime_type: "audio/aac".to_string(),
-                file_size: audio_data.len() as i64,
-                width: 0,
-                height: 0,
-                duration_seconds,
-            };
-            let message_type = MessageType::MediaOffer;
-            let payload = Payload::MediaOffer(offer);
-
-            let proto_message = Message {
-                id: message_id.clone(),
-                sender_peer_id: self.local_peer_id().to_string(),
-                recipient_peer_id: to.to_string(),
-                timestamp,
-                r#type: message_type as i32,
-                payload: Some(payload),
-            };
-
-            self.deliver_message(to, &proto_message, "voice").await
+            // Too large to inline: seal the file under a fresh key and send the
+            // offer (key included) through the Signal session. Only the sealed
+            // blob ever crosses the chunk protocol.
+            let offer = crate::media::transfer::new_offer(
+                crate::media::MediaOfferMeta {
+                    media_type: media_type.as_str(),
+                    file_name: Some(file_name.clone()),
+                    mime_type: Some("audio/aac".to_string()),
+                    width: None,
+                    height: None,
+                    duration_seconds: Some(duration_seconds),
+                    thumbnail: None,
+                },
+                audio_data,
+            )?;
+            // The media is known by the hash of its sealed form on both ends.
+            storage_hash = offer.media_hash.clone();
+            let content = offer.encode()?;
+            let outcome = self
+                .deliver_media_content(to, &message_id, content.clone(), "voice")
+                .await;
+            offer_content = Some(content);
+            outcome
         };
 
         // Store in database
@@ -1364,7 +1366,11 @@ impl Client {
                 )?;
                 self.encrypt_for_storage(content.as_bytes()).ok()
             } else {
-                None
+                // Keeps the file key (encrypted at rest) so the sealed blob can be
+                // re-created when the peer requests the chunks.
+                offer_content
+                    .as_ref()
+                    .and_then(|content| self.encrypt_for_storage(content.as_bytes()).ok())
             },
             content_plaintext: Some(summary.clone()),
             status,
@@ -1424,6 +1430,7 @@ impl Client {
         let media_type = MediaType::Document;
         let summary = crate::media::media_summary(media_type.as_str(), Some(&file_name), None);
         let inline = Self::should_inline_media(file_data.len());
+        let mut offer_content: Option<String> = None;
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
@@ -1439,31 +1446,29 @@ impl Client {
             self.deliver_media_content(to, &message_id, content, "document")
                 .await
         } else {
-            let timestamp = chrono::Utc::now().timestamp_millis();
-            let offer = MediaOffer {
-                message_id: message_id.clone(),
-                media_hash: content_hash.clone(),
-                media_type: media_type.as_str().to_string(),
-                file_name: file_name.clone(),
-                mime_type: mime_type.clone(),
-                file_size: file_data.len() as i64,
-                width: 0,
-                height: 0,
-                duration_seconds: 0,
-            };
-            let message_type = MessageType::MediaOffer;
-            let payload = Payload::MediaOffer(offer);
-
-            let proto_message = Message {
-                id: message_id.clone(),
-                sender_peer_id: self.local_peer_id().to_string(),
-                recipient_peer_id: to.to_string(),
-                timestamp,
-                r#type: message_type as i32,
-                payload: Some(payload),
-            };
-
-            self.deliver_message(to, &proto_message, "document").await
+            // Too large to inline: seal the file under a fresh key and send the
+            // offer (key included) through the Signal session. Only the sealed
+            // blob ever crosses the chunk protocol.
+            let offer = crate::media::transfer::new_offer(
+                crate::media::MediaOfferMeta {
+                    media_type: media_type.as_str(),
+                    file_name: Some(file_name.clone()),
+                    mime_type: Some(mime_type.clone()),
+                    width: None,
+                    height: None,
+                    duration_seconds: None,
+                    thumbnail: None,
+                },
+                file_data,
+            )?;
+            // The media is known by the hash of its sealed form on both ends.
+            storage_hash = offer.media_hash.clone();
+            let content = offer.encode()?;
+            let outcome = self
+                .deliver_media_content(to, &message_id, content.clone(), "document")
+                .await;
+            offer_content = Some(content);
+            outcome
         };
 
         // Store in database
@@ -1495,7 +1500,11 @@ impl Client {
                 )?;
                 self.encrypt_for_storage(content.as_bytes()).ok()
             } else {
-                None
+                // Keeps the file key (encrypted at rest) so the sealed blob can be
+                // re-created when the peer requests the chunks.
+                offer_content
+                    .as_ref()
+                    .and_then(|content| self.encrypt_for_storage(content.as_bytes()).ok())
             },
             content_plaintext: Some(summary.clone()),
             status,
@@ -1573,6 +1582,7 @@ impl Client {
         }
 
         let inline = Self::should_inline_media(video_data.len());
+        let mut offer_content: Option<String> = None;
         let outcome = if inline {
             let content = Self::build_media_envelope(
                 media_type.clone(),
@@ -1588,31 +1598,29 @@ impl Client {
             self.deliver_media_content(to, &message_id, content, "video")
                 .await
         } else {
-            let timestamp = chrono::Utc::now().timestamp_millis();
-            let offer = MediaOffer {
-                message_id: message_id.clone(),
-                media_hash: content_hash.clone(),
-                media_type: media_type.as_str().to_string(),
-                file_name: file_name.clone(),
-                mime_type: "video/mp4".to_string(),
-                file_size: video_data.len() as i64,
-                width: width.unwrap_or(0),
-                height: height.unwrap_or(0),
-                duration_seconds,
-            };
-            let message_type = MessageType::MediaOffer;
-            let payload = Payload::MediaOffer(offer);
-
-            let proto_message = Message {
-                id: message_id.clone(),
-                sender_peer_id: self.local_peer_id().to_string(),
-                recipient_peer_id: to.to_string(),
-                timestamp,
-                r#type: message_type as i32,
-                payload: Some(payload),
-            };
-
-            self.deliver_message(to, &proto_message, "video").await
+            // Too large to inline: seal the file under a fresh key and send the
+            // offer (key included) through the Signal session. Only the sealed
+            // blob ever crosses the chunk protocol.
+            let offer = crate::media::transfer::new_offer(
+                crate::media::MediaOfferMeta {
+                    media_type: media_type.as_str(),
+                    file_name: Some(file_name.clone()),
+                    mime_type: Some("video/mp4".to_string()),
+                    width,
+                    height,
+                    duration_seconds: Some(duration_seconds),
+                    thumbnail: thumbnail_data,
+                },
+                video_data,
+            )?;
+            // The media is known by the hash of its sealed form on both ends.
+            storage_hash = offer.media_hash.clone();
+            let content = offer.encode()?;
+            let outcome = self
+                .deliver_media_content(to, &message_id, content.clone(), "video")
+                .await;
+            offer_content = Some(content);
+            outcome
         };
 
         // Store in database
@@ -1644,7 +1652,11 @@ impl Client {
                 )?;
                 self.encrypt_for_storage(content.as_bytes()).ok()
             } else {
-                None
+                // Keeps the file key (encrypted at rest) so the sealed blob can be
+                // re-created when the peer requests the chunks.
+                offer_content
+                    .as_ref()
+                    .and_then(|content| self.encrypt_for_storage(content.as_bytes()).ok())
             },
             content_plaintext: Some(summary.clone()),
             status,

@@ -8,18 +8,18 @@
 //! 5. Sends acknowledgment back to sender
 
 use libp2p::PeerId;
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::identity::Identity;
 use crate::{
     crypto::{
         decrypt_for_storage, encrypt_for_storage, SignalEncryptedMessage, SignalSessionManager,
     },
-    media::MediaEnvelope,
+    media::{MediaEnvelope, MediaOfferEnvelope},
     protocol::{
         pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
-        MediaChunk, MediaOffer, MediaRequest, Message, MessageType, PreKeyBundleSync, ReadReceipt,
-        TextMessage, TypingIndicator,
+        MediaChunk, MediaRequest, Message, MessageType, PreKeyBundleSync, ReadReceipt, TextMessage,
+        TypingIndicator,
     },
     reactions::ReactionEnvelope,
     storage::{
@@ -61,6 +61,10 @@ pub struct MessageHandler {
 
     /// Whether plaintext application payloads are accepted (dev only, SEC-01)
     allow_plaintext: bool,
+
+    /// Media downloads in flight: sealed-blob hash -> (offset -> length) of the
+    /// chunks already written.
+    downloads: std::sync::Mutex<HashMap<String, HashMap<u64, u64>>>,
 }
 
 impl MessageHandler {
@@ -83,6 +87,7 @@ impl MessageHandler {
             storage_key,
             event_tx,
             allow_plaintext: false,
+            downloads: std::sync::Mutex::new(HashMap::new()),
         }
     }
 
@@ -146,7 +151,12 @@ impl MessageHandler {
             Some(Payload::Encrypted(ref enc_msg)) => {
                 self.handle_encrypted_message(&message, enc_msg).await
             }
-            Some(Payload::MediaOffer(ref offer)) => self.handle_media_offer(&message, offer).await,
+            // Offers travel inside the Signal session as a MediaOfferEnvelope.
+            // The bare payload exposed file name, size and hash to the
+            // transport and the message store, and carried no file key.
+            Some(Payload::MediaOffer(_)) => Err(ZapLivreError::Protocol(
+                "Plaintext media offers are no longer accepted".to_string(),
+            )),
             Some(Payload::MediaChunk(ref chunk)) => self.handle_media_chunk(&message, chunk).await,
             Some(Payload::PrekeyBundleSync(ref sync)) => {
                 self.handle_prekey_bundle_sync(&message, from_peer, sync)
@@ -416,6 +426,10 @@ impl MessageHandler {
             return self.handle_media_envelope(message, envelope).await;
         }
 
+        if let Some(offer) = MediaOfferEnvelope::decode(&text.content) {
+            return self.handle_media_offer_envelope(message, offer).await;
+        }
+
         if let Some(envelope) = crate::group::GroupControlEnvelope::decode(&text.content) {
             self.emit_event(MessageEvent::GroupControl {
                 from_peer_id: message.sender_peer_id.clone(),
@@ -511,6 +525,10 @@ impl MessageHandler {
 
         if let Some(envelope) = MediaEnvelope::decode(&text) {
             return self.handle_media_envelope(message, envelope).await;
+        }
+
+        if let Some(offer) = MediaOfferEnvelope::decode(&text) {
+            return self.handle_media_offer_envelope(message, offer).await;
         }
 
         if let Some(envelope) = crate::group::GroupControlEnvelope::decode(&text) {
@@ -612,74 +630,112 @@ impl MessageHandler {
         Ok(())
     }
 
-    async fn handle_media_offer(&self, message: &Message, offer: &MediaOffer) -> Result<()> {
+    /// Record a sealed media offer. The file itself is pulled later, on demand.
+    async fn handle_media_offer_envelope(
+        &self,
+        message: &Message,
+        offer: MediaOfferEnvelope,
+    ) -> Result<()> {
+        // The hash names files on disk and comes from the peer.
+        if !is_sha256_hex(&offer.media_hash) {
+            return Err(ZapLivreError::Protocol(
+                "Invalid media hash in offer".to_string(),
+            ));
+        }
+        if offer
+            .sealed_size()
+            .is_none_or(|size| size > MAX_MEDIA_BYTES)
+        {
+            return Err(ZapLivreError::Protocol(
+                "Media offer size out of range".to_string(),
+            ));
+        }
+
         let media_type = MediaType::from_db_str(&offer.media_type);
         let summary = crate::media::media_summary(
             media_type.as_str(),
-            Some(&offer.file_name),
-            if offer.duration_seconds > 0 {
-                Some(offer.duration_seconds)
-            } else {
-                None
-            },
+            offer.file_name.as_deref(),
+            offer.duration_seconds,
         );
-
         let conversation_id = self
             .database
             .get_or_create_conversation(&message.sender_peer_id)?;
 
+        let mut thumbnail_path = None;
+        if let Some(thumbnail_bytes) = offer.thumbnail_bytes()? {
+            let thumb_dir = self.data_dir.join("media").join("thumbnails");
+            std::fs::create_dir_all(&thumb_dir).map_err(|e| {
+                ZapLivreError::Storage(format!("Failed to create thumbnail dir: {}", e))
+            })?;
+            let thumb_path = thumb_dir.join(format!("{}.jpg", offer.media_hash));
+            std::fs::write(&thumb_path, &thumbnail_bytes).map_err(|e| {
+                ZapLivreError::Storage(format!("Failed to write thumbnail file: {}", e))
+            })?;
+            thumbnail_path = Some(thumb_path.to_string_lossy().to_string());
+        }
+
+        // The offer (with the file key) is kept encrypted at rest: it is needed
+        // to open the blob whenever the user decides to download it.
         let new_msg = NewMessage {
             message_id: message.id.clone(),
             conversation_id: conversation_id.clone(),
             sender_peer_id: message.sender_peer_id.clone(),
             recipient_peer_id: Some(message.recipient_peer_id.clone()),
             message_type: media_type.as_str().to_string(),
-            content_encrypted: None,
+            content_encrypted: Some(self.encrypt_for_storage(offer.encode()?.as_bytes())?),
             content_plaintext: Some(summary.clone()),
             status: MessageStatus::Delivered,
             parent_message_id: None,
         };
-
         self.database.insert_message(&new_msg)?;
         self.database
             .update_conversation_last_message(&conversation_id, &message.id)?;
 
         let new_media = NewMedia {
             media_hash: offer.media_hash.clone(),
-            message_id: offer.message_id.clone(),
+            message_id: message.id.clone(),
             media_type,
-            file_name: Some(offer.file_name.clone()),
+            file_name: offer.file_name.clone(),
             file_size: Some(offer.file_size),
-            mime_type: Some(offer.mime_type.clone()),
+            mime_type: offer.mime_type.clone(),
             local_path: None,
-            thumbnail_path: None,
-            width: if offer.width > 0 {
-                Some(offer.width)
-            } else {
-                None
-            },
-            height: if offer.height > 0 {
-                Some(offer.height)
-            } else {
-                None
-            },
-            duration_seconds: if offer.duration_seconds > 0 {
-                Some(offer.duration_seconds)
-            } else {
-                None
-            },
+            thumbnail_path,
+            width: offer.width,
+            height: offer.height,
+            duration_seconds: offer.duration_seconds,
         };
-        let _ = self.database.insert_media(&new_media);
+        self.database.insert_media(&new_media)?;
+
+        let mut display_message = message.clone();
+        display_message.payload = Some(Payload::Text(TextMessage {
+            content: summary.clone(),
+            reply_to_id: String::new(),
+            metadata: std::collections::HashMap::new(),
+        }));
+        display_message.r#type = MessageType::Text as i32;
 
         self.emit_event(MessageEvent::MessageReceived {
             message_id: message.id.clone(),
             from_peer_id: message.sender_peer_id.clone(),
             conversation_id,
             content: summary,
-            message: message.clone(),
+            message: display_message,
         });
 
         Ok(())
+    }
+
+    /// The sealed-media offer stored with `message_id`, if that message has one.
+    fn stored_media_offer(&self, message_id: &str) -> Result<MediaOfferEnvelope> {
+        let message = self.database.get_message(message_id)?;
+        let blob = message
+            .content_encrypted
+            .ok_or_else(|| ZapLivreError::NotFound("Message carries no media offer".to_string()))?;
+        let content = crate::crypto::decrypt_for_storage(&self.storage_key, &blob)?;
+        std::str::from_utf8(&content)
+            .ok()
+            .and_then(MediaOfferEnvelope::decode)
+            .ok_or_else(|| ZapLivreError::NotFound("Message carries no media offer".to_string()))
     }
 
     async fn handle_media_chunk(&self, message: &Message, chunk: &MediaChunk) -> Result<()> {
@@ -687,12 +743,7 @@ impl MessageHandler {
 
         // Every field of the chunk is attacker-controlled. The hash becomes a
         // file name, so it must be exactly a SHA-256 hex digest (no separators).
-        if chunk.media_hash.len() != 64
-            || !chunk
-                .media_hash
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-        {
+        if !is_sha256_hex(&chunk.media_hash) {
             return Err(ZapLivreError::Protocol(
                 "Invalid media hash in chunk".to_string(),
             ));
@@ -719,19 +770,22 @@ impl MessageHandler {
                 "Media chunk from a peer that did not offer this media".to_string(),
             ));
         }
+        if media.local_path.is_some() {
+            // Already downloaded; late or repeated chunks are harmless.
+            return Ok(());
+        }
 
-        // Bound the write window by the offered size so a peer cannot create a
-        // huge sparse file through an arbitrary offset.
-        let max_len = media
-            .file_size
-            .filter(|size| *size > 0)
-            .map(|size| size as u64)
-            .unwrap_or(MAX_MEDIA_BYTES)
-            .min(MAX_MEDIA_BYTES);
-        let end = u64::try_from(chunk.offset)
-            .ok()
-            .and_then(|offset| offset.checked_add(chunk.data.len() as u64));
-        if !matches!(end, Some(end) if end <= max_len) {
+        // Chunks carry the sealed blob; the offer says how to open it and how
+        // large it is, which bounds the write window (no sparse-file abuse).
+        let offer = self.stored_media_offer(&media.message_id)?;
+        let sealed_size = offer
+            .sealed_size()
+            .filter(|size| *size <= MAX_MEDIA_BYTES)
+            .ok_or_else(|| ZapLivreError::Protocol("Media offer size out of range".to_string()))?;
+        let offset = u64::try_from(chunk.offset)
+            .map_err(|_| ZapLivreError::Protocol("Negative media chunk offset".to_string()))?;
+        let end = offset.checked_add(chunk.data.len() as u64);
+        if !matches!(end, Some(end) if end <= sealed_size) {
             return Err(ZapLivreError::Protocol(
                 "Media chunk outside the offered file size".to_string(),
             ));
@@ -741,71 +795,70 @@ impl MessageHandler {
         std::fs::create_dir_all(&tmp_dir)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to create tmp dir: {}", e)))?;
         let tmp_path = tmp_dir.join(format!("{}.part", chunk.media_hash));
-        let mut opts = std::fs::OpenOptions::new();
-        opts.create(true).write(true);
-        if chunk.offset == 0 {
-            opts.truncate(true);
-        }
-        let mut file = opts
+
+        // Chunks are independent requests and may arrive in any order, so
+        // completion is "every byte received", not "the chunk flagged last".
+        let received = {
+            let mut downloads = self.downloads.lock().unwrap_or_else(|e| e.into_inner());
+            if !downloads.contains_key(&chunk.media_hash) {
+                let _ = std::fs::remove_file(&tmp_path); // stale partial file
+            }
+            let parts = downloads.entry(chunk.media_hash.clone()).or_default();
+            parts.insert(offset, chunk.data.len() as u64);
+            parts.values().sum::<u64>()
+        };
+
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
             .open(&tmp_path)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to open temp file: {}", e)))?;
-        file.seek(SeekFrom::Start(chunk.offset as u64))
+        file.seek(SeekFrom::Start(offset))
             .map_err(|e| ZapLivreError::Storage(format!("Failed to seek temp file: {}", e)))?;
         file.write_all(&chunk.data)
             .map_err(|e| ZapLivreError::Storage(format!("Failed to write chunk: {}", e)))?;
+        drop(file);
 
-        if chunk.is_last {
-            // SEC-03: verificar a integridade do arquivo remontado contra o
-            // media_hash antes de aceitá-lo (o hash pode ser SHA-256(dados) ou
-            // SHA-256(dados || message_id) quando houve colisão no envio)
-            {
-                use sha2::{Digest, Sha256};
-                let data = std::fs::read(&tmp_path).map_err(|e| {
-                    ZapLivreError::Storage(format!("Failed to read reassembled media: {}", e))
-                })?;
-
-                let plain_hash = format!("{:x}", Sha256::new_with_prefix(&data).finalize());
-                let salted_hash = {
-                    let mut hasher = Sha256::new();
-                    hasher.update(&data);
-                    hasher.update(media.message_id.as_bytes());
-                    format!("{:x}", hasher.finalize())
-                };
-
-                if plain_hash != chunk.media_hash && salted_hash != chunk.media_hash {
-                    let _ = std::fs::remove_file(&tmp_path);
-                    tracing::error!(
-                        "🚫 Media integrity check FAILED for {} (got {})",
-                        chunk.media_hash,
-                        plain_hash
-                    );
-                    return Err(ZapLivreError::Crypto(
-                        "Media integrity verification failed - file discarded".to_string(),
-                    ));
-                }
-            }
-
-            let extension = media
-                .file_name
-                .as_ref()
-                .and_then(|name| std::path::Path::new(name).extension())
-                .and_then(|ext| ext.to_str());
-            let file_name = match extension {
-                Some(ext) => format!("{}.{}", chunk.media_hash, ext),
-                None => chunk.media_hash.clone(),
-            };
-            let final_path = self.data_dir.join("media").join(file_name);
-            std::fs::create_dir_all(self.data_dir.join("media")).map_err(|e| {
-                ZapLivreError::Storage(format!("Failed to create media dir: {}", e))
-            })?;
-            std::fs::rename(&tmp_path, &final_path).map_err(|e| {
-                ZapLivreError::Storage(format!("Failed to finalize media file: {}", e))
-            })?;
-
-            self.database
-                .update_media_local_path(media.id, &final_path.to_string_lossy())
-                .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
+        if received < sealed_size {
+            return Ok(());
         }
+
+        // Everything is here: verify the sealed blob, open it, keep only the
+        // plaintext. Whatever happens, this download attempt is over.
+        self.downloads
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&chunk.media_hash);
+        let sealed = std::fs::read(&tmp_path);
+        let _ = std::fs::remove_file(&tmp_path);
+        let sealed = sealed.map_err(|e| {
+            ZapLivreError::Storage(format!("Failed to read reassembled media: {}", e))
+        })?;
+        let plaintext = offer.open(&sealed).inspect_err(|e| {
+            tracing::error!("🚫 Media {} discarded: {}", chunk.media_hash, e);
+        })?;
+
+        let extension = media
+            .file_name
+            .as_ref()
+            .and_then(|name| std::path::Path::new(name).extension())
+            .and_then(|ext| ext.to_str())
+            .filter(|ext| ext.chars().all(|c| c.is_ascii_alphanumeric()));
+        let file_name = match extension {
+            Some(ext) => format!("{}.{}", chunk.media_hash, ext),
+            None => chunk.media_hash.clone(),
+        };
+        let media_dir = self.data_dir.join("media");
+        std::fs::create_dir_all(&media_dir)
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to create media dir: {}", e)))?;
+        let final_path = media_dir.join(file_name);
+        std::fs::write(&final_path, &plaintext)
+            .map_err(|e| ZapLivreError::Storage(format!("Failed to write media file: {}", e)))?;
+
+        self.database
+            .update_media_local_path(media.id, &final_path.to_string_lossy())
+            .map_err(|e| ZapLivreError::Storage(e.to_string()))?;
 
         Ok(())
     }
@@ -844,7 +897,11 @@ impl MessageHandler {
         let local_path = media
             .local_path
             .ok_or_else(|| ZapLivreError::NotFound("Media file missing".to_string()))?;
-        let data = std::fs::read(&local_path)?;
+        // Serve the sealed form only. It is re-created from the local file with
+        // the key and nonce kept in the (encrypted at rest) offer; a media
+        // without an offer was never meant to be pulled and is not served.
+        let offer = self.stored_media_offer(&media.message_id)?;
+        let data = offer.seal(&std::fs::read(&local_path)?)?;
 
         // The requester picks the chunk size; bound it so it can neither force
         // millions of tiny chunks nor a frame above the codec limit.
@@ -1069,6 +1126,15 @@ impl MessageHandler {
 }
 
 /// Extract an Ed25519 public key from a libp2p identity-multihash PeerId.
+/// Lowercase hex SHA-256: the only shape accepted for peer-supplied media
+/// hashes, since they end up in file names.
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 fn public_key_from_peer_id(peer_id: &PeerId) -> Option<Vec<u8>> {
     let multihash = peer_id.as_ref();
     if multihash.code() != 0x00 {
@@ -1347,11 +1413,26 @@ mod tests {
     async fn media_test_setup(
         data: &[u8],
         tmp: &std::path::Path,
-    ) -> (MessageHandler, String, String, String) {
-        use sha2::{Digest, Sha256};
-
+    ) -> (MessageHandler, String, String, String, Vec<u8>) {
         let db = Database::in_memory().unwrap();
         init_schema(&db).unwrap();
+
+        let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
+        let storage_key = identity.read().await.storage_key().unwrap();
+        let offer = crate::media::transfer::new_offer(
+            crate::media::MediaOfferMeta {
+                media_type: "document",
+                file_name: Some("doc.bin".to_string()),
+                mime_type: Some("application/octet-stream".to_string()),
+                width: None,
+                height: None,
+                duration_seconds: None,
+                thumbnail: None,
+            },
+            data,
+        )
+        .unwrap();
+        let sealed = offer.seal(data).unwrap();
 
         let sender_peer = PeerId::random().to_string();
         db.insert_contact(&NewContact {
@@ -1371,14 +1452,21 @@ mod tests {
             sender_peer_id: sender_peer.clone(),
             recipient_peer_id: Some("local-peer".to_string()),
             message_type: "document".to_string(),
-            content_encrypted: None,
+            // The sealed offer, as the receive path stores it
+            content_encrypted: Some(
+                crate::crypto::encrypt_for_storage(
+                    &storage_key,
+                    offer.encode().unwrap().as_bytes(),
+                )
+                .unwrap(),
+            ),
             content_plaintext: None,
             status: crate::storage::MessageStatus::Delivered,
             parent_message_id: None,
         })
         .unwrap();
 
-        let media_hash = format!("{:x}", Sha256::new_with_prefix(data).finalize());
+        let media_hash = offer.media_hash.clone();
         db.insert_media(&crate::storage::media::NewMedia {
             media_hash: media_hash.clone(),
             message_id: message_id.clone(),
@@ -1395,8 +1483,6 @@ mod tests {
         .unwrap();
 
         let db_arc = Arc::new(db);
-        let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
-        let storage_key = identity.read().await.storage_key().unwrap();
         let session_manager = SignalSessionManager::new(Arc::clone(&identity));
         let handler = MessageHandler::new(
             "local-peer".to_string(),
@@ -1408,7 +1494,7 @@ mod tests {
             None,
         );
 
-        (handler, sender_peer, media_hash, message_id)
+        (handler, sender_peer, media_hash, message_id, sealed)
     }
 
     fn media_chunk_message(sender_peer_id: &str) -> Message {
@@ -1427,21 +1513,32 @@ mod tests {
     async fn test_media_chunk_integrity_accepts_valid_file() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo legitimo do arquivo".to_vec();
-        let (handler, sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
-
-        let chunk = MediaChunk {
-            message_id,
-            media_hash: media_hash.clone(),
-            offset: 0,
-            data: data.clone(),
-            is_last: true,
-        };
+        let (handler, sender, media_hash, message_id, sealed) =
+            media_test_setup(&data, tmp.path()).await;
         let envelope = media_chunk_message(&sender);
 
-        handler
-            .handle_media_chunk(&envelope, &chunk)
-            .await
-            .expect("valid media must be accepted");
+        // Chunks são requests independentes: o "último" pode chegar primeiro.
+        let split = sealed.len() / 2;
+        for (offset, part, is_last) in [
+            (split, &sealed[split..], true),
+            (0, &sealed[..split], false),
+        ] {
+            let chunk = MediaChunk {
+                message_id: message_id.clone(),
+                media_hash: media_hash.clone(),
+                offset: offset as i64,
+                data: part.to_vec(),
+                is_last,
+            };
+            handler
+                .handle_media_chunk(&envelope, &chunk)
+                .await
+                .expect("valid media must be accepted");
+        }
+
+        // Só o plaintext fica em disco: o blob selado (.part) é removido
+        let part = tmp.path().join("media").join("tmp");
+        assert!(std::fs::read_dir(&part).unwrap().next().is_none());
 
         // Arquivo final existe em media/
         let final_path = tmp.path().join("media").join(format!("{}.bin", media_hash));
@@ -1454,7 +1551,8 @@ mod tests {
     async fn test_media_chunk_integrity_rejects_tampered_file() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo legitimo do arquivo".to_vec();
-        let (handler, sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+        let (handler, sender, media_hash, message_id, sealed) =
+            media_test_setup(&data, tmp.path()).await;
 
         // Peer malicioso envia bytes diferentes sob o mesmo media_hash
         let chunk = MediaChunk {
@@ -1462,7 +1560,7 @@ mod tests {
             media_hash: media_hash.clone(),
             offset: 0,
             // Mesmo tamanho ofertado, conteúdo diferente
-            data: data.iter().map(|b| b ^ 0xFF).collect(),
+            data: sealed.iter().map(|b| b ^ 0xFF).collect(),
             is_last: true,
         };
         let envelope = media_chunk_message(&sender);
@@ -1493,7 +1591,8 @@ mod tests {
     async fn test_media_chunk_rejects_path_traversal_hash() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo".to_vec();
-        let (handler, sender, _hash, message_id) = media_test_setup(&data, tmp.path()).await;
+        let (handler, sender, _hash, message_id, _sealed) =
+            media_test_setup(&data, tmp.path()).await;
 
         let chunk = MediaChunk {
             message_id,
@@ -1515,7 +1614,8 @@ mod tests {
     async fn test_media_chunk_rejects_unsolicited_sender() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo".to_vec();
-        let (handler, _sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+        let (handler, _sender, media_hash, message_id, _sealed) =
+            media_test_setup(&data, tmp.path()).await;
 
         let chunk = MediaChunk {
             message_id,
@@ -1537,7 +1637,8 @@ mod tests {
     async fn test_media_chunk_rejects_offset_beyond_offered_size() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo".to_vec();
-        let (handler, sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+        let (handler, sender, media_hash, message_id, _sealed) =
+            media_test_setup(&data, tmp.path()).await;
 
         for offset in [1_i64 << 40, -1] {
             let chunk = MediaChunk {
