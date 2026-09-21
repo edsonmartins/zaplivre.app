@@ -554,6 +554,21 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     }
 
     /**
+     * Drena a caixa offline no message store. Retorna quantas mensagens foram
+     * processadas, ou null em caso de falha. É o que um push deve acionar: o app
+     * pode ter só alguns segundos, então pede exatamente isto em vez de um
+     * bootstrap completo.
+     */
+    suspend fun fetchOfflineMessages(): Int? = withContext(Dispatchers.IO) {
+        try {
+            getClient().fetchOfflineMessages().toInt()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch offline messages", e)
+            null
+        }
+    }
+
+    /**
      * Faz bootstrap (conecta aos bootstrap nodes)
      */
     suspend fun bootstrap(): Boolean = withContext(Dispatchers.IO) {

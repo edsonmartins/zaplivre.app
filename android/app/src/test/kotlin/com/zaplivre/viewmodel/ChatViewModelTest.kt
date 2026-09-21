@@ -51,7 +51,7 @@ class ChatViewModelTest {
             firstArg<FfiMessage>().contentPlaintext?.startsWith(legacyPrefix) == true
         }
         coEvery { api.markConversationRead(any()) } returns true
-        coEvery { api.getConversationMessages(peerId, null, null) } returns emptyList()
+        coEvery { api.getConversationMessages(peerId, 50u, null) } returns emptyList()
     }
 
     /**
@@ -94,7 +94,7 @@ class ChatViewModelTest {
         // O core retorna DESC (mais recente primeiro); o ViewModel reverte
         // para exibir a mais antiga no topo e a mais nova no fim.
         val apiDesc = listOf(message("m2", "tudo bem?"), message("m1", "oi"))
-        coEvery { api.getConversationMessages(peerId, null, null) } returns apiDesc
+        coEvery { api.getConversationMessages(peerId, 50u, null) } returns apiDesc
 
         runVmTest { viewModel ->
             runCurrent()
@@ -106,7 +106,7 @@ class ChatViewModelTest {
     fun `filtra mensagens legadas de sender key de grupo`() {
         val normal = message("m1", "oi")
         val legacy = message("m2", legacyPrefix + "abc123")
-        coEvery { api.getConversationMessages(peerId, null, null) } returns listOf(normal, legacy)
+        coEvery { api.getConversationMessages(peerId, 50u, null) } returns listOf(normal, legacy)
 
         runVmTest { viewModel ->
             runCurrent()
@@ -130,7 +130,7 @@ class ChatViewModelTest {
             runCurrent()
 
             val afterSend = listOf(message("msg-id-1", "ola mundo", sender = localPeer))
-            coEvery { api.getConversationMessages(peerId, null, null) } returns afterSend
+            coEvery { api.getConversationMessages(peerId, 50u, null) } returns afterSend
 
             viewModel.sendResults.test {
                 viewModel.sendTextMessage("ola mundo")
@@ -211,7 +211,7 @@ class ChatViewModelTest {
             assertEquals(emptyList<FfiMessage>(), viewModel.messages.value)
 
             val incoming = listOf(message("m-new", "chegou!"))
-            coEvery { api.getConversationMessages(peerId, null, null) } returns incoming
+            coEvery { api.getConversationMessages(peerId, 50u, null) } returns incoming
 
             messageEvents.tryEmit(
                 ZapLivreClientWrapper.MessageUiEvent.Received("m-new", peerId)
@@ -233,7 +233,7 @@ class ChatViewModelTest {
             runCurrent()
 
             // Somente a carga inicial consultou a API
-            coVerify(exactly = 1) { api.getConversationMessages(peerId, null, null) }
+            coVerify(exactly = 1) { api.getConversationMessages(peerId, 50u, null) }
         }
     }
 
@@ -243,7 +243,7 @@ class ChatViewModelTest {
             runCurrent()
 
             val updated = listOf(message("m1", "oi"))
-            coEvery { api.getConversationMessages(peerId, null, null) } returns updated
+            coEvery { api.getConversationMessages(peerId, 50u, null) } returns updated
 
             messageEvents.tryEmit(
                 ZapLivreClientWrapper.MessageUiEvent.StatusChanged(
@@ -253,7 +253,7 @@ class ChatViewModelTest {
             runCurrent()
 
             assertEquals(updated, viewModel.messages.value)
-            coVerify(exactly = 2) { api.getConversationMessages(peerId, null, null) }
+            coVerify(exactly = 2) { api.getConversationMessages(peerId, 50u, null) }
         }
     }
 
@@ -267,7 +267,7 @@ class ChatViewModelTest {
             )
             runCurrent()
 
-            coVerify(exactly = 1) { api.getConversationMessages(peerId, null, null) }
+            coVerify(exactly = 1) { api.getConversationMessages(peerId, 50u, null) }
         }
     }
 }

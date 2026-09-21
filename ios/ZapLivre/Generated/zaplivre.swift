@@ -621,6 +621,8 @@ public protocol ZapLivreClientProtocol: AnyObject, Sendable {
     
     func enableVideo(callId: String, codec: FfiVideoCodec) async throws 
     
+    func fetchOfflineMessages() async throws  -> UInt32
+    
     func forwardMessage(messageId: String, toPeerId: String) async throws  -> String
     
     func getConversationMedia(conversationId: String, mediaType: FfiMediaType?, limit: UInt32?) throws  -> [FfiMedia]
@@ -984,6 +986,23 @@ open func enableVideo(callId: String, codec: FfiVideoCodec)async throws   {
             completeFunc: ffi_zaplivre_core_rust_future_complete_void,
             freeFunc: ffi_zaplivre_core_rust_future_free_void,
             liftFunc: { $0 },
+            errorHandler: FfiConverterTypeZapLivreFfiError_lift
+        )
+}
+    
+open func fetchOfflineMessages()async throws  -> UInt32  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_zaplivre_core_fn_method_zaplivreclient_fetch_offline_messages(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_zaplivre_core_rust_future_poll_u32,
+            completeFunc: ffi_zaplivre_core_rust_future_complete_u32,
+            freeFunc: ffi_zaplivre_core_rust_future_free_u32,
+            liftFunc: FfiConverterUInt32.lift,
             errorHandler: FfiConverterTypeZapLivreFfiError_lift
         )
 }
@@ -4689,6 +4708,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_enable_video() != 33234) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_zaplivre_core_checksum_method_zaplivreclient_fetch_offline_messages() != 39103) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_zaplivre_core_checksum_method_zaplivreclient_forward_message() != 12203) {

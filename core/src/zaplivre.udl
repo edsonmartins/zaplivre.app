@@ -278,6 +278,11 @@ string contact_transparency_proof(string peer_id);
     [Throws=ZapLivreFfiError, Async]
     void bootstrap();
 
+    // Drain the offline mailbox on the message store; returns how many messages
+    // were processed. Call it when a push wakes the app.
+    [Throws=ZapLivreFfiError, Async]
+    u32 fetch_offline_messages();
+
     // VoIP methods (FASE 12 - VoIP Audio)
     [Throws=ZapLivreFfiError, Async]
     string start_call(string to_peer_id);

@@ -101,6 +101,31 @@ class ZapLivreService : Service() {
 
             // Iniciar monitoramento de peers
             startPeerMonitoring()
+
+            // Notificar mensagens que chegam com a UI fora da tela
+            observeIncomingMessages()
+        }
+    }
+
+    /**
+     * Mensagens que chegam por P2P ou pela drenagem da caixa offline não passam
+     * pelo FCM: sem isto, com o app em background o usuário não era avisado.
+     * O conteúdo nunca vai para a notificação (fica só dentro do app).
+     */
+    private fun observeIncomingMessages() {
+        serviceScope.launch {
+            ZapLivreClientWrapper.messageEvents.collect { event ->
+                if (event is ZapLivreClientWrapper.MessageUiEvent.Received &&
+                    !com.zaplivre.util.AppVisibility.isForeground
+                ) {
+                    com.zaplivre.util.NotificationHelper.showMessageNotification(
+                        context = applicationContext,
+                        title = "Nova mensagem",
+                        body = "Você recebeu uma mensagem",
+                        peerId = event.fromPeerId
+                    )
+                }
+            }
         }
     }
 

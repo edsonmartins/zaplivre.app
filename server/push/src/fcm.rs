@@ -149,21 +149,7 @@ impl FcmClient {
 
         let access_token = self.access_token().await?;
 
-        let mut message = serde_json::json!({
-            "message": {
-                "token": token,
-                "notification": {
-                    "title": title,
-                    "body": body,
-                },
-                "android": {
-                    "priority": "high"
-                }
-            }
-        });
-        if !data.is_empty() {
-            message["message"]["data"] = serde_json::to_value(data)?;
-        }
+        let message = build_fcm_message(token, title, body, data);
 
         let url = format!(
             "https://fcm.googleapis.com/v1/projects/{}/messages:send",
@@ -187,5 +173,53 @@ impl FcmClient {
 
         tracing::debug!("  ✅ FCM v1 notification sent successfully");
         Ok(())
+    }
+}
+
+/// Build a data-only FCM v1 message.
+///
+/// A `notification` block makes Android draw the tray notification itself and,
+/// with the app in background or killed, NOT call `onMessageReceived`: the app
+/// never woke up, so nothing was fetched until the user opened it. With data
+/// only (title and body travel as data) and high priority, the app's service is
+/// always invoked; it shows the notification and drains the offline mailbox.
+fn build_fcm_message(
+    token: &str,
+    title: &str,
+    body: &str,
+    data: &HashMap<String, String>,
+) -> serde_json::Value {
+    let mut payload = data.clone();
+    payload.insert("title".to_string(), title.to_string());
+    payload.insert("body".to_string(), body.to_string());
+
+    serde_json::json!({
+        "message": {
+            "token": token,
+            "data": payload,
+            "android": {
+                "priority": "high"
+            }
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fcm_message_is_data_only_and_high_priority() {
+        let mut data = HashMap::new();
+        data.insert("sender_peer_id".to_string(), "12D3KooWabc".to_string());
+
+        let message = build_fcm_message("tok", "Nova mensagem", "Você recebeu uma mensagem", &data);
+        let message = &message["message"];
+
+        assert!(message.get("notification").is_none(), "must be data-only");
+        assert_eq!(message["android"]["priority"], "high");
+        assert_eq!(message["data"]["title"], "Nova mensagem");
+        assert_eq!(message["data"]["body"], "Você recebeu uma mensagem");
+        assert_eq!(message["data"]["sender_peer_id"], "12D3KooWabc");
     }
 }
