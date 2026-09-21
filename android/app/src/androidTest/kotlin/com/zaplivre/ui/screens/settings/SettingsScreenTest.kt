@@ -46,6 +46,7 @@ class SettingsScreenTest {
                 onExportBackup = {},
                 onExportPrekeys = {},
                 onImportPrekeys = {},
+                onShowQrCode = {},
                 onClearImageCache = {},
                 onClearVideoCache = {},
                 onLogout = {},

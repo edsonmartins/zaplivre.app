@@ -640,3 +640,19 @@ Verificado: iOS `xcodebuild` (assinatura ad-hoc) com BUILD SUCCEEDED; **suíte M
 | MA3 — Android sem leitor de QR | **Corrigido, não validado com câmera** | `QrScannerDialog` com CameraX + zxing (dependências que o app já tinha) e `ContactQrCode.parse` para os três formatos (JSON v1 do iOS, `peerId@multiaddr`, só peer ID), com peer ID Ed25519 validado por inteiro; com endereço, disca o contato |
 
 Com isso os dois apps conseguem se encontrar pelos dois caminhos: username e QR.
+
+### Lote 15 — username opcional no Android (2026-09-21)
+
+**Achado do E2E Android** (primeira execução real da suíte, PR #16): **10/10 flows falhavam no onboarding**. A captura mostra o diálogo "Escolha seu username" com `HTTP 502 Bad Gateway`: no Android o username era obrigatório e registrado no identity server de produção, então **com o servidor fora do ar nenhum usuário Android novo conseguia entrar no app**. No iOS o username já era opcional.
+
+Decisão do produto (2026-09-21): **username opcional no Android, como no iOS.**
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| Onboarding Android bloqueado pelo identity server | **Corrigido** | O diálogo de username ganha "Pular por agora"; o app passa a depender de "onboarding concluído" (com ou sem username), não de "username registrado". Contas anteriores (username registrado) contam como onboarding concluído. Falha de registro mostra que dá para pular |
+| Registrar username depois (Android) | **Novo** | "Registrar username" nas configurações para quem pulou |
+| E2E Android dependia do servidor de produção | **Corrigido (PR #16)** | O job sobe Postgres, Redis e o identity server (como o job de integração) e o APK de teste aponta para ele (`10.0.2.2`); o log do servidor vai para os artefatos |
+| `SettingsScreenTest` (instrumentado) não compilava | **Corrigido** | Faltava `onShowQrCode`; já estava quebrado na `main` |
+| Cobertura | **Novo** | Flow `11_onboarding_sem_username.yml` (passa no `check-syntax`; execução depende do E2E Android do CI) |
+
+Verificado: `:app:compileDebugKotlin`, `:app:compileDebugAndroidTestKotlin`, `:app:testDebugUnitTest` 22/22 (JDK 17). **Não verificado:** execução em emulador.

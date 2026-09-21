@@ -200,13 +200,13 @@ fun ZapLivreApp(
     onPeerIdConsumed: () -> Unit
 ) {
     val isInitialized by ZapLivreClientWrapper.isInitialized.collectAsState()
-    val usernameRegistered by ZapLivreClientWrapper.usernameRegistered.collectAsState()
+    val onboardingComplete by ZapLivreClientWrapper.onboardingComplete.collectAsState()
     val appContext = LocalContext.current
     LaunchedEffect(Unit) { ZapLivreClientWrapper.loadUsername(appContext) }
 
     ZapLivreNavHost(
         isClientInitialized = isInitialized,
-        usernameRegistered = usernameRegistered,
+        onboardingComplete = onboardingComplete,
         pendingPeerId = pendingPeerId,
         onPeerIdConsumed = onPeerIdConsumed
     )

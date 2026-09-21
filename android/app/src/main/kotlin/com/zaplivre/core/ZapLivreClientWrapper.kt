@@ -42,8 +42,27 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
     private val _usernameRegistered = MutableStateFlow(false)
     val usernameRegistered: StateFlow<Boolean> = _usernameRegistered.asStateFlow()
-    fun loadUsername(context: Context) { _usernameRegistered.value = !AndroidIdentityStore.loadUsername(context).isNullOrBlank() }
-    fun markUsernameRegistered(context: Context, username: String) { AndroidIdentityStore.saveUsername(context, username); _usernameRegistered.value = true }
+    // O username é opcional (como no iOS): o app funciona por QR/Peer ID, e uma
+    // queda do identity server não pode impedir ninguém de entrar. O que libera
+    // o app é o onboarding concluído, com ou sem username.
+    private val _onboardingComplete = MutableStateFlow(false)
+    val onboardingComplete: StateFlow<Boolean> = _onboardingComplete.asStateFlow()
+    fun loadUsername(context: Context) {
+        val registered = !AndroidIdentityStore.loadUsername(context).isNullOrBlank()
+        _usernameRegistered.value = registered
+        // Contas anteriores a esta mudança: username registrado = onboarding feito
+        _onboardingComplete.value = registered || AndroidIdentityStore.isOnboarded(context)
+    }
+    fun markUsernameRegistered(context: Context, username: String) {
+        AndroidIdentityStore.saveUsername(context, username)
+        AndroidIdentityStore.markOnboarded(context)
+        _usernameRegistered.value = true
+        _onboardingComplete.value = true
+    }
+    fun skipUsername(context: Context) {
+        AndroidIdentityStore.markOnboarded(context)
+        _onboardingComplete.value = true
+    }
 
     private val _localPeerId = MutableStateFlow<String?>(null)
     override val localPeerId: StateFlow<String?> = _localPeerId.asStateFlow()

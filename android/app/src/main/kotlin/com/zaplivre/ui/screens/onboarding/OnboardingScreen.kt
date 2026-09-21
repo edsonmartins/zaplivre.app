@@ -50,14 +50,14 @@ fun OnboardingScreen(
     // Observar estado de inicialização
     val isInitialized by ZapLivreClientWrapper.isInitialized.collectAsState()
     val clientPeerId by ZapLivreClientWrapper.localPeerId.collectAsState()
-    val usernameRegistered by ZapLivreClientWrapper.usernameRegistered.collectAsState()
+    val onboardingComplete by ZapLivreClientWrapper.onboardingComplete.collectAsState()
 
     // Auto-complete quando inicializado
     LaunchedEffect(isInitialized) {
         if (isInitialized) {
             localPeerId = clientPeerId
             isInitializing = false
-            showUsernameDialog = !usernameRegistered
+            showUsernameDialog = !onboardingComplete
             // Pequeno delay para usuário ver o peer ID
             kotlinx.coroutines.delay(500)
         }
@@ -230,6 +230,10 @@ fun OnboardingScreen(
                     modifier = Modifier.semantics { testTagsAsResourceId = true }
                 ) {
                     Text("Use 3 a 20 caracteres: letras minúsculas, números e underscore.")
+                    Text(
+                        "Opcional: é por ele que outras pessoas te encontram. " +
+                            "Sem username, os contatos te adicionam pelo QR code."
+                    )
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it.lowercase(); usernameError = null },
@@ -260,13 +264,29 @@ fun OnboardingScreen(
                                     showUsernameDialog = false
                                     onOnboardingComplete()
                                 } catch (error: Exception) {
-                                    usernameError = error.message ?: "Não foi possível registrar o username"
+                                    usernameError = "Não foi possível registrar agora " +
+                                        "(${error.message ?: "servidor indisponível"}). " +
+                                        "Você pode pular e registrar depois."
                                 } finally {
                                     isInitializing = false
                                 }
                             }
                         }
                     ) { Text("Registrar") }
+                }
+            },
+            dismissButton = {
+                Box(modifier = Modifier.semantics { testTagsAsResourceId = true }) {
+                    TextButton(
+                        enabled = !isInitializing,
+                        modifier = Modifier.testTag("onboarding_skip_username"),
+                        onClick = {
+                            ZapLivreClientWrapper.skipUsername(context)
+                            com.zaplivre.service.ZapLivreService.start(context)
+                            showUsernameDialog = false
+                            onOnboardingComplete()
+                        }
+                    ) { Text("Pular por agora") }
                 }
             },
         )
