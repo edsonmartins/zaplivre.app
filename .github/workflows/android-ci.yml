@@ -41,6 +41,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # O default da action ainda pede o pacote `tools`, que o sdkmanager
+          # atual não tem mais: o step falhava antes de qualquer build.
+          packages: platform-tools
 
       - name: Cache Gradle packages
         uses: actions/cache@v4

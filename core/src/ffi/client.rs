@@ -434,6 +434,9 @@ async fn run_client_task(receiver: mpsc::UnboundedReceiver<ClientCommand>, clien
     run_client_task_arc(receiver, std::sync::Arc::new(client)).await
 }
 
+/// How often the offline mailbox on the message store is polled.
+const OFFLINE_MAILBOX_POLL: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// How a command is scheduled by the client task.
 enum Lane {
     /// Local and latency-sensitive work (DB reads, call control, media
@@ -1280,6 +1283,27 @@ impl ZapLivreClient {
                         }
                     };
                     let client_for_network = std::sync::Arc::clone(&client);
+
+                    // The mailbox was only read during `bootstrap()`. While the
+                    // app stays open, anything a sender had to leave on the
+                    // store (we were unreachable for a moment) would sit there
+                    // until the next launch. Poll it; push remains the wake-up
+                    // path when the app is not running.
+                    let client_for_mailbox = std::sync::Arc::clone(&client);
+                    tokio::task::spawn_local(async move {
+                        let mut ticker = tokio::time::interval(OFFLINE_MAILBOX_POLL);
+                        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                        loop {
+                            ticker.tick().await;
+                            match client_for_mailbox.fetch_offline_messages().await {
+                                Ok(0) => {}
+                                Ok(count) => {
+                                    tracing::info!("📬 Fetched {} offline messages", count)
+                                }
+                                Err(e) => tracing::debug!("Offline mailbox poll failed: {}", e),
+                            }
+                        }
+                    });
 
                     // Spawn network event loop task using non-blocking polling
                     // This releases the lock between iterations, allowing commands to proceed

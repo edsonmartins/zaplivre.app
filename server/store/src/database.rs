@@ -104,7 +104,8 @@ impl Database {
         peer_id: &str,
         limit: Option<i32>,
     ) -> Result<Vec<OfflineMessage>, sqlx::Error> {
-        let limit = limit.unwrap_or(100).min(1000); // Max 1000 messages
+        // Clamp both ways: a negative LIMIT is a SQL error (HTTP 500).
+        let limit = limit.unwrap_or(100).clamp(1, 1000);
 
         let messages = sqlx::query_as::<_, OfflineMessage>(
             r#"
