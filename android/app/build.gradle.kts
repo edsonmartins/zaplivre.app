@@ -58,7 +58,8 @@ android {
         // como ZAPLIVRE_BOOTSTRAP. Default = nós públicos zaplivre.app.
         val bootstrapPeers = (project.findProperty("BOOTSTRAP_PEERS") as String?)
             ?: System.getenv("BOOTSTRAP_PEERS")
-            ?: "/dns4/dht1.zaplivre.app/tcp/4001|12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK"
+            ?: ("/dns4/dht1.zaplivre.app/tcp/4001|12D3KooWJMY3dKygHLtkruLohCshiPENpJscD5XY33GjfcmS4DKK," +
+                "/dns4/dht2.zaplivre.app/tcp/4002|12D3KooWRwysfFEQL5YhFa8bNqeoY34b7Bb7mUzx617sun9GyAPP")
         buildConfigField("String", "BOOTSTRAP_PEERS", "\"$bootstrapPeers\"")
     }
 

@@ -77,6 +77,26 @@ async fn main() -> Result<()> {
     swarm.listen_on(listen_addr.clone())?;
     info!("   Listening on: {}", listen_addr);
 
+    // A bootstrap node exists to serve others. libp2p-kad starts in client
+    // mode and only flips to server once an external address is confirmed,
+    // and the relay builds its reservations from the external addresses: with
+    // none, clients get `NoAddressesInReservation`.
+    swarm
+        .behaviour_mut()
+        .kademlia
+        .set_mode(Some(libp2p::kad::Mode::Server));
+    if config.external_addrs.is_empty() {
+        tracing::warn!(
+            "⚠️ EXTERNAL_ADDRS is not set: relay reservations will be unusable. \
+             Set it to this node's public multiaddr (e.g. /dns4/dht1.example/tcp/{})",
+            config.p2p_port
+        );
+    }
+    for addr in &config.external_addrs {
+        info!("   External address: {}", addr);
+        swarm.add_external_address(addr.clone());
+    }
+
     // 8. Start health check server
     let peer_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let health_server = health::start_server(config.health_port, peer_count.clone());

@@ -78,6 +78,8 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - TURN_STATIC_SECRET=${TURN_STATIC_SECRET:?TURN_STATIC_SECRET is required}
+      # Endereço que os CLIENTES usam (emulador/celular), não o nome do serviço docker
+      - TURN_HOST=${TURN_HOST:-127.0.0.1}
       - TURN_CREDENTIAL_TTL_SECONDS=${TURN_CREDENTIAL_TTL_SECONDS:-3600}
       - TURN_MAX_CONCURRENT=${TURN_MAX_CONCURRENT:-64}
       - SERVER_PORT=8082
@@ -107,12 +109,14 @@ services:
       - BOOTSTRAP_PORT=4001
       - HEALTH_PORT=8000
       - PEER_ID_SEED=bootstrap-1
+      - EXTERNAL_ADDRS=${BOOTSTRAP_EXTERNAL_ADDRS:-/ip4/127.0.0.1/tcp/4001}
       - DATA_DIR=/app/data
       # Relay configuration (FASE 10)
       - RELAY_ENABLED=${RELAY_ENABLED:-true}
       - RELAY_MAX_CIRCUITS=${RELAY_MAX_CIRCUITS:-100}
       - RELAY_MAX_PER_PEER=${RELAY_MAX_PER_PEER:-10}
-      - RELAY_MAX_BYTES_PER_SEC=${RELAY_MAX_BYTES_PER_SEC:-1000000}
+      - RELAY_MAX_CIRCUIT_BYTES=${RELAY_MAX_CIRCUIT_BYTES:-67108864}
+      - RELAY_MAX_CIRCUIT_SECS=${RELAY_MAX_CIRCUIT_SECS:-1800}
     ports:
       - "4001:4001"    # P2P
       - "8000:8000"    # Health check

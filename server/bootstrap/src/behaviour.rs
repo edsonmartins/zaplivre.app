@@ -52,10 +52,11 @@ impl BootstrapBehaviour {
         // Relay server configuration
         let relay = if config.relay_enabled {
             tracing::info!(
-                "🔗 Relay server enabled (max {} circuits, {} per peer, {} bytes/s)",
+                "🔗 Relay server enabled (max {} circuits, {} per peer, {} bytes / {}s per circuit)",
                 config.relay_max_circuits,
                 config.relay_max_per_peer,
-                config.relay_max_bytes_per_second
+                config.relay_max_circuit_bytes,
+                config.relay_max_circuit_secs
             );
 
             relay::Behaviour::new(
@@ -66,8 +67,8 @@ impl BootstrapBehaviour {
                     reservation_duration: Duration::from_secs(3600), // 1 hour
                     max_circuits: config.relay_max_circuits,
                     max_circuits_per_peer: config.relay_max_per_peer,
-                    max_circuit_duration: Duration::from_secs(120), // 2 minutes
-                    max_circuit_bytes: config.relay_max_bytes_per_second,
+                    max_circuit_duration: Duration::from_secs(config.relay_max_circuit_secs),
+                    max_circuit_bytes: config.relay_max_circuit_bytes,
                     ..Default::default()
                 },
             )
