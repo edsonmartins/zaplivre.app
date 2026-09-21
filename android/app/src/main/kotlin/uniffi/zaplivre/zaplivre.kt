@@ -851,6 +851,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_enable_video(
     ): Int
+    external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_fetch_offline_messages(
+    ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_forward_message(
     ): Int
     external fun uniffi_zaplivre_core_checksum_method_zaplivreclient_get_conversation_media(
@@ -1038,6 +1040,8 @@ external fun uniffi_zaplivre_core_fn_method_zaplivreclient_disable_video(`ptr`: 
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_download_media(`ptr`: Long,`mediaHash`: RustBuffer.ByValue,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_enable_video(`ptr`: Long,`callId`: RustBuffer.ByValue,`codec`: RustBuffer.ByValue,
+): Long
+external fun uniffi_zaplivre_core_fn_method_zaplivreclient_fetch_offline_messages(`ptr`: Long,
 ): Long
 external fun uniffi_zaplivre_core_fn_method_zaplivreclient_forward_message(`ptr`: Long,`messageId`: RustBuffer.ByValue,`toPeerId`: RustBuffer.ByValue,
 ): Long
@@ -1310,6 +1314,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_enable_video() != 33234) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_fetch_offline_messages() != 39103) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_zaplivre_core_checksum_method_zaplivreclient_forward_message() != 12203) {
@@ -2087,6 +2094,8 @@ public interface ZapLivreClientInterface {
     
     suspend fun `enableVideo`(`callId`: kotlin.String, `codec`: FfiVideoCodec)
     
+    suspend fun `fetchOfflineMessages`(): kotlin.UInt
+    
     suspend fun `forwardMessage`(`messageId`: kotlin.String, `toPeerId`: kotlin.String): kotlin.String
     
     fun `getConversationMedia`(`conversationId`: kotlin.String, `mediaType`: FfiMediaType?, `limit`: kotlin.UInt?): List<FfiMedia>
@@ -2560,6 +2569,27 @@ open class ZapLivreClient: Disposable, AutoCloseable, ZapLivreClientInterface
         // lift function
         { Unit },
         
+        // Error FFI converter
+        ZapLivreFfiException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ZapLivreFfiException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `fetchOfflineMessages`() : kotlin.UInt {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_zaplivre_core_fn_method_zaplivreclient_fetch_offline_messages(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_poll_u32(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_zaplivre_core_rust_future_complete_u32(future, continuation) },
+        { future -> UniffiLib.ffi_zaplivre_core_rust_future_free_u32(future) },
+        // lift function
+        { FfiConverterUInt.lift(it) },
         // Error FFI converter
         ZapLivreFfiException.ErrorHandler,
     )

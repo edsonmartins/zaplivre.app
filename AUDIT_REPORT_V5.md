@@ -567,3 +567,24 @@ Verificado: fmt, `clippy --workspace --all-targets -D warnings`, `cargo check --
 **Compatibilidade:** mensagens de grupo de versões anteriores (GossipSub) ainda são aceitas na recepção, mas não são mais emitidas. Migração 9 do banco local (aditiva).
 
 **Falta:** custo O(membros) por mensagem no remetente (aceitável para grupos pequenos/médios; é o modelo do Signal/WhatsApp, que amortizam com sender keys + fan-out no servidor); remover a assinatura de tópicos GossipSub, que ainda expõe o group id aos peers conectados; mídia em grupo; rotação de sender key com epoch/ack (C4); consentimento para convite (P0-C).
+
+### Merge da pilha (2026-09-21)
+
+PRs #7, #8, #9 e #10 mergeados na `main`, cada um com todos os checks verdes. **CI de Rust da `main` verde pela primeira vez desde 09/08** (`bdee82a`).
+
+### Lote 9 — branch `feat/apps-offline-push` (2026-09-21) — frente dos apps
+
+Verificado: gates de Rust verdes; `./gradlew :app:compileDebugKotlin` e `:app:testDebugUnitTest` (18/18) com JDK 17. **Não verificado:** execução em device/emulador; build iOS (as mudanças no iOS são só os bindings gerados, aditivas).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| P0-I (restante) — FFI | **Corrigido** | `fetch_offline_messages()` exposta na UDL e no cliente FFI (pista ordenada). Bindings Kotlin e Swift regenerados com `uniffi-bindgen 0.31.2`; o gerador reproduziu os arquivos versionados e o diff é só o método novo |
+| M5 (b) — push Android não acordava o app | **Corrigido no servidor** | FCM v1 passa a ser **só de dados** (`title`/`body` viajam em `data`, prioridade alta). Com bloco `notification`, o Android desenhava a bandeja sozinho e, em background ou com o app morto, não chamava `onMessageReceived` |
+| M5 (a) — mensagem em background sem notificação | **Corrigido** | `ZapLivreService` observa `messageEvents` e notifica quando a UI não está na tela (`AppVisibility`), sem conteúdo da mensagem. Cobre P2P e drenagem da caixa |
+| M5 — drenagem ao receber push | **Corrigido** | O serviço FCM chama `fetchOfflineMessages()` quando o client já está pronto (o `start()` do service não refaz o bootstrap se ele já roda) |
+| M5 — toque na notificação | **Tolerante** | `MainActivity` aceita `peer_id` e `sender_peer_id`. Com push só de dados a notificação é sempre montada pelo app, que já usava `peer_id` |
+| Android CI — "Run unit tests" vermelho desde 14/08 | **Corrigido** | 7 testes do `ChatViewModelTest` esperavam `getConversationMessages(peer, null, null)`; o ViewModel passou a paginar (`50u`) |
+
+**Observação de ambiente:** o JDK padrão desta máquina (25.0.2) quebra o Gradle do projeto; os builds Android foram feitos com `JAVA_HOME` apontando para o Temurin 17.
+
+**Falta nesta frente:** iOS usar `fetchOfflineMessages` no wake por push e ter ciclo de vida (MA8); PushKit + push de chamada (M6); Telecom/`CallStyle` no Android; ICE servers a partir do `turn-credentials` (M3); APK só via CI com `cargo ndk` limpo e arm64 (M1); OOM de mídia por `List<UByte>` (MA1); logout do iOS (MA2); paridade de descoberta de contato (MA3).

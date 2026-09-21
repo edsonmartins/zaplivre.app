@@ -59,6 +59,17 @@ class ZapLivreFirebaseMessagingService : FirebaseMessagingService() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start ZapLivreService", e)
         }
+
+        // O push só avisa que há algo na caixa; o conteúdo vem do message store.
+        // Se o service já estava rodando, o start() acima não refaz o bootstrap,
+        // então a drenagem é pedida explicitamente. Quando o service ainda está
+        // inicializando o client, o próprio bootstrap dele drena a caixa.
+        serviceScope.launch {
+            if (ZapLivreClientWrapper.isClientReady()) {
+                val fetched = ZapLivreClientWrapper.fetchOfflineMessages()
+                Log.d(TAG, "Offline mailbox drained after push: $fetched")
+            }
+        }
     }
 
     private fun sendTokenToServer(token: String) {

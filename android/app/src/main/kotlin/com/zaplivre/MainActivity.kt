@@ -158,13 +158,26 @@ class MainActivity : ComponentActivity() {
         ZapLivreService.start(this)
     }
 
+    override fun onStart() {
+        super.onStart()
+        com.zaplivre.util.AppVisibility.isForeground = true
+    }
+
+    override fun onStop() {
+        com.zaplivre.util.AppVisibility.isForeground = false
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         handleIntent(intent)
     }
 
     private fun handleIntent(intent: Intent?) {
+        // "sender_peer_id" é a chave do payload de push: aparece quando o próprio
+        // sistema monta a notificação a partir dos dados do FCM.
         val peerId = intent?.getStringExtra("peer_id")
+            ?: intent?.getStringExtra("sender_peer_id")
         if (!peerId.isNullOrBlank()) {
             Log.i(TAG, "Pending push navigation to peer: $peerId")
             pendingPeerIdState.value = peerId

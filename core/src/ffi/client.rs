@@ -187,6 +187,9 @@ enum ClientCommand {
     Bootstrap {
         response: oneshot::Sender<Result<(), ZapLivreFfiError>>,
     },
+    FetchOfflineMessages {
+        response: oneshot::Sender<Result<u32, ZapLivreFfiError>>,
+    },
     // VoIP commands
     #[cfg(feature = "voip")]
     StartCall {
@@ -457,6 +460,7 @@ fn lane(cmd: &ClientCommand) -> Lane {
         | ClientCommand::ContactTransparencyProof { .. }
         | ClientCommand::ConnectToPeer { .. }
         | ClientCommand::Bootstrap { .. }
+        | ClientCommand::FetchOfflineMessages { .. }
         | ClientCommand::SendTextMessage { .. }
         | ClientCommand::SendImageMessage { .. }
         | ClientCommand::SendVoiceMessage { .. }
@@ -662,6 +666,14 @@ async fn handle_command(client: &std::sync::Arc<Client>, cmd: ClientCommand) {
         }
         ClientCommand::ListeningAddresses { response } => {
             let result = Ok(client.listening_addresses().await);
+            let _ = response.send(result);
+        }
+        ClientCommand::FetchOfflineMessages { response } => {
+            let result = client
+                .fetch_offline_messages()
+                .await
+                .map(|count| count as u32)
+                .map_err(|e| e.into());
             let _ = response.send(result);
         }
         ClientCommand::Bootstrap { response } => {
@@ -1756,6 +1768,23 @@ impl ZapLivreClient {
         self.handle()
             .sender
             .send(ClientCommand::Bootstrap { response: tx })
+            .map_err(|_| ZapLivreFfiError::Other {
+                details: "Failed to send command".to_string(),
+            })?;
+
+        rx.await.map_err(|_| ZapLivreFfiError::Other {
+            details: "Failed to receive response".to_string(),
+        })?
+    }
+
+    /// Drain the offline mailbox on the message store and return how many
+    /// messages were processed. Meant for push wake-ups: the app may have only
+    /// a few seconds, so it asks for exactly this instead of a full bootstrap.
+    pub async fn fetch_offline_messages(&self) -> Result<u32, ZapLivreFfiError> {
+        let (tx, rx) = oneshot::channel();
+        self.handle()
+            .sender
+            .send(ClientCommand::FetchOfflineMessages { response: tx })
             .map_err(|_| ZapLivreFfiError::Other {
                 details: "Failed to send command".to_string(),
             })?;
