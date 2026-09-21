@@ -666,3 +666,15 @@ Decisão do produto (2026-09-21): **username opcional no Android, como no iOS.**
 | Cobertura | **Novo** | Flow `11_onboarding_sem_username.yml` (passa no `check-syntax`; execução depende do E2E Android do CI) |
 
 Verificado: `:app:compileDebugKotlin`, `:app:compileDebugAndroidTestKotlin`, `:app:testDebugUnitTest` 22/22 (JDK 17). **Não verificado:** execução em emulador.
+
+### Lote 17 — E2E Android 7/10 e travamento no primeiro desenho (2026-09-21)
+
+**Evolução da suíte Android no CI:** 0 flows executados (parse) → 0/10 (identity de produção em 502) → 6/10 (identity próprio do job) → **7/10** (contato semeado + rolagem até o backup). Os três restantes (`01`, `06`, `10`) param numa **tela escura vazia**: no `06`, 30 s sem o onboarding aparecer; o `01` falhava na hora porque afirmava sem esperar.
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| Leitura do Keystore na thread principal (Android) | **Corrigido, hipótese a confirmar no CI** | `EncryptedSharedPreferences` cria a chave no Keystore na primeira leitura, e isso rodava na thread principal no `onCreate` e no carregamento do username — compatível com o primeiro desenho travado. As duas leituras vão para `Dispatchers.IO` |
+| Diagnóstico do E2E Android | **Novo** | O job salva o `logcat` do emulador nos artefatos, para que a próxima falha traga crash/ANR em vez de só uma captura |
+| `01_onboarding_criar` | **Corrigido** | Espera o botão de onboarding antes de afirmar |
+
+Verificado: Android `:app:compileDebugKotlin` + `:app:testDebugUnitTest`; flows e workflow válidos. **A causa do travamento ainda não foi provada**: o resultado do CI deste PR confirma ou descarta a hipótese.

@@ -11,6 +11,12 @@ appId: com.zaplivre
     permissions:
       notifications: allow
 # Tela de onboarding deve aparecer (sem identidade ainda)
+# Espera o primeiro desenho (a inicialização do Keystore pode ser lenta no
+# emulador) em vez de afirmar na hora.
+- extendedWaitUntil:
+    visible:
+      id: "onboarding_create"
+    timeout: 30000
 - assertVisible: "ZapLivre"
 - tapOn:
     id: "onboarding_create"
