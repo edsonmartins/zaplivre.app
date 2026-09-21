@@ -625,3 +625,13 @@ Verificado **localmente com Maestro 2.4.0** num simulador iPhone 17 Pro, com o a
 | E2E Android | **Parcial, não verificado** | Os 12 flows `2dev_*` exigem dois devices e entravam na execução de um emulador só (`*.yml`); um deles nem era YAML válido (`release:true`) e abortava o parse. O `config.yaml` passa a rodar só os flows numerados; o YAML foi corrigido. O `adb: device offline` do emulador no CI não foi tratado |
 
 **Observação:** os workflows de E2E só disparam em PRs contra `main`/`develop`; num PR empilhado eles não rodam.
+
+### Lote 14 — E2E no CI e build nativo do Android (2026-09-21)
+
+**CI da `main` após o merge de #11–#14:** CI, iOS CI e imagens verdes. **E2E iOS no CI: 7/8** (antes 1/8). O `02_navegacao_telas` falhou: a captura do CI mostra que, com a lista de configurações rolada, o gesto de fechar só a trouxe de volta ao topo. Corrigido no PR #16 (repete o gesto enquanto a folha estiver aberta; 3/3 no simulador). **E2E Android no CI:** ainda abortava no parse — ver abaixo.
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| E2E Android — suíte nunca executava | **Corrigido (PR #16)** | O Maestro faz o parse de todo `.yml` do diretório antes de filtrar, e `2dev_envia_audio` usava campos inexistentes (`duration`, `release`, `desc`, `timeout`): **nenhum flow Android jamais produziu veredito**. Flow corrigido (todos passam no `maestro check-syntax`) e flows de dois aparelhos movidos para `two-devices/`. As linhas `adb: device offline` são só a sondagem do boot. **Execução da suíte não verificada localmente** (sem emulador); o PR dispara a primeira execução real |
+| M1 — `.so` local defasada | **Corrigido** | A task `buildRustCore` declara o core como entrada e as `.so` como saída; antes só rodava quando faltava alguma `.so`, e o script compila só arm64 por padrão — a x86_64 de emulador, uma vez presente, nunca mais era refeita. **Verificado:** roda na 1ª vez, UP-TO-DATE sem mudança, ignora só `touch`, recompila quando o conteúdo do core muda |
+| M1 — APK de homologação | **Corrigido** | O Android CI publica o `app-debug.apk` do commit como artefato (todas as ABIs, libs recém-compiladas), retido por 30 dias |
