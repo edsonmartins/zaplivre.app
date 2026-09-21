@@ -297,6 +297,27 @@ impl SignalStoreInner {
         }
     }
 
+    /// Persiste o pool de prekeys (cifrado) após qualquer mutação. Sem isto,
+    /// uma prekey consumida reaparecia no restart e era reutilizada.
+    async fn persist_prekey_pool(&self) {
+        let persistence = self.persistence.read().await;
+        let Some((db, storage_key)) = persistence.as_ref() else {
+            return;
+        };
+
+        let snapshot = self.identity.read().await.snapshot_prekey_pool();
+        let Some(snapshot) = snapshot else {
+            return;
+        };
+        let result = snapshot
+            .and_then(|bytes| crate::crypto::storage::encrypt_for_storage(storage_key, &bytes))
+            .and_then(|blob| db.save_prekey_pool(&blob));
+
+        if let Err(e) = result {
+            tracing::warn!("Failed to persist prekey pool: {}", e);
+        }
+    }
+
     /// Persiste uma identidade TOFU (chave pública)
     async fn persist_identity(&self, address: &str, identity: &IdentityKey) {
         let persistence = self.persistence.read().await;
@@ -409,6 +430,8 @@ impl PreKeyStore for SignalStoreHandle {
         };
         let id: u32 = prekey_id.into();
         pool.store_prekey_record(id, record.clone());
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 
@@ -422,6 +445,8 @@ impl PreKeyStore for SignalStoreHandle {
         };
         let id: u32 = prekey_id.into();
         pool.remove_prekey(id);
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 }
@@ -463,6 +488,8 @@ impl SignedPreKeyStore for SignalStoreHandle {
         };
         let id: u32 = signed_prekey_id.into();
         pool.store_signed_prekey_record(id, record.clone());
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 }
@@ -504,6 +531,8 @@ impl KyberPreKeyStore for SignalStoreHandle {
         };
         let id: u32 = kyber_prekey_id.into();
         pool.store_kyber_prekey_record(id, record.clone());
+        drop(identity);
+        self.inner.persist_prekey_pool().await;
         Ok(())
     }
 
@@ -604,4 +633,49 @@ fn to_device_id(device_id: u32) -> Result<DeviceId> {
 
 fn signal_error<E: std::fmt::Display>(err: E) -> ZapLivreError {
     ZapLivreError::Crypto(format!("Signal error: {}", err))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libp2p::PeerId;
+
+    async fn party() -> (SignalSessionManager, Arc<RwLock<Identity>>, String) {
+        let mut identity = Identity::generate(1);
+        identity.init_prekey_pool(1);
+        let identity = Arc::new(RwLock::new(identity));
+        let manager = SignalSessionManager::new(Arc::clone(&identity));
+        (manager, identity, PeerId::random().to_string())
+    }
+
+    /// P0-J: o bundle é estático e o mesmo para todos os iniciadores. Dois
+    /// contatos que partem do MESMO bundle precisam conseguir abrir sessão.
+    #[tokio::test]
+    async fn two_initiators_can_use_the_same_published_bundle() {
+        let (bob, bob_identity, bob_id) = party().await;
+        let bundle = bob_identity
+            .read()
+            .await
+            .prekey_pool()
+            .expect("pool")
+            .get_bundle()
+            .expect("bundle");
+        assert!(
+            bundle.one_time_prekey.is_none(),
+            "a shared static bundle must not carry a single-use key"
+        );
+
+        for text in ["oi, aqui é a Alice", "oi, aqui é a Carol"] {
+            let (initiator, _identity, initiator_id) = party().await;
+            let encrypted = initiator
+                .encrypt_for(&bob_id, 1, Some(&bundle), text.as_bytes())
+                .await
+                .expect("encrypt first message");
+            let plaintext = bob
+                .decrypt_from(&initiator_id, 1, &encrypted)
+                .await
+                .expect("every initiator's first message must decrypt");
+            assert_eq!(plaintext, text.as_bytes());
+        }
+    }
 }

@@ -321,16 +321,14 @@ impl PreKeyPool {
             .signature()
             .map_err(|e| ZapLivreError::Identity(format!("Kyber prekey signature error: {}", e)))?;
 
-        let one_time_prekey = self
-            .peek_one_time_prekey()
-            .map(|record| -> Result<OneTimePreKey> {
-                let prekey = PreKey::from_record(record.clone())?;
-                Ok(OneTimePreKey {
-                    id: prekey.id,
-                    public_key: prekey.public_key_bytes()?,
-                })
-            })
-            .transpose()?;
+        // The bundle is static: the very same copy is served by the identity
+        // server and embedded in QR codes for every initiator. A one-time
+        // prekey can only be handed to ONE initiator, so publishing it here
+        // made the second contact's first message undecryptable (and the key
+        // got reused after a restart). PQXDH is defined for bundles without a
+        // one-time prekey; per-initiator keys need a server-side pool with
+        // atomic pop, which the identity server does not have yet.
+        let one_time_prekey = None;
 
         Ok(PreKeyBundle {
             identity_key: self.identity_keypair.public_key_bytes(),
@@ -353,11 +351,6 @@ impl PreKeyPool {
             kyber_prekey_signature,
             one_time_prekey,
         })
-    }
-
-    /// Peek at a one-time prekey without consuming it
-    fn peek_one_time_prekey(&self) -> Option<&PreKeyRecord> {
-        self.one_time_prekeys.values().next()
     }
 
     /// Get a specific one-time prekey by ID
