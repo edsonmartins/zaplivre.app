@@ -1,0 +1,28 @@
+# Onboarding sem username: o username é opcional (como no iOS). Quem pula entra
+# no app e encontra "Registrar username" nas configurações. Garante também que
+# uma queda do identity server não impede ninguém de entrar.
+appId: com.zaplivre
+---
+- clearState
+- launchApp:
+    permissions:
+      notifications: allow
+- extendedWaitUntil:
+    visible:
+      id: "onboarding_create"
+    timeout: 30000
+- tapOn:
+    id: "onboarding_create"
+- extendedWaitUntil:
+    visible: "Escolha seu username"
+    timeout: 15000
+- tapOn:
+    id: "onboarding_skip_username"
+- extendedWaitUntil:
+    visible:
+      id: "conversations_settings"
+    timeout: 30000
+- tapOn:
+    id: "conversations_settings"
+- assertVisible:
+    id: "settings_register_username"

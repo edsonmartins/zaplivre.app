@@ -650,3 +650,19 @@ Com isso os dois apps conseguem se encontrar pelos dois caminhos: username e QR.
 | E2E Android — suíte nunca executava | **Corrigido (PR #16)** | O Maestro faz o parse de todo `.yml` do diretório antes de filtrar, e `2dev_envia_audio` usava campos inexistentes (`duration`, `release`, `desc`, `timeout`): **nenhum flow Android jamais produziu veredito**. Flow corrigido (todos passam no `maestro check-syntax`) e flows de dois aparelhos movidos para `two-devices/`. As linhas `adb: device offline` são só a sondagem do boot. **Execução da suíte não verificada localmente** (sem emulador); o PR dispara a primeira execução real |
 | M1 — `.so` local defasada | **Corrigido** | A task `buildRustCore` declara o core como entrada e as `.so` como saída; antes só rodava quando faltava alguma `.so`, e o script compila só arm64 por padrão — a x86_64 de emulador, uma vez presente, nunca mais era refeita. **Verificado:** roda na 1ª vez, UP-TO-DATE sem mudança, ignora só `touch`, recompila quando o conteúdo do core muda |
 | M1 — APK de homologação | **Corrigido** | O Android CI publica o `app-debug.apk` do commit como artefato (todas as ABIs, libs recém-compiladas), retido por 30 dias |
+
+### Lote 15 — username opcional no Android (2026-09-21)
+
+**Achado do E2E Android** (primeira execução real da suíte, PR #16): **10/10 flows falhavam no onboarding**. A captura mostra o diálogo "Escolha seu username" com `HTTP 502 Bad Gateway`: no Android o username era obrigatório e registrado no identity server de produção, então **com o servidor fora do ar nenhum usuário Android novo conseguia entrar no app**. No iOS o username já era opcional.
+
+Decisão do produto (2026-09-21): **username opcional no Android, como no iOS.**
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| Onboarding Android bloqueado pelo identity server | **Corrigido** | O diálogo de username ganha "Pular por agora"; o app passa a depender de "onboarding concluído" (com ou sem username), não de "username registrado". Contas anteriores (username registrado) contam como onboarding concluído. Falha de registro mostra que dá para pular |
+| Registrar username depois (Android) | **Novo** | "Registrar username" nas configurações para quem pulou |
+| E2E Android dependia do servidor de produção | **Corrigido (PR #16)** | O job sobe Postgres, Redis e o identity server (como o job de integração) e o APK de teste aponta para ele (`10.0.2.2`); o log do servidor vai para os artefatos |
+| `SettingsScreenTest` (instrumentado) não compilava | **Corrigido** | Faltava `onShowQrCode`; já estava quebrado na `main` |
+| Cobertura | **Novo** | Flow `11_onboarding_sem_username.yml` (passa no `check-syntax`; execução depende do E2E Android do CI) |
+
+Verificado: `:app:compileDebugKotlin`, `:app:compileDebugAndroidTestKotlin`, `:app:testDebugUnitTest` 22/22 (JDK 17). **Não verificado:** execução em emulador.

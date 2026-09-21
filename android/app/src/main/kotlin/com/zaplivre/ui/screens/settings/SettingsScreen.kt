@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
@@ -72,6 +73,11 @@ fun SettingsScreen(
         mutableStateOf(com.zaplivre.core.AppSettings.lastSeenEnabled(context))
     }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val usernameRegistered by ZapLivreClientWrapper.usernameRegistered.collectAsState()
+    var showUsernameDialog by remember { mutableStateOf(false) }
+    if (showUsernameDialog) {
+        RegisterUsernameDialog(onDismiss = { showUsernameDialog = false })
+    }
     var showExportDialog by remember { mutableStateOf(false) }
     var exportData by remember { mutableStateOf("") }
     var exportError by remember { mutableStateOf<String?>(null) }
@@ -103,6 +109,7 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { refreshStorageUsage() }
 
     SettingsContent(
+        onRegisterUsername = if (usernameRegistered) null else ({ showUsernameDialog = true }),
         modifier = modifier,
         peerId = localPeerId ?: "",
         name = "Você",
@@ -404,6 +411,8 @@ fun SettingsContent(
     onLogout: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Mostra "Registrar username" quando o usuário pulou esse passo. */
+    onRegisterUsername: (() -> Unit)? = null,
 ) {
     Scaffold(
         containerColor = ZapColor.canvas,
@@ -493,6 +502,16 @@ fun SettingsContent(
             item { SettingsSectionHeader("Identidade") }
             item {
                 SettingsCard {
+                    if (onRegisterUsername != null) {
+                        SettingsClickableRow(
+                            icon = Icons.Filled.Person,
+                            title = "Registrar username",
+                            description = "Para que outras pessoas te encontrem pelo @username",
+                            onClick = onRegisterUsername,
+                            modifier = Modifier.testTag("settings_register_username"),
+                        )
+                        SettingsRowDivider()
+                    }
                     SettingsClickableRow(
                         icon = Icons.Filled.QrCode,
                         title = "Meu QR Code",
@@ -739,4 +758,59 @@ fun SettingsSwitchRow(
             modifier = if (switchTestTag != null) Modifier.testTag(switchTestTag) else Modifier
         )
     }
+}
+
+/** Registro tardio do username (quem pulou esse passo no onboarding). */
+@Composable
+private fun RegisterUsernameDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var username by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Registrar username") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Use 3 a 20 caracteres: letras minúsculas, números e underscore.")
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it.removePrefix("@").lowercase(); error = null },
+                    singleLine = true,
+                    placeholder = { Text("seu_username") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy,
+                onClick = {
+                    val value = username.trim()
+                    if (!Regex("^[a-z0-9_]{3,20}$").matches(value)) {
+                        error = "Username inválido"
+                        return@TextButton
+                    }
+                    busy = true
+                    scope.launch {
+                        try {
+                            ZapLivreClientWrapper.registerUsername(value)
+                            ZapLivreClientWrapper.markUsernameRegistered(context, value)
+                            onDismiss()
+                        } catch (e: Exception) {
+                            error = "Não foi possível registrar agora (${e.message ?: "servidor indisponível"})"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+            ) { Text("Registrar") }
+        },
+        dismissButton = {
+            TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancelar") }
+        },
+    )
 }
