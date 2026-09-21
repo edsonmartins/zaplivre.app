@@ -1043,7 +1043,7 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
      */
     override suspend fun sendImageMessage(
         toPeerId: String,
-        imageData: List<UByte>,
+        imageData: ByteArray,
         fileName: String,
         quality: UInt
     ): Unit = withContext(Dispatchers.IO) {
@@ -1062,7 +1062,7 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
      */
     override suspend fun sendVoiceMessage(
         toPeerId: String,
-        audioData: List<UByte>,
+        audioData: ByteArray,
         fileName: String,
         durationSeconds: Int
     ): Unit = withContext(Dispatchers.IO) {
@@ -1081,7 +1081,7 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
      */
     override suspend fun sendDocumentMessage(
         toPeerId: String,
-        fileData: List<UByte>,
+        fileData: ByteArray,
         fileName: String,
         mimeType: String
     ): Unit = withContext(Dispatchers.IO) {
@@ -1100,12 +1100,12 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
      */
     override suspend fun sendVideoMessage(
         toPeerId: String,
-        videoData: List<UByte>,
+        videoData: ByteArray,
         fileName: String,
         width: Int?,
         height: Int?,
         durationSeconds: Int,
-        thumbnailData: List<UByte>?
+        thumbnailData: ByteArray?
     ): Unit = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
@@ -1229,7 +1229,7 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
     suspend fun downloadMedia(mediaHash: String): ByteArray = withContext(Dispatchers.IO) {
         try {
             val c = client ?: throw IllegalStateException("Client not initialized")
-            c.downloadMedia(mediaHash).map { it.toByte() }.toByteArray()
+            c.downloadMedia(mediaHash)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to download media", e)
             throw e

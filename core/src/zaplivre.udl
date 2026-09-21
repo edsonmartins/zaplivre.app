@@ -396,20 +396,23 @@ string contact_transparency_proof(string peer_id);
     void add_group_sender_key(string group_id, string sender_peer_id, sequence<u8> sender_key_seed);
 
     // Media methods (FASE 16 - Mídia & Polimento)
+    // Media payloads are `bytes` (ByteArray / Data). As `sequence<u8>` Kotlin got a
+    // List<UByte>, one boxed object per byte: a 25 MB video became hundreds of MB
+    // of heap and killed the app with OutOfMemoryError.
     [Throws=ZapLivreFfiError, Async]
-    string send_image_message(string to_peer_id, sequence<u8> image_data, string file_name, u32 quality);
+    string send_image_message(string to_peer_id, bytes image_data, string file_name, u32 quality);
 
     [Throws=ZapLivreFfiError, Async]
-    string send_voice_message(string to_peer_id, sequence<u8> audio_data, string file_name, i32 duration_seconds);
+    string send_voice_message(string to_peer_id, bytes audio_data, string file_name, i32 duration_seconds);
 
     [Throws=ZapLivreFfiError, Async]
-    string send_document_message(string to_peer_id, sequence<u8> file_data, string file_name, string mime_type);
+    string send_document_message(string to_peer_id, bytes file_data, string file_name, string mime_type);
 
     [Throws=ZapLivreFfiError, Async]
-    string send_video_message(string to_peer_id, sequence<u8> video_data, string file_name, i32? width, i32? height, i32 duration_seconds, sequence<u8>? thumbnail_data);
+    string send_video_message(string to_peer_id, bytes video_data, string file_name, i32? width, i32? height, i32 duration_seconds, bytes? thumbnail_data);
 
     [Throws=ZapLivreFfiError, Async]
-    sequence<u8> download_media(string media_hash);
+    bytes download_media(string media_hash);
 
     [Throws=ZapLivreFfiError]
     sequence<FfiMedia> get_conversation_media(string conversation_id, FfiMediaType? media_type, u32? limit);

@@ -11,6 +11,7 @@ import SwiftUI
 /// SettingsView - App settings screen
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var pushManager: PushNotificationManager
     @State private var notificationsEnabled = true
     @State private var soundEnabled = true
     @State private var vibrationEnabled = true
@@ -190,13 +191,32 @@ struct SettingsView: View {
             Button("Apagar e sair", role: .destructive) {
                 // Logout destrutivo: apaga a identidade do Keychain e o estado
                 // local. Sem backup exportado o peer ID é perdido.
-                do {
-                    try KeychainStore.deleteIdentity()
-                } catch {
-                    print("⚠️ Failed to delete identity from keychain: \(error)")
+                Task { @MainActor in
+                    // 1. While the identity still exists: stop pushes to this device
+                    await pushManager.unregisterFromServer()
+
+                    // 2. Identity, then every local trace of the account. Deleting
+                    //    only the Keychain entry left the previous user's database
+                    //    and media behind for whoever logged in next.
+                    do {
+                        try KeychainStore.deleteIdentity()
+                    } catch {
+                        print("⚠️ Failed to delete identity from keychain: \(error)")
+                    }
+                    ZapLivreCore.shared.wipeLocalData()
+                    if let domain = Bundle.main.bundleIdentifier {
+                        UserDefaults.standard.removePersistentDomain(forName: domain)
+                    }
+                    appState.logout()
+
+                    // 3. The Rust core cannot be re-created inside the same process
+                    //    (restoring a backup right after logout failed with "Import
+                    //    requires app restart"). Leave to the home screen, then end
+                    //    the process, as the Android app does.
+                    UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    exit(0)
                 }
-                UserDefaults.standard.removeObject(forKey: "local_peer_id")
-                appState.logout()
             }
         } message: {
             Text("Isso apaga sua identidade deste dispositivo. Sem um backup exportado, você perderá o acesso a este peer ID permanentemente. Continuar?")
@@ -300,4 +320,6 @@ struct SettingsView: View {
     NavigationView {
         SettingsView()
     }
+    .environmentObject(AppState())
+    .environmentObject(PushNotificationManager())
 }

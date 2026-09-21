@@ -197,6 +197,19 @@ class ZapLivreCore: ObservableObject {
         }
     }
 
+    /// Delete every local trace of the account: database, media, keys on disk.
+    /// The running core keeps its files open, so the process must end right
+    /// after this (see the logout flow); a new account starts from a clean dir.
+    func wipeLocalData() {
+        do {
+            if FileManager.default.fileExists(atPath: dataDir) {
+                try FileManager.default.removeItem(atPath: dataDir)
+            }
+        } catch {
+            print("⚠️ Failed to wipe local data: \(error)")
+        }
+    }
+
     private func removeIdentityFileIfExists() {
         let keyPath = identityKeyPath()
         if FileManager.default.fileExists(atPath: keyPath) {
@@ -257,10 +270,9 @@ class ZapLivreCore: ObservableObject {
 
     /// Send image message to peer (with compression in Rust core)
     func sendImageMessage(to peerId: String, imageData: Data, fileName: String, quality: UInt32 = 85) async throws -> String {
-        let imageBytes = [UInt8](imageData)
         let messageId = try await client?.sendImageMessage(
             toPeerId: peerId,
-            imageData: imageBytes,
+            imageData: imageData,
             fileName: fileName,
             quality: quality
         ) ?? ""
@@ -270,10 +282,9 @@ class ZapLivreCore: ObservableObject {
 
     /// Send voice message to peer
     func sendVoiceMessage(to peerId: String, audioData: Data, fileName: String, durationSeconds: Int32) async throws -> String {
-        let audioBytes = [UInt8](audioData)
         let messageId = try await client?.sendVoiceMessage(
             toPeerId: peerId,
-            audioData: audioBytes,
+            audioData: audioData,
             fileName: fileName,
             durationSeconds: durationSeconds
         ) ?? ""
@@ -358,8 +369,7 @@ class ZapLivreCore: ObservableObject {
             throw ZapLivreCoreError.notInitialized
         }
 
-        let bytes = try await client.downloadMedia(mediaHash: mediaHash)
-        return Data(bytes)
+        return try await client.downloadMedia(mediaHash: mediaHash)
     }
 
     /// Search messages
@@ -407,7 +417,7 @@ class ZapLivreCore: ObservableObject {
 
         return try await client.sendDocumentMessage(
             toPeerId: peerId,
-            fileData: [UInt8](fileData),
+            fileData: fileData,
             fileName: fileName,
             mimeType: mimeType
         )
@@ -421,12 +431,12 @@ class ZapLivreCore: ObservableObject {
 
         return try await client.sendVideoMessage(
             toPeerId: peerId,
-            videoData: [UInt8](videoData),
+            videoData: videoData,
             fileName: fileName,
             width: width,
             height: height,
             durationSeconds: durationSeconds,
-            thumbnailData: thumbnailData.map { [UInt8]($0) }
+            thumbnailData: thumbnailData
         )
     }
 

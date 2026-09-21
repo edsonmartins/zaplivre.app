@@ -330,7 +330,7 @@ fun ChatScreen(
                                             // Call FFI to send image with compression
                                             ZapLivreClientWrapper.sendImageMessage(
                                                 toPeerId = peerId,
-                                                imageData = imageBytes.toUByteArray().toList(),
+                                                imageData = imageBytes,
                                                 fileName = fileName,
                                                 quality = 85u
                                             )
@@ -375,7 +375,7 @@ fun ChatScreen(
                                 // Call FFI to send voice message
                                 ZapLivreClientWrapper.sendVoiceMessage(
                                     toPeerId = peerId,
-                                    audioData = audioBytes.toUByteArray().toList(),
+                                    audioData = audioBytes,
                                     fileName = audioFile.name,
                                     durationSeconds = durationSeconds
                                 )
@@ -410,7 +410,7 @@ fun ChatScreen(
                                     // Send via FFI
                                     ZapLivreClientWrapper.sendDocumentMessage(
                                         toPeerId = peerId,
-                                        fileData = fileBytes.toUByteArray().toList(),
+                                        fileData = fileBytes,
                                         fileName = fileName,
                                         mimeType = mimeType
                                     )
@@ -451,7 +451,7 @@ fun ChatScreen(
 
                                     ZapLivreClientWrapper.sendVideoMessage(
                                         toPeerId = peerId,
-                                        videoData = videoBytes.toUByteArray().toList(),
+                                        videoData = videoBytes,
                                         fileName = fileName,
                                         durationSeconds = duration.toInt()
                                     )
