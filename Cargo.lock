@@ -9369,9 +9369,11 @@ dependencies = [
  "ed25519-dalek",
  "futures",
  "libp2p-identity",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite 0.23.1",
  "tracing",
  "tracing-subscriber",
 ]

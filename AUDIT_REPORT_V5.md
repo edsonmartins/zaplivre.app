@@ -666,3 +666,14 @@ Decisão do produto (2026-09-21): **username opcional no Android, como no iOS.**
 | Cobertura | **Novo** | Flow `11_onboarding_sem_username.yml` (passa no `check-syntax`; execução depende do E2E Android do CI) |
 
 Verificado: `:app:compileDebugKotlin`, `:app:compileDebugAndroidTestKotlin`, `:app:testDebugUnitTest` 22/22 (JDK 17). **Não verificado:** execução em emulador.
+
+### Lote 16 — M6, fatia 1: chamada acorda o app fechado (2026-09-21)
+
+Verificado: gates de Rust verdes; `docker compose config`; Android `:app:compileDebugKotlin`. **Teste de ponta a ponta com o binário real do signaling** e um push server falso (`server/signaling/tests/wake_offline_callee.rs`): oferta para quem não tem WebSocket aberto → **um** push `incoming_call` → oferta entregue quando o aparelho se registra. **Não verificado:** o app tocar em aparelho real com o processo morto.
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| M6 — oferta para app fechado se perdia | **Corrigido no servidor** | O signaling guarda sinais para peers sem WebSocket (45 s, até 64 por peer, até 10 mil peers) e os entrega no registro. Antes: "target peer not connected" e a oferta sumia |
+| M6 — nada acordava o app para uma chamada | **Corrigido no servidor** | Oferta guardada (`call_offer`/`platform_offer`) dispara no push server um push `incoming_call` com quem liga e o `call_id`, uma vez por chamada. `PUSH_SERVER_URL`/`PUSH_SERVICE_SECRET` no signaling (compose e stack) |
+| M6 — Android | **Parcial** | O push de chamada não mostra mais "Nova mensagem": só acorda o serviço, que inicia o core, registra no signaling e recebe a oferta. **Falta:** Telecom/`CallStyle` com toque em loop e tela cheia com o aparelho bloqueado |
+| M6 — iOS | **Aberto** | Exige PushKit (token VoIP próprio, push `voip` no push server, `reportNewIncomingCall` imediato no CallKit) e chaves APNs reais para testar |

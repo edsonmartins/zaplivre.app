@@ -28,10 +28,17 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tracing::{info, warn};
 
+mod pending;
+mod push;
+
 #[derive(Clone, Default)]
 struct AppState {
     peers: Arc<RwLock<HashMap<String, mpsc::Sender<Message>>>>,
     registrations: Arc<Mutex<HashMap<String, i64>>>,
+    /// Signals for peers without a WebSocket open (app closed)
+    pending: Arc<Mutex<pending::PendingSignals>>,
+    /// Wakes the callee's device when a call offer is parked
+    call_pusher: Option<&'static push::CallPusher>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -59,7 +66,14 @@ async fn main() {
         )
         .init();
 
-    let state = AppState::default();
+    let call_pusher = push::CallPusher::from_env().map(|p| &*Box::leak(Box::new(p)));
+    if call_pusher.is_none() {
+        info!("ℹ️ PUSH_SERVER_URL/PUSH_SERVICE_SECRET not set - calls will not wake closed apps");
+    }
+    let state = AppState {
+        call_pusher,
+        ..AppState::default()
+    };
 
     let app = Router::new()
         .route("/health", get(health))
@@ -191,6 +205,19 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                                 .write()
                                 .await
                                 .insert(peer_id.clone(), out_tx.clone());
+                            // Deliver what arrived while this device was away
+                            // (typically a call offer that woke it by push).
+                            let parked = state
+                                .pending
+                                .lock()
+                                .await
+                                .take(&peer_id, std::time::Instant::now());
+                            for text in parked {
+                                if out_tx.try_send(Message::Text(text)).is_err() {
+                                    warn!("pending signal dropped: outbound queue full");
+                                    break;
+                                }
+                            }
                             registered_peer = Some(peer_id);
                         }
                         Err(reason) => {
@@ -237,7 +264,28 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                                 warn!("signaling target queue timeout: {}", to_peer_id);
                             }
                         } else {
-                            warn!("⚠️ Target peer not connected: {}", to_peer_id);
+                            // App closed or between networks: keep the signal for
+                            // a short while, and wake the device for a new call.
+                            let call_id = match &msg {
+                                WireMessage::Signal { payload, .. } => {
+                                    pending::starts_call(payload).map(str::to_string)
+                                }
+                                _ => None,
+                            };
+                            let parked = state.pending.lock().await.park(
+                                &to_peer_id,
+                                text,
+                                std::time::Instant::now(),
+                            );
+                            if !parked {
+                                warn!("⚠️ Target peer not connected, signal dropped");
+                            } else if let (Some(call_id), Some(pusher)) =
+                                (call_id, state.call_pusher)
+                            {
+                                pusher
+                                    .notify_incoming_call(&to_peer_id, authenticated, &call_id)
+                                    .await;
+                            }
                         }
                     }
                 }
