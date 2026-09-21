@@ -8,7 +8,7 @@
 //! paralelo no mesmo binário `message_integration`).
 
 use libp2p::PeerId;
-use std::{sync::Arc, time::Duration};
+use std::{rc::Rc, time::Duration};
 use tokio::time::sleep;
 use zaplivre_core::api::ClientBuilder;
 
@@ -25,20 +25,24 @@ async fn test_plaintext_downgrade_policy() {
             let dir_a = tempfile::TempDir::new().unwrap();
             let dir_b = tempfile::TempDir::new().unwrap();
 
-            let client_a = Arc::new(
+            let client_a = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_a.path().to_path_buf())
                     .build()
                     .await
                     .expect("build client A"),
             );
-            let client_b = Arc::new(
+            // A política de recepção é fixada na construção do cliente: só o B,
+            // criado com a env ligada, aceita plaintext. O A nasce no default.
+            std::env::set_var(ENV_PLAINTEXT, "true");
+            let client_b = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_b.path().to_path_buf())
                     .build()
                     .await
                     .expect("build client B"),
             );
+            std::env::remove_var(ENV_PLAINTEXT);
 
             client_a
                 .listen_on("/ip4/127.0.0.1/tcp/0".parse().unwrap())
@@ -50,7 +54,7 @@ async fn test_plaintext_downgrade_policy() {
                 .expect("listen B");
 
             // Drivers de rede (equivalente ao poll loop do FFI)
-            for client in [Arc::clone(&client_a), Arc::clone(&client_b)] {
+            for client in [Rc::clone(&client_a), Rc::clone(&client_b)] {
                 tokio::task::spawn_local(async move {
                     loop {
                         match client.poll_network_once().await {

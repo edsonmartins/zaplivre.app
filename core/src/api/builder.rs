@@ -196,7 +196,15 @@ impl ClientBuilder {
         ensure_local_contact_exists(&database, &peer_id.to_string(), &keypair)?;
 
         // Create network manager
-        let network = NetworkManager::new(keypair)?;
+        // The bootstrap nodes also run the circuit relay server. Without a
+        // relay the client can only be reached on a LAN: two phones behind
+        // CGNAT never connect, and DCUtR has no circuit to upgrade.
+        let relay = self.bootstrap_peers.first().cloned();
+        let network = NetworkManager::with_relay(
+            keypair,
+            relay.as_ref().map(|(peer_id, _)| *peer_id),
+            relay.map(|(_, addr)| addr),
+        )?;
         // Arc<RwLock<NetworkManager>> !Send/Sync (libp2p Swarm); LocalSet single-thread (FASE 5).
         #[allow(clippy::arc_with_non_send_sync)]
         let network_arc = Arc::new(RwLock::new(network));
@@ -221,15 +229,18 @@ impl ClientBuilder {
         {
             tracing::warn!("Failed to attach signal session persistence: {}", e);
         }
-        let message_handler = Arc::new(crate::network::MessageHandler::new(
-            peer_id.to_string(),
-            Arc::new(database.clone()), // Shares the same SQLite connection!
-            data_dir.clone(),
-            Arc::clone(&identity),
-            session_manager.clone(),
-            storage_key,
-            Some(event_tx),
-        ));
+        let message_handler = Arc::new(
+            crate::network::MessageHandler::new(
+                peer_id.to_string(),
+                Arc::new(database.clone()), // Shares the same SQLite connection!
+                data_dir.clone(),
+                Arc::clone(&identity),
+                session_manager.clone(),
+                storage_key,
+                Some(event_tx),
+            )
+            .allow_plaintext(crate::crypto::plaintext_allowed()),
+        );
 
         // Set message handler in network manager
         {
@@ -921,7 +932,7 @@ mod tests {
                     .await
                     .unwrap();
 
-                assert!(client.local_peer_id().to_string().len() > 0);
+                assert!(!client.local_peer_id().to_string().is_empty());
 
                 // Database should be created
                 assert!(data_dir.join("zaplivre.db").exists());

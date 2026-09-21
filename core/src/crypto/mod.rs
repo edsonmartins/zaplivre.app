@@ -12,6 +12,16 @@ pub use storage::{decrypt_for_storage, encrypt_for_storage};
 
 use thiserror::Error;
 
+/// Política SEC-01: mensagens sem sessão E2E nunca trafegam em plaintext por
+/// padrão, inclusive em builds debug usados na homologação. O downgrade só é
+/// habilitado explicitamente para desenvolvimento local, e vale tanto para o
+/// envio quanto para a recepção.
+pub fn plaintext_allowed() -> bool {
+    std::env::var("ZAPLIVRE_ALLOW_PLAINTEXT")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
 #[derive(Error, Debug)]
 pub enum CryptoError {
     #[error("Session not found")]

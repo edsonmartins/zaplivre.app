@@ -6,7 +6,7 @@
 //! - Testes do MessageHandler (processamento + ACK) com a API atual
 
 use libp2p::PeerId;
-use std::{sync::Arc, time::Duration};
+use std::{rc::Rc, sync::Arc, time::Duration};
 use tokio::{sync::RwLock, time::sleep};
 use uuid::Uuid;
 use zaplivre_core::{
@@ -33,14 +33,14 @@ async fn test_end_to_end_message_exchange() {
             let dir_a = tempfile::TempDir::new().unwrap();
             let dir_b = tempfile::TempDir::new().unwrap();
 
-            let client_a = Arc::new(
+            let client_a = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_a.path().to_path_buf())
                     .build()
                     .await
                     .expect("build client A"),
             );
-            let client_b = Arc::new(
+            let client_b = Rc::new(
                 ClientBuilder::new()
                     .data_dir(dir_b.path().to_path_buf())
                     .build()
@@ -58,7 +58,7 @@ async fn test_end_to_end_message_exchange() {
                 .expect("listen B");
 
             // Drivers de rede (equivalente ao poll loop do FFI)
-            for client in [Arc::clone(&client_a), Arc::clone(&client_b)] {
+            for client in [Rc::clone(&client_a), Rc::clone(&client_b)] {
                 tokio::task::spawn_local(async move {
                     loop {
                         match client.poll_network_once().await {
@@ -154,7 +154,7 @@ fn build_test_handler(
     data_dir: std::path::PathBuf,
     event_tx: tokio::sync::mpsc::Sender<MessageEvent>,
 ) -> MessageHandler {
-    let mut identity = Identity::generate(1);
+    let identity = Identity::generate(1);
     let storage_key = identity.storage_key().expect("storage key");
     let identity = Arc::new(RwLock::new(identity));
     let session_manager = SignalSessionManager::new(Arc::clone(&identity));
@@ -168,6 +168,9 @@ fn build_test_handler(
         storage_key,
         Some(event_tx),
     )
+    // These tests drive the pipeline with plaintext payloads; the dev-only
+    // downgrade is opted into explicitly (SEC-01 refuses it by default).
+    .allow_plaintext(true)
 }
 
 #[tokio::test]

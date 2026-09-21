@@ -18,8 +18,8 @@ use crate::{
     media::MediaEnvelope,
     protocol::{
         pb::message::Payload, AckMessage, AckStatus, EncryptedMessage as ProtoEncryptedMessage,
-        MediaChunk, MediaOffer, MediaRequest, Message, MessageType, PreKeyBundleSync,
-        ReadReceipt, TextMessage, TypingIndicator,
+        MediaChunk, MediaOffer, MediaRequest, Message, MessageType, PreKeyBundleSync, ReadReceipt,
+        TextMessage, TypingIndicator,
     },
     reactions::ReactionEnvelope,
     storage::{
@@ -29,6 +29,9 @@ use crate::{
 };
 use sha2::{Digest, Sha256};
 use tokio::sync::RwLock;
+
+/// Hard ceiling for a single received media file.
+const MAX_MEDIA_BYTES: u64 = 512 * 1024 * 1024;
 
 /// Message handler
 ///
@@ -55,6 +58,9 @@ pub struct MessageHandler {
 
     /// Event callback for notifying UI
     event_tx: Option<tokio::sync::mpsc::Sender<MessageEvent>>,
+
+    /// Whether plaintext application payloads are accepted (dev only, SEC-01)
+    allow_plaintext: bool,
 }
 
 impl MessageHandler {
@@ -76,7 +82,17 @@ impl MessageHandler {
             session_manager,
             storage_key,
             event_tx,
+            allow_plaintext: false,
         }
+    }
+
+    /// Accept plaintext `Text` payloads from peers without an E2E session.
+    ///
+    /// Secure by default: only local development (`ZAPLIVRE_ALLOW_PLAINTEXT`)
+    /// should enable this, mirroring the send-side downgrade policy.
+    pub fn allow_plaintext(mut self, allow: bool) -> Self {
+        self.allow_plaintext = allow;
+        self
     }
 
     /// Handle an incoming message request
@@ -95,9 +111,26 @@ impl MessageHandler {
         );
 
         // Validate message
-        if let Err(e) = self.validate_message(&message) {
+        if let Err(e) = self.validate_message(&from_peer, &message) {
             tracing::warn!("Invalid message {}: {}", message.id, e);
             return Ok(self.create_ack(&message.id, AckStatus::Error, Some(e.to_string())));
+        }
+
+        // Delivery is at-least-once: the same message can arrive through the
+        // message store and again through the P2P outbox retry. Acknowledge a
+        // message we already hold instead of decrypting it twice (the ratchet
+        // refuses the replay, which the sender would then record as Failed).
+        let persisted = matches!(
+            message.payload,
+            Some(Payload::Text(_)) | Some(Payload::Encrypted(_)) | Some(Payload::MediaOffer(_))
+        );
+        if persisted {
+            if let Ok(existing) = self.database.get_message(&message.id) {
+                if existing.sender_peer_id == message.sender_peer_id {
+                    tracing::debug!("Duplicate message {} acknowledged", message.id);
+                    return Ok(self.create_ack(&message.id, AckStatus::Received, None));
+                }
+            }
         }
 
         // Process based on message type
@@ -116,7 +149,8 @@ impl MessageHandler {
             Some(Payload::MediaOffer(ref offer)) => self.handle_media_offer(&message, offer).await,
             Some(Payload::MediaChunk(ref chunk)) => self.handle_media_chunk(&message, chunk).await,
             Some(Payload::PrekeyBundleSync(ref sync)) => {
-                self.handle_prekey_bundle_sync(&message, from_peer, sync).await
+                self.handle_prekey_bundle_sync(&message, from_peer, sync)
+                    .await
             }
             Some(Payload::MediaRequest(_)) => {
                 // Media requests are handled in NetworkManager to enable chunk sending.
@@ -186,23 +220,22 @@ impl MessageHandler {
         // core format; older clients may still send the identity-server DTO.
         // Persisting one canonical format keeps subsequent session setup
         // independent of which client initiated the connection.
-        let bundle_json = match serde_json::from_str::<crate::identity::PreKeyBundle>(
-            &sync.bundle_json,
-        ) {
-            Ok(_) => sync.bundle_json.clone(),
-            Err(_) => {
-                let dto: crate::identity_client::PreKeyBundle =
-                    serde_json::from_str(&sync.bundle_json).map_err(|e| {
+        let bundle_json =
+            match serde_json::from_str::<crate::identity::PreKeyBundle>(&sync.bundle_json) {
+                Ok(_) => sync.bundle_json.clone(),
+                Err(_) => {
+                    let dto: crate::identity_client::PreKeyBundle =
+                        serde_json::from_str(&sync.bundle_json).map_err(|e| {
+                            ZapLivreError::Identity(format!("Invalid prekey bundle: {}", e))
+                        })?;
+                    let core_bundle = dto.to_core().map_err(|e| {
                         ZapLivreError::Identity(format!("Invalid prekey bundle: {}", e))
                     })?;
-                let core_bundle = dto.to_core().map_err(|e| {
-                    ZapLivreError::Identity(format!("Invalid prekey bundle: {}", e))
-                })?;
-                serde_json::to_string(&core_bundle).map_err(|e| {
-                    ZapLivreError::Identity(format!("Failed to normalize prekey bundle: {}", e))
-                })?
-            }
-        };
+                    serde_json::to_string(&core_bundle).map_err(|e| {
+                        ZapLivreError::Identity(format!("Failed to normalize prekey bundle: {}", e))
+                    })?
+                }
+            };
         let peer_id = from_peer.to_string();
         // Ed25519 libp2p PeerIds embed the authenticated public key in the
         // identity multihash. Persist it so safety-number verification also
@@ -210,7 +243,9 @@ impl MessageHandler {
         let authenticated_public_key = public_key_from_peer_id(&from_peer);
         let update = crate::storage::UpdateContact {
             prekey_bundle_json: Some(Some(bundle_json.clone())),
-            public_key: authenticated_public_key.clone().filter(|key| !key.is_empty()),
+            public_key: authenticated_public_key
+                .clone()
+                .filter(|key| !key.is_empty()),
             last_seen_at: Some(chrono::Utc::now()),
             ..Default::default()
         };
@@ -316,7 +351,7 @@ impl MessageHandler {
     }
 
     /// Validate message format
-    fn validate_message(&self, message: &Message) -> Result<()> {
+    fn validate_message(&self, from_peer: &PeerId, message: &Message) -> Result<()> {
         // Check message ID
         if message.id.is_empty() {
             return Err(ZapLivreError::Protocol("Empty message ID".to_string()));
@@ -325,6 +360,25 @@ impl MessageHandler {
         // Check sender
         if message.sender_peer_id.is_empty() {
             return Err(ZapLivreError::Protocol("Empty sender peer ID".to_string()));
+        }
+
+        // The declared sender must be the peer authenticated by the transport
+        // (Noise for P2P, signed request for the message store). Without this
+        // any connected peer could impersonate any contact.
+        if message.sender_peer_id != from_peer.to_string() {
+            return Err(ZapLivreError::Protocol(format!(
+                "Sender mismatch: message claims {} but came from {}",
+                message.sender_peer_id, from_peer
+            )));
+        }
+
+        // SEC-01 on the receive side: plaintext Text also carries reaction,
+        // media and group-control envelopes, so it is refused unless the
+        // development downgrade is explicitly enabled.
+        if matches!(message.payload, Some(Payload::Text(_))) && !self.allow_plaintext {
+            return Err(ZapLivreError::Protocol(
+                "Plaintext message refused: E2E is required".to_string(),
+            ));
         }
 
         // Check recipient (should be us)
@@ -627,8 +681,60 @@ impl MessageHandler {
         Ok(())
     }
 
-    async fn handle_media_chunk(&self, _message: &Message, chunk: &MediaChunk) -> Result<()> {
+    async fn handle_media_chunk(&self, message: &Message, chunk: &MediaChunk) -> Result<()> {
         use std::io::{Seek, SeekFrom, Write};
+
+        // Every field of the chunk is attacker-controlled. The hash becomes a
+        // file name, so it must be exactly a SHA-256 hex digest (no separators).
+        if chunk.media_hash.len() != 64
+            || !chunk
+                .media_hash
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(ZapLivreError::Protocol(
+                "Invalid media hash in chunk".to_string(),
+            ));
+        }
+
+        // Only accept chunks for media that was offered to us by this very
+        // sender (already authenticated against the transport peer).
+        let media = self
+            .database
+            .get_media_by_hash(&chunk.media_hash)?
+            .ok_or_else(|| ZapLivreError::NotFound("Media record not found".to_string()))?;
+        let offered_by_sender = self
+            .database
+            .get_message(&media.message_id)
+            .map(|msg| msg.sender_peer_id == message.sender_peer_id)
+            .unwrap_or(false);
+        if !offered_by_sender {
+            tracing::warn!(
+                "🚫 Unsolicited media chunk for {} from {}",
+                chunk.media_hash,
+                message.sender_peer_id
+            );
+            return Err(ZapLivreError::Permission(
+                "Media chunk from a peer that did not offer this media".to_string(),
+            ));
+        }
+
+        // Bound the write window by the offered size so a peer cannot create a
+        // huge sparse file through an arbitrary offset.
+        let max_len = media
+            .file_size
+            .filter(|size| *size > 0)
+            .map(|size| size as u64)
+            .unwrap_or(MAX_MEDIA_BYTES)
+            .min(MAX_MEDIA_BYTES);
+        let end = u64::try_from(chunk.offset)
+            .ok()
+            .and_then(|offset| offset.checked_add(chunk.data.len() as u64));
+        if !matches!(end, Some(end) if end <= max_len) {
+            return Err(ZapLivreError::Protocol(
+                "Media chunk outside the offered file size".to_string(),
+            ));
+        }
 
         let tmp_dir = self.data_dir.join("media").join("tmp");
         std::fs::create_dir_all(&tmp_dir)
@@ -648,11 +754,6 @@ impl MessageHandler {
             .map_err(|e| ZapLivreError::Storage(format!("Failed to write chunk: {}", e)))?;
 
         if chunk.is_last {
-            let media = self
-                .database
-                .get_media_by_hash(&chunk.media_hash)?
-                .ok_or_else(|| ZapLivreError::NotFound("Media record not found".to_string()))?;
-
             // SEC-03: verificar a integridade do arquivo remontado contra o
             // media_hash antes de aceitá-lo (o hash pode ser SHA-256(dados) ou
             // SHA-256(dados || message_id) quando houve colisão no envio)
@@ -744,8 +845,10 @@ impl MessageHandler {
             .ok_or_else(|| ZapLivreError::NotFound("Media file missing".to_string()))?;
         let data = std::fs::read(&local_path)?;
 
+        // The requester picks the chunk size; bound it so it can neither force
+        // millions of tiny chunks nor a frame above the codec limit.
         let chunk_size = if request.chunk_size > 0 {
-            request.chunk_size as usize
+            (request.chunk_size as usize).clamp(4 * 1024, 1024 * 1024)
         } else {
             64 * 1024
         };
@@ -1030,8 +1133,15 @@ mod tests {
     use crate::storage::{contacts::NewContact, schema::init_schema};
     use libp2p::PeerId;
 
-    #[tokio::test]
-    async fn test_handle_text_message() {
+    /// Handler wired to an in-memory DB with `sender` already a contact.
+    async fn text_fixture(
+        allow_plaintext: bool,
+    ) -> (
+        MessageHandler,
+        PeerId,
+        String,
+        tokio::sync::mpsc::Receiver<MessageEvent>,
+    ) {
         let db = Database::in_memory().unwrap();
         init_schema(&db).unwrap();
 
@@ -1052,7 +1162,7 @@ mod tests {
 
         let db_arc = Arc::new(db);
 
-        let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(64);
+        let (event_tx, event_rx) = tokio::sync::mpsc::channel(64);
 
         let identity = Arc::new(RwLock::new(crate::identity::Identity::generate(0)));
         let storage_key = identity.read().await.storage_key().unwrap();
@@ -1065,13 +1175,17 @@ mod tests {
             session_manager,
             storage_key,
             Some(event_tx),
-        );
+        )
+        .allow_plaintext(allow_plaintext);
 
-        // Create test message
-        let message = Message {
-            id: "msg-123".to_string(),
-            sender_peer_id: sender_peer_id,
-            recipient_peer_id: local_peer_id,
+        (handler, sender_peer, local_peer_id, event_rx)
+    }
+
+    fn plaintext_message(id: &str, sender: &str, recipient: &str) -> Message {
+        Message {
+            id: id.to_string(),
+            sender_peer_id: sender.to_string(),
+            recipient_peer_id: recipient.to_string(),
             timestamp: chrono::Utc::now().timestamp_millis(),
             r#type: MessageType::Text as i32,
             payload: Some(Payload::Text(TextMessage {
@@ -1079,7 +1193,13 @@ mod tests {
                 reply_to_id: String::new(),
                 metadata: std::collections::HashMap::new(),
             })),
-        };
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_text_message() {
+        let (handler, sender_peer, local_peer_id, mut event_rx) = text_fixture(true).await;
+        let message = plaintext_message("msg-123", &sender_peer.to_string(), &local_peer_id);
 
         // Handle message
         let ack = handler
@@ -1106,6 +1226,42 @@ mod tests {
             }
             _ => panic!("Expected MessageReceived event"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_plaintext_refused_by_default() {
+        let (handler, sender_peer, local_peer_id, mut event_rx) = text_fixture(false).await;
+        let message = plaintext_message("msg-plain", &sender_peer.to_string(), &local_peer_id);
+
+        let ack = handler
+            .handle_incoming_message(sender_peer, message)
+            .await
+            .unwrap();
+
+        assert_eq!(ack.status, AckStatus::Error as i32);
+        assert!(
+            event_rx.try_recv().is_err(),
+            "refused message must not reach the UI"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_spoofed_sender_is_rejected() {
+        let (handler, contact_peer, local_peer_id, mut event_rx) = text_fixture(true).await;
+        // The attacker is authenticated as itself but claims to be the contact.
+        let attacker = PeerId::random();
+        let message = plaintext_message("msg-spoof", &contact_peer.to_string(), &local_peer_id);
+
+        let ack = handler
+            .handle_incoming_message(attacker, message)
+            .await
+            .unwrap();
+
+        assert_eq!(ack.status, AckStatus::Error as i32);
+        assert!(
+            event_rx.try_recv().is_err(),
+            "spoofed message must not reach the UI"
+        );
     }
 
     #[tokio::test]
@@ -1190,7 +1346,7 @@ mod tests {
     async fn media_test_setup(
         data: &[u8],
         tmp: &std::path::Path,
-    ) -> (MessageHandler, Arc<Database>, String, String) {
+    ) -> (MessageHandler, String, String, String) {
         use sha2::{Digest, Sha256};
 
         let db = Database::in_memory().unwrap();
@@ -1251,13 +1407,13 @@ mod tests {
             None,
         );
 
-        (handler, db_arc, media_hash, message_id)
+        (handler, sender_peer, media_hash, message_id)
     }
 
-    fn media_chunk_message(_chunk: MediaChunk) -> Message {
+    fn media_chunk_message(sender_peer_id: &str) -> Message {
         Message {
             id: "chunk-envelope".to_string(),
-            sender_peer_id: "remote".to_string(),
+            sender_peer_id: sender_peer_id.to_string(),
             recipient_peer_id: "local-peer".to_string(),
             timestamp: chrono::Utc::now().timestamp_millis(),
             r#type: MessageType::MediaChunk as i32,
@@ -1270,7 +1426,7 @@ mod tests {
     async fn test_media_chunk_integrity_accepts_valid_file() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo legitimo do arquivo".to_vec();
-        let (handler, _db, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+        let (handler, sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
 
         let chunk = MediaChunk {
             message_id,
@@ -1279,7 +1435,7 @@ mod tests {
             data: data.clone(),
             is_last: true,
         };
-        let envelope = media_chunk_message(chunk.clone());
+        let envelope = media_chunk_message(&sender);
 
         handler
             .handle_media_chunk(&envelope, &chunk)
@@ -1297,17 +1453,18 @@ mod tests {
     async fn test_media_chunk_integrity_rejects_tampered_file() {
         let tmp = tempfile::TempDir::new().unwrap();
         let data = b"conteudo legitimo do arquivo".to_vec();
-        let (handler, _db, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+        let (handler, sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
 
         // Peer malicioso envia bytes diferentes sob o mesmo media_hash
         let chunk = MediaChunk {
             message_id,
             media_hash: media_hash.clone(),
             offset: 0,
-            data: b"payload adulterado por um peer malicioso".to_vec(),
+            // Mesmo tamanho ofertado, conteúdo diferente
+            data: data.iter().map(|b| b ^ 0xFF).collect(),
             is_last: true,
         };
-        let envelope = media_chunk_message(chunk.clone());
+        let envelope = media_chunk_message(&sender);
 
         let err = handler
             .handle_media_chunk(&envelope, &chunk)
@@ -1328,5 +1485,94 @@ mod tests {
         assert!(!part.exists(), ".part file must be deleted on rejection");
         let final_path = tmp.path().join("media").join(format!("{}.bin", media_hash));
         assert!(!final_path.exists());
+    }
+
+    /// C6: o hash vira nome de arquivo; separadores de caminho são recusados
+    #[tokio::test]
+    async fn test_media_chunk_rejects_path_traversal_hash() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let data = b"conteudo".to_vec();
+        let (handler, sender, _hash, message_id) = media_test_setup(&data, tmp.path()).await;
+
+        let chunk = MediaChunk {
+            message_id,
+            media_hash: "../../../../escape".to_string(),
+            offset: 0,
+            data,
+            is_last: false,
+        };
+        let err = handler
+            .handle_media_chunk(&media_chunk_message(&sender), &chunk)
+            .await
+            .expect_err("traversal hash must be rejected");
+        assert!(err.to_string().contains("Invalid media hash"), "{err}");
+        assert!(!tmp.path().join("media").exists(), "nothing may be written");
+    }
+
+    /// C6: só quem ofertou a mídia pode enviar os chunks dela
+    #[tokio::test]
+    async fn test_media_chunk_rejects_unsolicited_sender() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let data = b"conteudo".to_vec();
+        let (handler, _sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+
+        let chunk = MediaChunk {
+            message_id,
+            media_hash,
+            offset: 0,
+            data,
+            is_last: true,
+        };
+        let intruder = PeerId::random().to_string();
+        handler
+            .handle_media_chunk(&media_chunk_message(&intruder), &chunk)
+            .await
+            .expect_err("chunk from a peer that did not offer the media must be rejected");
+        assert!(!tmp.path().join("media").exists(), "nothing may be written");
+    }
+
+    /// C6: offset fora do tamanho ofertado não pode criar arquivo esparso
+    #[tokio::test]
+    async fn test_media_chunk_rejects_offset_beyond_offered_size() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let data = b"conteudo".to_vec();
+        let (handler, sender, media_hash, message_id) = media_test_setup(&data, tmp.path()).await;
+
+        for offset in [1_i64 << 40, -1] {
+            let chunk = MediaChunk {
+                message_id: message_id.clone(),
+                media_hash: media_hash.clone(),
+                offset,
+                data: data.clone(),
+                is_last: false,
+            };
+            handler
+                .handle_media_chunk(&media_chunk_message(&sender), &chunk)
+                .await
+                .expect_err("out-of-range offset must be rejected");
+        }
+        assert!(!tmp.path().join("media").exists(), "nothing may be written");
+    }
+
+    /// P0-H: a segunda entrega da mesma mensagem é confirmada, não reprocessada
+    #[tokio::test]
+    async fn test_duplicate_message_is_acknowledged_once() {
+        let (handler, sender_peer, local_peer_id, mut event_rx) = text_fixture(true).await;
+        let sender = sender_peer.to_string();
+
+        for _ in 0..2 {
+            let message = plaintext_message("msg-dup", &sender, &local_peer_id);
+            let ack = handler
+                .handle_incoming_message(sender_peer, message)
+                .await
+                .unwrap();
+            assert_eq!(ack.status, AckStatus::Received as i32);
+        }
+
+        assert!(event_rx.try_recv().is_ok(), "first delivery reaches the UI");
+        assert!(
+            event_rx.try_recv().is_err(),
+            "duplicate must not reach the UI"
+        );
     }
 }
