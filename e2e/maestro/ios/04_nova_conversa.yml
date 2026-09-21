@@ -17,7 +17,7 @@ env:
     id: "new_chat_peer_input"
 - inputText: ${PEER_ID}
 # tira o foco do campo (hideKeyboard trava no simulador iOS 26)
-- tapOn: "Inserir Peer ID manualmente"
+- tapOn: "Inserir @usuário ou Peer ID"
 - tapOn:
     id: "new_chat_confirm"
 # Peer offline → o app mostra o erro de rede e não trava (sheet segue aberto)
