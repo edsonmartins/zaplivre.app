@@ -68,20 +68,23 @@ fn random_username() -> String {
     format!("test_{}", rand::random::<u32>())
 }
 
-/// Generate a random peer_id for testing
-fn random_peer_id() -> String {
-    format!("12D3KooW{}", rand::random::<u64>())
-}
-
-/// Create a dummy Ed25519 keypair and signature (SEC-14: a mensagem cobre
-/// username + peer_id + public_key + timestamp)
-fn create_test_signature(username: &str, peer_id: &str, timestamp: i64) -> (String, String) {
+/// Fresh Ed25519 identity with a signed registration: returns
+/// (peer_id, public_key_b64, signature_b64). The peer ID is the real libp2p
+/// one for the key — the server rejects any other (SEC-14 covers username +
+/// peer_id + public_key + timestamp).
+fn test_registration(username: &str, timestamp: i64) -> (String, String, String) {
     use base64::{engine::general_purpose, Engine as _};
     use ed25519_dalek::{Signer, SigningKey};
     use rand::rngs::OsRng;
 
     let signing_key = SigningKey::generate(&mut OsRng);
-    let public_key = general_purpose::STANDARD.encode(signing_key.verifying_key().as_bytes());
+    let public_bytes = signing_key.verifying_key().to_bytes();
+    let public_key = general_purpose::STANDARD.encode(public_bytes);
+    let peer_id = libp2p_identity::PublicKey::from(
+        libp2p_identity::ed25519::PublicKey::try_from_bytes(&public_bytes).unwrap(),
+    )
+    .to_peer_id()
+    .to_string();
 
     let message = format!(
         "register:{}:{}:{}:{}",
@@ -90,7 +93,7 @@ fn create_test_signature(username: &str, peer_id: &str, timestamp: i64) -> (Stri
     let signature = signing_key.sign(message.as_bytes());
     let signature_b64 = general_purpose::STANDARD.encode(signature.to_bytes());
 
-    (public_key, signature_b64)
+    (peer_id, public_key, signature_b64)
 }
 
 /// Create a dummy prekey bundle
@@ -135,10 +138,9 @@ async fn test_health_check() {
 async fn test_register_username_success() {
     let client = reqwest::Client::new();
     let username = random_username();
-    let peer_id = random_peer_id();
     let timestamp = chrono::Utc::now().timestamp();
 
-    let (public_key, signature) = create_test_signature(&username, &peer_id, timestamp);
+    let (peer_id, public_key, signature) = test_registration(&username, timestamp);
 
     let request = RegisterRequest {
         username: username.clone(),
@@ -169,10 +171,9 @@ async fn test_register_username_success() {
 async fn test_lookup_username_success() {
     let client = reqwest::Client::new();
     let username = random_username();
-    let peer_id = random_peer_id();
     let timestamp = chrono::Utc::now().timestamp();
 
-    let (public_key, signature) = create_test_signature(&username, &peer_id, timestamp);
+    let (peer_id, public_key, signature) = test_registration(&username, timestamp);
 
     // First, register the username
     let request = RegisterRequest {
@@ -214,8 +215,7 @@ async fn test_register_duplicate_username() {
     let username = random_username();
     let timestamp = chrono::Utc::now().timestamp();
 
-    let peer_id1 = random_peer_id();
-    let (public_key1, signature1) = create_test_signature(&username, &peer_id1, timestamp);
+    let (peer_id1, public_key1, signature1) = test_registration(&username, timestamp);
 
     // Register first user
     let request1 = RegisterRequest {
@@ -238,8 +238,7 @@ async fn test_register_duplicate_username() {
 
     // Try to register same username with different peer_id (should fail)
     let timestamp2 = chrono::Utc::now().timestamp();
-    let peer_id2 = random_peer_id();
-    let (public_key2, signature2) = create_test_signature(&username, &peer_id2, timestamp2);
+    let (peer_id2, public_key2, signature2) = test_registration(&username, timestamp2);
 
     let request2 = RegisterRequest {
         username: username.clone(),
@@ -294,8 +293,7 @@ async fn test_invalid_username_format() {
 
     // Invalid username: uppercase letters
     let invalid_username = "InvalidUsername";
-    let peer_id = random_peer_id();
-    let (public_key, signature) = create_test_signature(invalid_username, &peer_id, timestamp);
+    let (peer_id, public_key, signature) = test_registration(invalid_username, timestamp);
 
     let request = RegisterRequest {
         username: invalid_username.to_string(),
@@ -331,8 +329,7 @@ async fn test_rate_limiting_register() {
     for i in 0..6 {
         let username = format!("ratelimit_{}", i);
         let timestamp = chrono::Utc::now().timestamp();
-        let peer_id = random_peer_id();
-        let (public_key, signature) = create_test_signature(&username, &peer_id, timestamp);
+        let (peer_id, public_key, signature) = test_registration(&username, timestamp);
 
         let request = RegisterRequest {
             username: username.clone(),
@@ -364,8 +361,7 @@ async fn test_rate_limit_headers() {
     let client = reqwest::Client::new();
     let username = random_username();
     let timestamp = chrono::Utc::now().timestamp();
-    let peer_id = random_peer_id();
-    let (public_key, signature) = create_test_signature(&username, &peer_id, timestamp);
+    let (peer_id, public_key, signature) = test_registration(&username, timestamp);
 
     let request = RegisterRequest {
         username: username.clone(),

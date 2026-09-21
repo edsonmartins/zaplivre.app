@@ -82,7 +82,11 @@ async fn health() -> impl IntoResponse {
 }
 
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    // Enforce the payload limit while reading the frame, not after the
+    // default (multi-megabyte) frame has already been buffered.
+    ws.max_message_size(MAX_MESSAGE_BYTES)
+        .max_frame_size(MAX_MESSAGE_BYTES)
+        .on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 /// Limite de payload de sinalização (SDP/ICE são pequenos)
@@ -90,6 +94,26 @@ const MAX_MESSAGE_BYTES: usize = 64 * 1024;
 const OUTBOUND_QUEUE_CAPACITY: usize = 64;
 const RATE_WINDOW_SECONDS: i64 = 60;
 const MAX_MESSAGES_PER_WINDOW: usize = 120;
+/// A socket that has not proven a peer ID within this time is closed, so
+/// unauthenticated connections cannot be parked forever.
+const REGISTRATION_DEADLINE: Duration = Duration::from_secs(15);
+
+/// Drop `peer_id` from the routing table only if it still points at this
+/// connection. A client that reconnects (Wi-Fi to 4G) registers on a new
+/// socket before the old one dies; removing by peer ID alone made the dying
+/// socket erase the fresh registration and left the peer unreachable for calls.
+fn unregister_if_owner(
+    peers: &mut HashMap<String, mpsc::Sender<Message>>,
+    peer_id: &str,
+    connection: &mpsc::Sender<Message>,
+) {
+    if peers
+        .get(peer_id)
+        .is_some_and(|current| current.same_channel(connection))
+    {
+        peers.remove(peer_id);
+    }
+}
 
 async fn handle_socket(socket: WebSocket, state: AppState) {
     let (mut sender, mut receiver) = socket.split();
@@ -107,7 +131,22 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let mut request_window_start = chrono::Utc::now().timestamp();
     let mut request_count = 0usize;
 
-    while let Some(Ok(msg)) = receiver.next().await {
+    let registration_deadline = tokio::time::Instant::now() + REGISTRATION_DEADLINE;
+    loop {
+        let next = if registered_peer.is_some() {
+            receiver.next().await
+        } else {
+            match tokio::time::timeout_at(registration_deadline, receiver.next()).await {
+                Ok(next) => next,
+                Err(_) => {
+                    warn!("closing socket that never registered");
+                    break;
+                }
+            }
+        };
+        let Some(Ok(msg)) = next else {
+            break;
+        };
         let now = chrono::Utc::now().timestamp();
         if now - request_window_start >= RATE_WINDOW_SECONDS {
             request_window_start = now;
@@ -129,6 +168,12 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
             let parsed = serde_json::from_str::<WireMessage>(&text);
             match parsed {
                 Ok(WireMessage::Register { peer_id, ts, sig }) => {
+                    // One identity per connection: a second register would
+                    // leave the first peer ID routed to this socket.
+                    if registered_peer.is_some() {
+                        warn!("🚫 Second registration on the same connection ignored");
+                        continue;
+                    }
                     // SEC-11: prova de posse do peer ID
                     match verify_registration(&peer_id, ts, &sig) {
                         Ok(()) => {
@@ -178,7 +223,10 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                         payload,
                     };
                     if let Ok(text) = serde_json::to_string(&msg) {
-                        if let Some(target) = state.peers.read().await.get(&to_peer_id) {
+                        // Clone the sender out of the lock: a slow target must
+                        // not hold the routing table against new registrations.
+                        let target = state.peers.read().await.get(&to_peer_id).cloned();
+                        if let Some(target) = target {
                             if tokio::time::timeout(
                                 Duration::from_secs(2),
                                 target.send(Message::Text(text)),
@@ -202,7 +250,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
 
     if let Some(peer_id) = registered_peer {
         info!("🔌 Peer disconnected: {}", peer_id);
-        state.peers.write().await.remove(&peer_id);
+        unregister_if_owner(&mut *state.peers.write().await, &peer_id, &out_tx);
     }
 
     send_task.abort();
@@ -245,4 +293,26 @@ fn public_key_from_peer_id(peer_id_str: &str) -> Option<ed25519_dalek::Verifying
     let public_key = libp2p_identity::PublicKey::try_decode_protobuf(multihash.digest()).ok()?;
     let ed25519 = public_key.try_into_ed25519().ok()?;
     ed25519_dalek::VerifyingKey::from_bytes(&ed25519.to_bytes()).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stale_connection_does_not_erase_a_reconnected_peer() {
+        let mut peers = HashMap::new();
+        let (old_conn, _old_rx) = mpsc::channel::<Message>(1);
+        let (new_conn, _new_rx) = mpsc::channel::<Message>(1);
+
+        // Peer registers on Wi-Fi, then again on 4G before the first socket dies.
+        peers.insert("peer".to_string(), old_conn.clone());
+        peers.insert("peer".to_string(), new_conn.clone());
+
+        unregister_if_owner(&mut peers, "peer", &old_conn);
+        assert!(peers.contains_key("peer"), "new registration must survive");
+
+        unregister_if_owner(&mut peers, "peer", &new_conn);
+        assert!(!peers.contains_key("peer"));
+    }
 }

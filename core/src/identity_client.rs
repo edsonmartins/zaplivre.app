@@ -529,7 +529,7 @@ mod tests {
             let client = IdentityClient::new("http://localhost:8080").unwrap();
             let identity = Identity::generate(10);
             let username = format!("test_{}", rand::random::<u32>());
-            let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id = identity.keypair().libp2p_peer_id().unwrap();
 
             // Register username
             let register_response = client
@@ -552,7 +552,7 @@ mod tests {
             let client = IdentityClient::new("http://localhost:8080").unwrap();
             let identity = Identity::generate(10);
             let username = format!("test_{}", rand::random::<u32>());
-            let peer_id = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id = identity.keypair().libp2p_peer_id().unwrap();
 
             // Register first
             client
@@ -572,8 +572,8 @@ mod tests {
             let identity1 = Identity::generate(10);
             let identity2 = Identity::generate(10);
             let username = format!("test_{}", rand::random::<u32>());
-            let peer_id1 = format!("12D3KooW{}", rand::random::<u64>());
-            let peer_id2 = format!("12D3KooW{}", rand::random::<u64>());
+            let peer_id1 = identity2.keypair().libp2p_peer_id().unwrap();
+            let peer_id2 = identity2.keypair().libp2p_peer_id().unwrap();
 
             // Register username with first identity
             client

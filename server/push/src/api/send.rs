@@ -121,9 +121,7 @@ pub async fn handle(
                         failed_count += 1;
 
                         // Mark as inactive if token is invalid
-                        if e.to_string().contains("InvalidRegistration")
-                            || e.to_string().contains("NotRegistered")
-                        {
+                        if fcm_token_is_dead(&e.to_string()) {
                             tracing::warn!("  🔄 Marking token as inactive for {}", device_id);
                             let _ = sqlx::query(
                                 "UPDATE push_tokens SET is_active = false WHERE peer_id = $1 AND device_id = $2"
@@ -162,11 +160,7 @@ pub async fn handle(
                                 failed_count += 1;
 
                                 // Mark as inactive if token is invalid
-                                let error_str = e.to_string();
-                                if error_str.contains("BadDeviceToken")
-                                    || error_str.contains("Unregistered")
-                                    || error_str.contains("InvalidProviderToken")
-                                {
+                                if apns_token_is_dead(&e.to_string()) {
                                     tracing::warn!(
                                         "  🔄 Marking token as inactive for {}",
                                         device_id
@@ -211,4 +205,46 @@ pub async fn handle(
         failed_count,
         message,
     }))
+}
+
+/// Whether an FCM HTTP v1 error means the device token no longer exists.
+///
+/// v1 reports `UNREGISTERED` (HTTP 404). The legacy API strings
+/// (`NotRegistered`, `InvalidRegistration`) never appear in v1 responses, so
+/// dead tokens were never retired. `INVALID_ARGUMENT` is deliberately not
+/// included: it is also returned for a malformed payload, which is our bug.
+fn fcm_token_is_dead(error: &str) -> bool {
+    error.contains("UNREGISTERED")
+}
+
+/// Whether an APNs rejection means the device token is no longer valid.
+///
+/// `InvalidProviderToken` / `ExpiredProviderToken` are about OUR signing key,
+/// not the device: treating them as dead tokens deactivated every iOS user on
+/// the first send after a bad `.p8` was deployed.
+fn apns_token_is_dead(error: &str) -> bool {
+    error.contains("BadDeviceToken") || error.contains("Unregistered")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provider_errors_do_not_retire_device_tokens() {
+        assert!(apns_token_is_dead("APNs error 410: Unregistered"));
+        assert!(apns_token_is_dead("APNs error 400: BadDeviceToken"));
+        assert!(!apns_token_is_dead("APNs error 403: InvalidProviderToken"));
+        assert!(!apns_token_is_dead("APNs error 403: ExpiredProviderToken"));
+    }
+
+    #[test]
+    fn fcm_v1_unregistered_retires_the_token() {
+        let body = r#"FCM v1 error (404 Not Found): {"error":{"status":"NOT_FOUND","details":[{"errorCode":"UNREGISTERED"}]}}"#;
+        assert!(fcm_token_is_dead(body));
+        assert!(!fcm_token_is_dead(
+            r#"FCM v1 error (400 Bad Request): {"error":{"status":"INVALID_ARGUMENT"}}"#
+        ));
+        assert!(!fcm_token_is_dead("FCM v1 error (401 Unauthorized): ..."));
+    }
 }

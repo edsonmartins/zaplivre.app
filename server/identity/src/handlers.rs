@@ -34,6 +34,12 @@ pub async fn register_handler(
     );
     verify_signature(&public_key, &req.signature, &message)?;
 
+    // The peer ID must be the one derived from the key that signed. Accepting
+    // any string let an attacker register a victim's (public) peer ID under
+    // their own key: the victim could never register again, and lookups by
+    // peer ID returned the attacker's key and bundle.
+    verify_peer_id_matches_key(&req.peer_id, &public_key)?;
+
     // Register username
     let response = db::register_username(
         &state.db,
@@ -157,6 +163,18 @@ fn check_timestamp(timestamp: i64) -> Result<()> {
 
 /// Verify Ed25519 signature over a canonical message.
 /// Erros de decodificação/verificação retornam 400 (InvalidSignature), não 500.
+/// Check that `peer_id` is the libp2p peer ID of the Ed25519 `public_key`.
+fn verify_peer_id_matches_key(peer_id: &str, public_key: &[u8]) -> Result<()> {
+    let expected = libp2p_identity::ed25519::PublicKey::try_from_bytes(public_key)
+        .map(|key| libp2p_identity::PublicKey::from(key).to_peer_id())
+        .map_err(|_| AppError::InvalidSignature)?;
+    let claimed: libp2p_identity::PeerId = peer_id.parse().map_err(|_| AppError::PeerIdMismatch)?;
+    if claimed != expected {
+        return Err(AppError::PeerIdMismatch);
+    }
+    Ok(())
+}
+
 fn verify_signature(public_key: &[u8], signature_b64: &str, message: &str) -> Result<()> {
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
@@ -199,4 +217,37 @@ async fn check_redis_health(redis: &redis::aio::ConnectionManager) -> Result<f64
 
     let latency = start.elapsed().as_secs_f64() * 1000.0; // Convert to ms
     Ok(latency)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keypair(seed: u8) -> (Vec<u8>, String) {
+        let public = ed25519_dalek::SigningKey::from_bytes(&[seed; 32])
+            .verifying_key()
+            .to_bytes();
+        let peer_id = libp2p_identity::PublicKey::from(
+            libp2p_identity::ed25519::PublicKey::try_from_bytes(&public).unwrap(),
+        )
+        .to_peer_id();
+        (public.to_vec(), peer_id.to_string())
+    }
+
+    #[test]
+    fn peer_id_must_be_derived_from_the_registering_key() {
+        let (alice_key, alice_peer) = keypair(1);
+        let (mallory_key, _) = keypair(2);
+
+        assert!(verify_peer_id_matches_key(&alice_peer, &alice_key).is_ok());
+        // Squatting: Mallory's key claiming Alice's peer ID.
+        assert!(matches!(
+            verify_peer_id_matches_key(&alice_peer, &mallory_key),
+            Err(AppError::PeerIdMismatch)
+        ));
+        assert!(matches!(
+            verify_peer_id_matches_key("12D3KooWnotapeer", &alice_key),
+            Err(AppError::PeerIdMismatch)
+        ));
+    }
 }
