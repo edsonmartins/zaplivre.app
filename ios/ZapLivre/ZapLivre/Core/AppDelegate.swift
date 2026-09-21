@@ -23,6 +23,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         print("📱 ZapLivre AppDelegate - didFinishLaunching")
+        ZapLivreApp.discardIdentityOrphanedByReinstall()
         return true
     }
 

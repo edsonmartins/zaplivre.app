@@ -1,7 +1,10 @@
 # Configuração da suíte Android.
 # Só os flows numerados na raiz são executáveis; common/ contém helpers
 # (chamados via runFlow) e fica fora da execução direta.
+# Os flows 2dev_* exigem dois devices com contas combinadas entre si e são
+# rodados manualmente; num emulador só eles não têm como passar (e um deles
+# nem é YAML válido: `release:true`, sem espaço). Ficam fora da execução.
 flows:
-  - "*.yml"
+  - "[0-9]*.yml"
 executionOrder:
   continueOnFailure: true

@@ -22,6 +22,11 @@ appId: app.zaplivre.ios
     visible:
       id: "onboarding_create"
     timeout: 30000
+# O diálogo de permissão de notificações pode surgir DEPOIS do primeiro passo
+# opcional acima e cobrir o botão (corrida observada localmente): dispensa de novo.
+- tapOn:
+    text: "Permitir"
+    optional: true
 - tapOn:
     id: "onboarding_create"
 - extendedWaitUntil:
