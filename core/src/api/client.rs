@@ -34,6 +34,12 @@ use sha2::{Digest, Sha256};
 
 const MAX_INLINE_MEDIA_BYTES: usize = 512 * 1024;
 
+/// Messages requested per call to the message store.
+const OFFLINE_FETCH_BATCH: usize = 100;
+
+/// Upper bound of batches drained in one fetch (10k messages).
+const OFFLINE_FETCH_MAX_BATCHES: usize = 100;
+
 /// ZapLivre Client
 ///
 /// Main entry point for using the ZapLivre P2P messaging platform.
@@ -962,14 +968,35 @@ impl Client {
         Ok(())
     }
 
-    async fn fetch_offline_messages(&self) -> Result<()> {
+    /// Drain the offline mailbox on the message store.
+    ///
+    /// Returns how many messages were processed. Safe to call at any time:
+    /// on start, periodically while running, and when a push wakes the app.
+    pub async fn fetch_offline_messages(&self) -> Result<usize> {
+        let mut total = 0;
+        // The store serves the oldest messages first and we only delete what
+        // was processed, so keep going while batches are full AND progress is
+        // made (a batch made only of undecryptable messages would repeat).
+        for _ in 0..OFFLINE_FETCH_MAX_BATCHES {
+            let (fetched, processed) = self.fetch_offline_batch().await?;
+            total += processed;
+            if fetched < OFFLINE_FETCH_BATCH || processed == 0 {
+                break;
+            }
+        }
+        Ok(total)
+    }
+
+    /// Fetch and process one batch; returns (fetched, processed).
+    async fn fetch_offline_batch(&self) -> Result<(usize, usize)> {
         let Some(base_url) = self.message_store_base_url() else {
-            return Ok(());
+            return Ok((0, 0));
         };
         let url = format!(
-            "{}/api/store?peer_id={}&limit=100",
+            "{}/api/store?peer_id={}&limit={}",
             base_url,
-            self.local_peer_id()
+            self.local_peer_id(),
+            OFFLINE_FETCH_BATCH
         );
 
         let local_peer = self.local_peer_id().to_string();
@@ -987,7 +1014,10 @@ impl Client {
             .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
 
         if !resp.status().is_success() {
-            return Ok(());
+            return Err(ZapLivreError::Network(format!(
+                "Message store returned {}",
+                resp.status()
+            )));
         }
 
         let body: RetrieveMessagesResponse = resp
@@ -995,8 +1025,9 @@ impl Client {
             .await
             .map_err(|e| ZapLivreError::Network(format!("Invalid store response: {}", e)))?;
 
-        if body.messages.is_empty() {
-            return Ok(());
+        let fetched = body.messages.len();
+        if fetched == 0 {
+            return Ok((0, 0));
         }
 
         let mut processed_ids = Vec::new();
@@ -1051,7 +1082,7 @@ impl Client {
         }
 
         if processed_ids.is_empty() {
-            return Ok(());
+            return Ok((fetched, 0));
         }
 
         let delete_url = format!("{}/api/store", base_url);
@@ -1067,7 +1098,10 @@ impl Client {
             &delete_body,
         )
         .await;
-        let _ = self
+        // The messages are already stored locally; if the mailbox cannot be
+        // cleared, stop here. The next fetch gets them again and the receive
+        // path acknowledges them as duplicates.
+        let deleted = self
             .message_store_http
             .delete(delete_url)
             .header("x-zaplivre-peer", peer)
@@ -1075,9 +1109,16 @@ impl Client {
             .header("x-zaplivre-sig", sig)
             .body(delete_body)
             .send()
-            .await;
+            .await
+            .map_err(|e| ZapLivreError::Network(format!("Message store error: {}", e)))?;
+        if !deleted.status().is_success() {
+            return Err(ZapLivreError::Network(format!(
+                "Message store refused to clear the mailbox: {}",
+                deleted.status()
+            )));
+        }
 
-        Ok(())
+        Ok((fetched, processed_ids.len()))
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2078,8 +2119,9 @@ impl Client {
     /// Bootstrap DHT
     pub async fn bootstrap(&self) -> Result<()> {
         tracing::info!("🌐 Client bootstrap requested");
-        let mut network = self.network.write().await;
-        network.bootstrap()?;
+        // Scoped: the mailbox fetch below is HTTP and must not run while the
+        // network manager is locked (the swarm would stop being polled).
+        self.network.write().await.bootstrap()?;
 
         if self.message_store_url.is_some() {
             if let Err(e) = self.fetch_offline_messages().await {
