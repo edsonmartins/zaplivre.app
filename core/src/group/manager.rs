@@ -604,61 +604,89 @@ impl GroupManager {
         self.groups.read().await.values().cloned().collect()
     }
 
-    /// Handle incoming GossipSub message
+    /// Handle a group message that arrived over GossipSub (legacy transport).
     pub async fn handle_gossipsub_message(
         &self,
         _topic: &TopicHash,
         message: gossipsub::Message,
     ) -> Result<()> {
-        // Deserialize message
         let group_msg: GroupMessage = serde_json::from_slice(&message.data)
             .map_err(|e| ZapLivreError::Protocol(format!("Invalid group message: {}", e)))?;
+        self.handle_group_message(group_msg, None).await
+    }
 
-        // Verify message is from a group member
+    /// Handle a group message, whatever transport carried it.
+    ///
+    /// `delivered_by` is the peer authenticated by the 1:1 channel when the
+    /// message came through the fan-out; it must be the declared sender.
+    pub async fn handle_group_message(
+        &self,
+        group_msg: GroupMessage,
+        delivered_by: Option<&str>,
+    ) -> Result<()> {
+        if delivered_by.is_some_and(|peer| peer != group_msg.sender_peer_id) {
+            return Err(ZapLivreError::Permission(
+                "Group message sender differs from the peer that delivered it".to_string(),
+            ));
+        }
+        if group_msg.sender_peer_id == self.local_peer_id {
+            return Ok(());
+        }
+
         let groups = self.groups.read().await;
-        let group = groups.get(&group_msg.group_id);
+        let group = groups
+            .get(&group_msg.group_id)
+            .ok_or_else(|| ZapLivreError::NotFound("Unknown group".to_string()))?;
+        if !group.is_member(&group_msg.sender_peer_id) {
+            return Err(ZapLivreError::Permission(
+                "Sender is not a group member".to_string(),
+            ));
+        }
 
-        if let Some(group) = group {
-            if !group.is_member(&group_msg.sender_peer_id) {
-                return Err(ZapLivreError::Permission(
-                    "Sender is not a group member".to_string(),
-                ));
-            }
+        // The signing key is the one embedded in the sender's peer ID. Reading
+        // it from the contact row dropped every message of members whose
+        // contact was created without a public key (username lookup, QR).
+        if group_msg.signature.is_empty() {
+            return Err(ZapLivreError::Permission(
+                "Missing group message signature".to_string(),
+            ));
+        }
+        let key = crate::identity::prekeys::ed25519_key_from_peer_id(&group_msg.sender_peer_id)
+            .ok_or_else(|| {
+                ZapLivreError::Permission("Sender peer ID carries no Ed25519 key".to_string())
+            })?;
+        group_msg.verify_signature(&PublicKey::from_bytes(&key)?)?;
 
-            if !group_msg.signature.is_empty() {
-                if let Ok(contact) = self.db.get_contact_by_peer_id(&group_msg.sender_peer_id) {
-                    let public_key = PublicKey::from_bytes(&contact.public_key)?;
-                    group_msg.verify_signature(&public_key)?;
-                } else if group_msg.sender_peer_id != self.local_peer_id {
-                    return Err(ZapLivreError::Permission(
-                        "Missing sender public key for signature verification".to_string(),
-                    ));
-                }
-            } else {
-                return Err(ZapLivreError::Permission(
-                    "Missing group message signature".to_string(),
-                ));
-            }
+        // Already stored (e.g. the same message over both transports).
+        if self.db.get_message(&group_msg.message_id).is_ok() {
+            return Ok(());
+        }
 
-            if group_msg.sender_peer_id == self.local_peer_id {
-                return Ok(());
-            }
+        // The sender key may not be here yet (its envelope is a separate 1:1
+        // message). The outer Signal layer is already consumed and cannot be
+        // replayed, so keep the ciphertext: `add_group_sender_key` decrypts
+        // what was left pending once the key arrives.
+        let encrypted_content = group_msg.content.clone();
+        let plaintext = self
+            .decrypt_group_message(
+                &group_msg.group_id,
+                &group_msg.sender_peer_id,
+                &encrypted_content,
+            )
+            .ok()
+            .and_then(|bytes| String::from_utf8(bytes).ok());
+        let decrypted = plaintext.is_some();
 
-            let encrypted_content = group_msg.content.clone();
-            let plaintext = self
-                .decrypt_group_message(
-                    &group_msg.group_id,
-                    &group_msg.sender_peer_id,
-                    &encrypted_content,
-                )
-                .ok()
-                .and_then(|bytes| String::from_utf8(bytes).ok());
-
-            self.ensure_group_conversation(group)?;
-            self.store_group_message(group, &group_msg, encrypted_content, plaintext)?;
-
-            // Emit event
+        self.ensure_group_conversation(group)?;
+        self.store_group_message(group, &group_msg, encrypted_content, plaintext)?;
+        if decrypted {
             self.emit_event(GroupEvent::MessageReceived { message: group_msg });
+        } else {
+            tracing::info!(
+                "Group message {} kept pending: no sender key for {} yet",
+                group_msg.message_id,
+                group_msg.sender_peer_id
+            );
         }
 
         Ok(())
@@ -816,7 +844,56 @@ impl GroupManager {
             &seed,
         )?;
 
+        self.decrypt_pending_messages(group_id, sender_peer_id);
         Ok(())
+    }
+
+    /// Decrypt the messages of `sender_peer_id` that arrived before their
+    /// sender key. They used to stay blank forever.
+    fn decrypt_pending_messages(&self, group_id: &str, sender_peer_id: &str) {
+        let conversation_id = format!("group:{}", group_id);
+        let pending = match self
+            .db
+            .undecrypted_messages_from(&conversation_id, sender_peer_id)
+        {
+            Ok(pending) => pending,
+            Err(e) => {
+                tracing::warn!("Failed to list pending group messages: {}", e);
+                return;
+            }
+        };
+
+        for message in pending {
+            let Some(encrypted) = message.content_encrypted.as_deref() else {
+                continue;
+            };
+            let plaintext = self
+                .decrypt_group_message(group_id, sender_peer_id, encrypted)
+                .ok()
+                .and_then(|bytes| String::from_utf8(bytes).ok());
+            let Some(plaintext) = plaintext else {
+                // Encrypted under a key we still do not have (e.g. a rotation).
+                continue;
+            };
+            if let Err(e) = self
+                .db
+                .set_message_plaintext(&message.message_id, &plaintext)
+            {
+                tracing::warn!("Failed to store decrypted group message: {}", e);
+                continue;
+            }
+            self.emit_event(GroupEvent::MessageReceived {
+                message: GroupMessage {
+                    message_id: message.message_id.clone(),
+                    group_id: group_id.to_string(),
+                    sender_peer_id: sender_peer_id.to_string(),
+                    message_type: crate::group::types::GroupMessageType::Text,
+                    content: encrypted.to_vec(),
+                    timestamp: message.created_at,
+                    signature: Vec::new(),
+                },
+            });
+        }
     }
 
     fn restore_group_session(&self, group: &Group) -> Result<()> {

@@ -5,7 +5,7 @@
 use super::{Database, Result};
 
 /// Current schema version
-pub const SCHEMA_VERSION: i32 = 8;
+pub const SCHEMA_VERSION: i32 = 9;
 
 /// Initialize database schema (version 1)
 pub fn init_schema(db: &Database) -> Result<()> {
@@ -152,6 +152,16 @@ pub fn init_schema(db: &Database) -> Result<()> {
             identity_key BLOB NOT NULL,
             created_at INTEGER NOT NULL DEFAULT (unixepoch())
         );
+
+        -- Wire ids already processed (idempotent at-least-once delivery)
+        CREATE TABLE IF NOT EXISTS processed_messages (
+            sender_peer_id TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            processed_at INTEGER NOT NULL DEFAULT (unixepoch()),
+            PRIMARY KEY (sender_peer_id, message_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_processed_messages_at
+            ON processed_messages(processed_at);
 
         -- Media table: attachments (images, videos, files)
         CREATE TABLE IF NOT EXISTS media (

@@ -91,6 +91,23 @@ impl MessageHandler {
         }
     }
 
+    /// A group message delivered to us individually by its sender.
+    ///
+    /// It goes through the same ordered event queue as the group control
+    /// envelopes: handled right here it could overtake the invite or the
+    /// sender key that precede it and be dropped as "unknown group".
+    async fn handle_group_fanout(
+        &self,
+        message: &Message,
+        group_msg: crate::group::GroupMessage,
+    ) -> Result<()> {
+        self.emit_event(MessageEvent::GroupMessage {
+            from_peer_id: message.sender_peer_id.clone(),
+            message: group_msg,
+        });
+        Ok(())
+    }
+
     /// Accept plaintext `Text` payloads from peers without an E2E session.
     ///
     /// Secure by default: only local development (`ZAPLIVRE_ALLOW_PLAINTEXT`)
@@ -122,20 +139,24 @@ impl MessageHandler {
         }
 
         // Delivery is at-least-once: the same message can arrive through the
-        // message store and again through the P2P outbox retry. Acknowledge a
-        // message we already hold instead of decrypting it twice (the ratchet
-        // refuses the replay, which the sender would then record as Failed).
-        let persisted = matches!(
+        // message store and again through the P2P outbox retry. Acknowledge what
+        // was already processed instead of decrypting it twice (the ratchet
+        // refuses the replay, which the sender would then record as Failed and
+        // the mailbox would keep forever). Only content-bearing payloads are
+        // tracked; ACKs, receipts, typing, prekey sync and media chunks are
+        // idempotent or ephemeral.
+        let tracked = matches!(
             message.payload,
-            Some(Payload::Text(_)) | Some(Payload::Encrypted(_)) | Some(Payload::MediaOffer(_))
+            Some(Payload::Text(_)) | Some(Payload::Encrypted(_))
         );
-        if persisted {
-            if let Ok(existing) = self.database.get_message(&message.id) {
-                if existing.sender_peer_id == message.sender_peer_id {
-                    tracing::debug!("Duplicate message {} acknowledged", message.id);
-                    return Ok(self.create_ack(&message.id, AckStatus::Received, None));
-                }
-            }
+        if tracked
+            && self
+                .database
+                .is_message_processed(&message.sender_peer_id, &message.id)
+                .unwrap_or(false)
+        {
+            tracing::debug!("Duplicate message {} acknowledged", message.id);
+            return Ok(self.create_ack(&message.id, AckStatus::Received, None));
         }
 
         // Process based on message type
@@ -175,7 +196,17 @@ impl MessageHandler {
         };
 
         match result {
-            Ok(_) => Ok(self.create_ack(&message.id, AckStatus::Received, None)),
+            Ok(_) => {
+                if tracked {
+                    if let Err(e) = self
+                        .database
+                        .mark_message_processed(&message.sender_peer_id, &message.id)
+                    {
+                        tracing::warn!("Failed to record processed message: {}", e);
+                    }
+                }
+                Ok(self.create_ack(&message.id, AckStatus::Received, None))
+            }
             Err(e) => {
                 tracing::error!("Failed to process message {}: {}", message.id, e);
                 Ok(self.create_ack(&message.id, AckStatus::Error, Some(e.to_string())))
@@ -430,6 +461,10 @@ impl MessageHandler {
             return self.handle_media_offer_envelope(message, offer).await;
         }
 
+        if let Some(group_msg) = crate::group::decode_group_message(&text.content) {
+            return self.handle_group_fanout(message, group_msg).await;
+        }
+
         if let Some(envelope) = crate::group::GroupControlEnvelope::decode(&text.content) {
             self.emit_event(MessageEvent::GroupControl {
                 from_peer_id: message.sender_peer_id.clone(),
@@ -529,6 +564,10 @@ impl MessageHandler {
 
         if let Some(offer) = MediaOfferEnvelope::decode(&text) {
             return self.handle_media_offer_envelope(message, offer).await;
+        }
+
+        if let Some(group_msg) = crate::group::decode_group_message(&text) {
+            return self.handle_group_fanout(message, group_msg).await;
         }
 
         if let Some(envelope) = crate::group::GroupControlEnvelope::decode(&text) {
@@ -1182,6 +1221,13 @@ pub enum MessageEvent {
     GroupControl {
         from_peer_id: String,
         envelope: crate::group::GroupControlEnvelope,
+    },
+
+    /// Group message fanned out over the 1:1 channel by `from_peer_id`.
+    /// Handled by the same orchestration task, in arrival order.
+    GroupMessage {
+        from_peer_id: String,
+        message: crate::group::GroupMessage,
     },
 }
 

@@ -373,6 +373,23 @@ impl ClientBuilder {
                     continue;
                 }
 
+                if let MessageEvent::GroupMessage {
+                    ref from_peer_id,
+                    ref message,
+                } = event
+                {
+                    // Rejections here are final (a group we left, a sender that
+                    // is not a member, a bad signature): there is nothing to
+                    // retry, the Signal layer of that delivery is consumed.
+                    if let Err(e) = gc_group_manager
+                        .handle_group_message(message.clone(), Some(from_peer_id))
+                        .await
+                    {
+                        tracing::warn!("Group message from {} dropped: {}", from_peer_id, e);
+                    }
+                    continue;
+                }
+
                 if let Some(client_event) = map_message_event(event) {
                     let callbacks = callbacks_for_events.read().await;
                     for callback in callbacks.iter() {
@@ -826,6 +843,8 @@ fn map_message_event(event: MessageEvent) -> Option<super::events::ClientEvent> 
         }
         // Tratado antes do mapeamento (handle_group_control); nunca vira ClientEvent
         MessageEvent::GroupControl { .. } => None,
+        // Tratado antes do mapeamento; o evento de UI sai do GroupManager
+        MessageEvent::GroupMessage { .. } => None,
     }
 }
 

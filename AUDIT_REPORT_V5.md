@@ -549,3 +549,21 @@ Verificado: fmt, `clippy --workspace --all-targets -D warnings`, `cargo check --
 **Compatibilidade:** quebra o protocolo de mídia grande com versões anteriores (ofertas em plaintext são recusadas). Não muda a UDL nem o esquema do banco: os apps continuam chamando `download_media(media_hash)` com o hash do registro de mídia.
 
 **Falta:** o remetente ainda precisa estar online no momento do download (modelo pull P2P; o padrão de mercado é blob cifrado em servidor); arquivo inteiro em memória para selar/abrir; timeout fixo de 10 s por tentativa em `download_media`; sem retomada de download.
+
+### Lote 8 — branch `feat/audit-v5-group-fanout` (2026-09-21)
+
+Verificado: fmt, `clippy --workspace --all-targets -D warnings`, `cargo check --features voip`, `cargo test --workspace` verdes (core unit 164).
+
+| Item | Estado | O que mudou |
+|---|---|---|
+| P0-K (grupos sem entrega confiável) | **Corrigido no core** | A mensagem de grupo (mesma estrutura: conteúdo sob sender key + assinatura Ed25519) é entregue a **cada membro pelo pipeline 1:1**: sessão Signal, message store para quem está offline, outbox com retry. Não é mais publicada no GossipSub, que só alcançava membros online e diretamente conectados naquele instante, sem retry, e cujo tópico expunha group id, remetente e horário a qualquer assinante. Status `Sent` quando ao menos um membro recebeu ou está enfileirado |
+| Ordem convite → chave → mensagem | **Tratado** | A mensagem de grupo passa pela mesma fila ordenada dos envelopes de controle (`MessageEvent::GroupMessage`); tratada na hora, ela ultrapassaria o convite e seria descartada como grupo desconhecido |
+| Mensagem que chega antes da sender key | **Corrigido** | Fica guardada cifrada e é decifrada quando a chave chega (`decrypt_pending_messages`); antes ficava em branco para sempre |
+| C4 — assinatura dependia de `contact.public_key` | **Corrigido** | A chave de verificação vem do peer ID do remetente; mensagens de membros cujo contato foi criado sem chave pública (username, QR) eram todas descartadas. No fan-out, o remetente declarado tem de ser o peer autenticado do canal 1:1 |
+| Controle de grupo e reações sem outbox | **Corrigido** | `deliver_message_with` grava no store **e** enfileira retry local; antes, sem store (ou com ele fora), convite, sender key, remoção e reação eram descartados |
+| P0-H (duplicata) — solução definitiva | **Corrigido** | Dedup persistente por id de mensagem no fio (`processed_messages`, migração 9, escopo por remetente, retenção de 14 dias). O dedup anterior só cobria mensagens gravadas sob o próprio id; fan-out de grupo, reações e controle passavam duas vezes pelo Signal, falhavam, e ficavam no store falhando a cada fetch |
+| Cobertura | **Novo** | `core/tests/group_fanout.rs`: três clientes reais + store falso; membro online recebe por P2P e membro que nunca esteve online recebe convite, sender key e mensagem numa drenagem da caixa, sem duplicar. No CI. Store falso extraído para `core/tests/common` |
+
+**Compatibilidade:** mensagens de grupo de versões anteriores (GossipSub) ainda são aceitas na recepção, mas não são mais emitidas. Migração 9 do banco local (aditiva).
+
+**Falta:** custo O(membros) por mensagem no remetente (aceitável para grupos pequenos/médios; é o modelo do Signal/WhatsApp, que amortizam com sender keys + fan-out no servidor); remover a assinatura de tópicos GossipSub, que ainda expõe o group id aos peers conectados; mídia em grupo; rotação de sender key com epoch/ack (C4); consentimento para convite (P0-C).
