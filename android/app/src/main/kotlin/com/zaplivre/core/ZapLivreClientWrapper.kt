@@ -520,6 +520,8 @@ object ZapLivreClientWrapper : ZapLivreClientApi {
         return org.json.JSONObject()
             .put("identity_key", encoded("identity_key"))
             .put("signal_identity_key", encoded("signal_identity_key"))
+            // Prova de que a identidade Signal pertence ao peer; o core recusa o bundle sem ela.
+            .put("signal_identity_signature", encoded("signal_identity_signature"))
             .put("signal_registration_id", source.getInt("signal_registration_id"))
             .put("signal_device_id", source.getInt("signal_device_id"))
             .put("signed_prekey_id", source.getInt("signed_prekey_id"))

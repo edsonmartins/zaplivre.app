@@ -10,6 +10,9 @@ pub struct PreKeyBundle {
     pub identity_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signal_identity_key: Option<String>,
+    /// Ed25519 signature binding the Signal identity key to `identity_key`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signal_identity_signature: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signal_registration_id: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
