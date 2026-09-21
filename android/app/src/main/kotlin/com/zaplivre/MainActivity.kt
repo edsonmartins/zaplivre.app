@@ -24,7 +24,9 @@ import com.zaplivre.core.ZapLivreClientWrapper
 import com.zaplivre.service.ZapLivreService
 import com.zaplivre.ui.navigation.ZapLivreNavHost
 import com.zaplivre.ui.theme.ZapLivreTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * MainActivity - Ponto de entrada do app
@@ -66,10 +68,14 @@ class MainActivity : ComponentActivity() {
         // Na primeira execução o Onboarding decide entre criar nova identidade
         // e restaurar um backup (o auto-init tornava o import impossível).
         lifecycleScope.launch {
-            val hasIdentity =
+            // EncryptedSharedPreferences cria a chave no Keystore na primeira
+            // leitura; na thread principal isso travava o primeiro desenho
+            // (tela vazia por dezenas de segundos no emulador do CI).
+            val hasIdentity = withContext(Dispatchers.IO) {
                 !com.zaplivre.core.AndroidIdentityStore.loadIdentity(applicationContext)
                     .isNullOrBlank() ||
                     java.io.File(filesDir, "zaplivre_data/identity.key").exists()
+            }
             if (hasIdentity) {
                 val success = ZapLivreClientWrapper.initialize(applicationContext)
                 if (!success) {
@@ -202,7 +208,10 @@ fun ZapLivreApp(
     val isInitialized by ZapLivreClientWrapper.isInitialized.collectAsState()
     val onboardingComplete by ZapLivreClientWrapper.onboardingComplete.collectAsState()
     val appContext = LocalContext.current
-    LaunchedEffect(Unit) { ZapLivreClientWrapper.loadUsername(appContext) }
+    LaunchedEffect(Unit) {
+        // Keystore/EncryptedSharedPreferences: fora da thread principal
+        withContext(Dispatchers.IO) { ZapLivreClientWrapper.loadUsername(appContext) }
+    }
 
     ZapLivreNavHost(
         isClientInitialized = isInitialized,

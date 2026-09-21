@@ -148,9 +148,12 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          # O runner executa cada linha num shell próprio: a suíte e a captura do
+          # logcat (evidência de crash/ANR) ficam na mesma linha.
           script: |
             adb install android/app/build/outputs/apk/debug/app-debug.apk
-            maestro test e2e/maestro/android/ --format junit --output maestro-android-report.xml
+            adb logcat -c
+            maestro test e2e/maestro/android/ --format junit --output maestro-android-report.xml; STATUS=$?; adb logcat -d > android-logcat.txt; exit $STATUS
 
       - name: Upload artifacts on failure
         if: failure()
@@ -161,6 +164,7 @@ jobs:
             ~/.maestro/tests/**
             maestro-android-report.xml
             identity-server.log
+            android-logcat.txt
           if-no-files-found: ignore
 
       - name: Upload JUnit report
