@@ -81,7 +81,7 @@ pub type SenderId = String;
 ///
 /// Each group member has a sender key used to encrypt messages they send to the group.
 /// The key ratchets forward with each message for forward secrecy.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SenderKey {
     /// Sender ID (peer_id)
     pub sender_id: SenderId,
@@ -95,6 +95,19 @@ pub struct SenderKey {
 
     /// Timestamp of last use
     pub last_used_at: u64,
+}
+
+// Manual impl: the seed decrypts every message of this sender, so it must never
+// reach a log line through `{:?}` (GroupSession derives Debug over this type).
+impl std::fmt::Debug for SenderKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SenderKey")
+            .field("sender_id", &self.sender_id)
+            .field("seed", &"<redacted>")
+            .field("counter", &self.counter)
+            .field("last_used_at", &self.last_used_at)
+            .finish()
+    }
 }
 
 impl SenderKey {
@@ -180,10 +193,17 @@ impl SenderKey {
             )));
         }
 
+        // The counter comes from the network. `counter + 1` would panic in debug
+        // builds (killing the network task) and wrap to 0 in release, reopening
+        // the replay window.
+        let next_counter = encrypted.counter.checked_add(1).ok_or_else(|| {
+            ZapLivreError::Crypto("Group message counter out of range".to_string())
+        })?;
+
         let message_key = self.derive_message_key(encrypted.counter)?;
         let plaintext = decrypt_message(encrypted, &message_key)?;
 
-        self.counter = encrypted.counter + 1;
+        self.counter = next_counter;
         self.touch();
 
         Ok(plaintext)
@@ -950,5 +970,25 @@ mod tests {
                 .unwrap(),
             b"after"
         );
+    }
+
+    #[test]
+    fn sender_key_debug_does_not_leak_the_seed() {
+        let key = SenderKey::from_seed_with_counter("peer".to_string(), [0xAB; 32], 0);
+        let printed = format!("{:?}", key);
+        assert!(printed.contains("<redacted>"));
+        assert!(!printed.contains("171"), "seed bytes leaked: {printed}");
+    }
+
+    #[test]
+    fn counter_at_the_limit_is_rejected_instead_of_overflowing() {
+        let mut key = SenderKey::from_seed_with_counter("peer".to_string(), [1; 32], 0);
+        let forged = EncryptedMessage {
+            nonce: [0; 12],
+            ciphertext: vec![0; 32],
+            counter: u64::MAX,
+        };
+        assert!(key.decrypt(&forged).is_err());
+        assert_eq!(key.counter, 0, "replay guard must not move");
     }
 }

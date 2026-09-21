@@ -16,10 +16,14 @@ use thiserror::Error;
 /// padrão, inclusive em builds debug usados na homologação. O downgrade só é
 /// habilitado explicitamente para desenvolvimento local, e vale tanto para o
 /// envio quanto para a recepção.
+///
+/// The switch only exists in debug builds: a release binary cannot be talked
+/// into plaintext by whoever controls its environment.
 pub fn plaintext_allowed() -> bool {
-    std::env::var("ZAPLIVRE_ALLOW_PLAINTEXT")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+    cfg!(debug_assertions)
+        && std::env::var("ZAPLIVRE_ALLOW_PLAINTEXT")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
 }
 
 #[derive(Error, Debug)]

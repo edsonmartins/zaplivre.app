@@ -674,7 +674,7 @@ impl GroupManager {
             &self.db,
             group_id,
             &self.local_peer_id,
-            encrypted.counter + 1,
+            encrypted.counter.saturating_add(1),
         );
 
         serde_json::to_vec(&encrypted)
@@ -702,7 +702,7 @@ impl GroupManager {
             &self.db,
             group_id,
             sender_peer_id,
-            encrypted.counter + 1,
+            encrypted.counter.saturating_add(1),
         );
 
         Ok(plaintext)

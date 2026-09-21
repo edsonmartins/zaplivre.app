@@ -294,7 +294,8 @@ fn generate_signal_identity() -> (Vec<u8>, u32) {
     let mut rng = StdRng::from_os_rng();
     let identity_keypair = IdentityKeyPair::generate(&mut rng);
     let record = identity_keypair.serialize().to_vec();
-    let registration_id = (rand::random::<u16>() & 0x3fff) as u32;
+    // Signal registration ids are 1..=16380; 0 is not a valid id.
+    let registration_id = (rand::random::<u16>() % 16380) as u32 + 1;
     (record, registration_id)
 }
 
